@@ -41,10 +41,13 @@ struct AgenticInterfaceTestCatalog: Sendable {
                 ScriptedMutateFilesApprovalTestCase.makeRollbackMetadata(),
                 ScriptedProjectDiscoveryApprovalTestCase.make(),
 
+                ModeAwareInterfaceTestCase.make(),
+
                 AWSAdapterCallTestCase.make(),
                 AWSRefactorApprovalTestCase.make(),
                 AWSMutateRefactorApprovalTestCase.make(),
                 AWSMutateMultiFileApprovalTestCase.make(),
+                AWSModelRoutingAdvisorTestCase.make(),
             ]
         )
     }

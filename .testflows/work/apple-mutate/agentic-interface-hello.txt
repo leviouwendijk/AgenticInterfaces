@@ -5,12 +5,12 @@ model tool call -> AgentRunner suspension -> Terminal approval -> AgentRunner re
 
 Apple-generated middle fragment
 --------------------------------
-The Dance of Attention
+The Dance of Perception
 
-"In the ordinary, extraordinary worlds are born from fleeting focus."
+"In the ordinary world, agency is but a shadow cast by attention."
 
-Attention shapes reality, revealing hidden wonders in the mundane.
+The ordinary world, though mundane, holds the potential for profound agency; it is through attention that we shape our experience and redefine the boundaries of reality.
 --------------------------------
 
 Workspace root: /Users/leviouwendijk/myworkdir/programming/libraries/swift/AgenticInterfaces/.testflows/work/apple-mutate
-Generated at: 2026-04-28T12:01:11Z
+Generated at: 2026-04-28T18:58:44Z

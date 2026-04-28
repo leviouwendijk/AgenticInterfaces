@@ -4,6 +4,8 @@ import Terminal
 import Difference
 // import DifferenceTerminal
 
+public typealias TerminalApprovalHandler = TerminalApprovalPicker
+
 extension TerminalApprovalPicker: ToolApprovalHandler {
     public func decide(
         on preflight: ToolPreflight,

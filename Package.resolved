@@ -7,7 +7,7 @@
       "location" : "https://github.com/leviouwendijk/Agentic.git",
       "state" : {
         "branch" : "master",
-        "revision" : "0638b1059d64145469f24caf2f40bd611cf764ba"
+        "revision" : "d3b79ce21eee57492bec44e406a5d5e41100a392"
       }
     },
     {
@@ -16,7 +16,7 @@
       "location" : "https://github.com/leviouwendijk/AgenticAdapters.git",
       "state" : {
         "branch" : "master",
-        "revision" : "25b1d0b4e87f182524b17a4c0c80c915a793b90e"
+        "revision" : "7b80150214d57b4f68024f3dfbe608fff7bb13a5"
       }
     },
     {
@@ -34,7 +34,7 @@
       "location" : "https://github.com/leviouwendijk/AWSConnector.git",
       "state" : {
         "branch" : "master",
-        "revision" : "2c808c31df73126e6d6c1085575d7b4eb97fea9e"
+        "revision" : "4793806c37c357d7bb7b6819bdc12bc3d2710f1c"
       }
     },
     {
@@ -53,6 +53,15 @@
       "state" : {
         "branch" : "master",
         "revision" : "7bf5aa7bed68cf92098653a027a1132e352f9311"
+      }
+    },
+    {
+      "identity" : "cryptography",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/leviouwendijk/Cryptography.git",
+      "state" : {
+        "branch" : "master",
+        "revision" : "7357269b51d0d1b5b2f227741ce1bd8c558acfff"
       }
     },
     {
@@ -169,7 +178,7 @@
       "location" : "https://github.com/leviouwendijk/Primitives.git",
       "state" : {
         "branch" : "master",
-        "revision" : "39ed955a95a804a0ad9cbd3df3e29d8df05170cd"
+        "revision" : "c535297ac2596102167da32b910b6c8c4e17ecc9"
       }
     },
     {
