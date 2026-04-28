@@ -5,12 +5,12 @@ model tool call -> AgentRunner suspension -> Terminal approval -> AgentRunner re
 
 Apple-generated middle fragment
 --------------------------------
-The Dance of Focus
+The Dance of Attention
 
-"In the ordinary world, attention is the agent shaping reality."
+"In the ordinary, extraordinary worlds are born from fleeting focus."
 
-True agency lies in the selective dance of our attention, where each focus molds our reality from the mundane.
+Attention shapes reality, revealing hidden wonders in the mundane.
 --------------------------------
 
 Workspace root: /Users/leviouwendijk/myworkdir/programming/libraries/swift/AgenticInterfaces/.testflows/work/apple-mutate
-Generated at: 2026-04-28T10:42:38Z
+Generated at: 2026-04-28T12:01:11Z

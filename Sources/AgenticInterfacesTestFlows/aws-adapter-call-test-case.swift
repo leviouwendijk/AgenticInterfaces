@@ -36,13 +36,14 @@ enum AWSAdapterCallTestCase {
         //     modelMatch: configuration.modelMatch
         // )
 
-        let adapter = try BedrockModelAdapter.resolve(
+        let adapter = try AgenticInterfaceRuntimeFactory.bedrockAdapter(
             defaultModelIdentifier: configuration.model,
             metadata: [
                 "source": "aginttest",
-                "test_case": "aws-refactor",
+                "test_case": "aws-call",
             ]
         )
+
         let response = try await adapter.respond(
             request: AgentRequest(
                 messages: [

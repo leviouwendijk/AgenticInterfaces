@@ -6,6 +6,7 @@ struct AgenticInterfaceTestRunContext: Sendable {
     let arguments: [String]
     let files: TestFlowFiles
     let interaction: any TestFlowInteraction
+    let options: AgenticInterfaceRunOptions
 
     func workspaceRoot() throws -> URL {
         try files.work.ensureDir()
@@ -38,7 +39,8 @@ enum AgenticInterfaceTestEnvironment {
     static func run(
         test: AgenticInterfaceTestCase,
         arguments: [String],
-        interaction: any TestFlowInteraction
+        interaction: any TestFlowInteraction,
+        options: AgenticInterfaceRunOptions = .standard
     ) async throws {
         let files = TestFlowFiles(
             flowName: test.id
@@ -50,7 +52,8 @@ enum AgenticInterfaceTestEnvironment {
             testID: test.id,
             arguments: arguments,
             files: files,
-            interaction: interaction
+            interaction: interaction,
+            options: options
         )
 
         try await $current.withValue(
@@ -76,6 +79,10 @@ enum AgenticInterfaceTestEnvironment {
         }
 
         return TerminalTestFlowInteraction()
+    }
+
+    static var options: AgenticInterfaceRunOptions {
+        current?.options ?? .standard
     }
 
     static func workspaceRoot() throws -> URL {

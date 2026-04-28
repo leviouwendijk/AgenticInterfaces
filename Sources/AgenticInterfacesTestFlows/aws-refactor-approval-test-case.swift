@@ -64,7 +64,8 @@ enum AWSRefactorApprovalTestCase {
                 )
         )
 
-        let presenter = TerminalAgenticRunPresenter()
+        let presenter = AgenticInterfaceRuntimeFactory.presenter()
+
         let picker = TestFlowApprovalPicker(
             interaction: AgenticInterfaceTestEnvironment.interaction,
             presenter: presenter
@@ -74,7 +75,7 @@ enum AWSRefactorApprovalTestCase {
             "bedrock model: \(configuration.model)"
         )
 
-        let adapter = try BedrockModelAdapter.resolve(
+        let adapter = try AgenticInterfaceRuntimeFactory.bedrockAdapter(
             defaultModelIdentifier: configuration.model,
             metadata: [
                 "source": "aginttest",

@@ -47,7 +47,9 @@ enum AWSMutateRefactorApprovalTestCase {
                 )
         )
 
-        let presenter = TerminalAgenticRunPresenter()
+        // let presenter = TerminalAgenticRunPresenter()
+        let presenter = AgenticInterfaceRuntimeFactory.presenter()
+
         let picker = TestFlowApprovalPicker(
             interaction: AgenticInterfaceTestEnvironment.interaction,
             presenter: presenter
@@ -57,13 +59,21 @@ enum AWSMutateRefactorApprovalTestCase {
             "bedrock model: \(configuration.model)"
         )
 
-        let adapter = try BedrockModelAdapter.resolve(
+        let adapter = try AgenticInterfaceRuntimeFactory.bedrockAdapter(
             defaultModelIdentifier: configuration.model,
             metadata: [
                 "source": "aginttest",
                 "test_case": "aws-mutate-refactor",
             ]
         )
+
+        // let adapter = try BedrockModelAdapter.resolve(
+        //     defaultModelIdentifier: configuration.model,
+        //     metadata: [
+        //         "source": "aginttest",
+        //         "test_case": "aws-mutate-refactor",
+        //     ]
+        // )
 
         let runner = AgentRunner(
             adapter: adapter,

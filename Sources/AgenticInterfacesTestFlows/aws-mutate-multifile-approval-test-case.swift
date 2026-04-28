@@ -52,7 +52,9 @@ enum AWSMutateMultiFileApprovalTestCase {
                 )
         )
 
-        let presenter = TerminalAgenticRunPresenter()
+        // let presenter = TerminalAgenticRunPresenter()
+        let presenter = AgenticInterfaceRuntimeFactory.presenter()
+
         let picker = TestFlowApprovalPicker(
             interaction: AgenticInterfaceTestEnvironment.interaction,
             presenter: presenter
@@ -62,13 +64,21 @@ enum AWSMutateMultiFileApprovalTestCase {
             "bedrock model: \(configuration.model)"
         )
 
-        let adapter = try BedrockModelAdapter.resolve(
+        let adapter = try AgenticInterfaceRuntimeFactory.bedrockAdapter(
             defaultModelIdentifier: configuration.model,
             metadata: [
                 "source": "aginttest",
                 "test_case": "aws-mutate-multifile",
             ]
         )
+
+        // let adapter = try BedrockModelAdapter.resolve(
+        //     defaultModelIdentifier: configuration.model,
+        //     metadata: [
+        //         "source": "aginttest",
+        //         "test_case": "aws-mutate-multifile",
+        //     ]
+        // )
 
         let runner = AgentRunner(
             adapter: adapter,

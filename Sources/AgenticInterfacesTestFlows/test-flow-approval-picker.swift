@@ -108,108 +108,21 @@ private extension TestFlowApprovalPicker {
     func renderDetails(
         _ prompt: AgenticApprovalPrompt
     ) {
-        let preflight = prompt.preflight
-        var lines: [String] = [
-            "",
-            "staged intent details",
-            "",
-            "title: \(prompt.title)",
-            "tool: \(prompt.toolName)",
-            "requirement: \(prompt.requirement.rawValue)",
-            "risk: \(preflight.risk.rawValue)",
-            "summary: \(preflight.summary)"
-        ]
-
-        if let toolCall = prompt.toolCall {
-            lines.append(
-                "tool call id: \(toolCall.id)"
-            )
-        }
-
-        if let workspaceRoot = preflight.workspaceRoot {
-            lines.append(
-                "workspace: \(workspaceRoot)"
-            )
-        }
-
-        if !preflight.rootIDs.isEmpty {
-            lines.append(
-                "roots: \(preflight.rootIDs.joined(separator: ", "))"
-            )
-        }
-
-        if !preflight.capabilitiesRequired.isEmpty {
-            lines.append(
-                "capabilities: \(preflight.capabilitiesRequired.map(\.rawValue).joined(separator: ", "))"
-            )
-        }
-
-        if !preflight.targetPaths.isEmpty {
-            lines.append(
-                "targets: \(preflight.targetPaths.joined(separator: ", "))"
-            )
-        }
-
-        if let commandPreview = preflight.commandPreview {
-            lines.append(
-                "command: \(commandPreview)"
-            )
-        }
-
-        if let diffPreview = preflight.diffPreview {
-            lines.append(
-                "diff preview: \(diffPreview.insertedLineCount) insertions, \(diffPreview.deletedLineCount) deletions, context \(diffPreview.contextLineCount)"
-            )
-        }
-
-        if preflight.estimatedWriteCount > 0 {
-            lines.append(
-                "estimated writes: \(preflight.estimatedWriteCount)"
-            )
-        }
-
-        if let estimatedByteCount = preflight.estimatedByteCount {
-            lines.append(
-                "estimated bytes: \(estimatedByteCount)"
-            )
-        }
-
-        if let estimatedRuntimeSeconds = preflight.estimatedRuntimeSeconds {
-            lines.append(
-                "estimated runtime seconds: \(estimatedRuntimeSeconds)"
-            )
-        }
-
-        if !preflight.sideEffects.isEmpty {
-            lines.append(
-                "side effects:"
-            )
-            lines.append(
-                contentsOf: preflight.sideEffects.map {
-                    "    - \($0)"
-                }
-            )
-        }
-
-        if !preflight.warnings.isEmpty {
-            lines.append(
-                "warnings:"
-            )
-            lines.append(
-                contentsOf: preflight.warnings.map {
-                    "    - \($0)"
-                }
-            )
-        }
-
-        lines.append(
-            ""
+        let document = prompt.preflight.inspectionDocument(
+            title: "Staged intent details",
+            toolName: prompt.toolName,
+            toolCallID: prompt.toolCall?.id,
+            requirement: prompt.requirement
         )
 
-        write(
-            lines.joined(
-                separator: "\n"
-            )
+        Terminal.write(
+            AgenticTerminalInspectionRenderer.render(
+                document,
+                stream: .standardError,
+                theme: .agentic,
+                layout: .agentic
+            ),
+            to: .standardError
         )
     }
 

@@ -5,9 +5,12 @@ import TestFlows
 struct AgenticInterfaceTest {
     static func main() async {
         do {
+            let extracted = try AgenticInterfaceRunOptions.extract(
+                from: CommandLine.arguments
+            )
             let catalog = AgenticInterfaceTestCatalog.standard()
             let invocation = try AgenticInterfaceTestInvocation.parse(
-                CommandLine.arguments
+                extracted.arguments
             )
             let interaction = TerminalTestFlowInteraction()
 
@@ -21,7 +24,8 @@ struct AgenticInterfaceTest {
                 try await AgenticInterfaceTestEnvironment.run(
                     test: test,
                     arguments: [],
-                    interaction: interaction
+                    interaction: interaction,
+                    options: extracted.options
                 )
 
             case .list:
@@ -37,7 +41,8 @@ struct AgenticInterfaceTest {
                 try await AgenticInterfaceTestEnvironment.run(
                     test: test,
                     arguments: arguments,
-                    interaction: interaction
+                    interaction: interaction,
+                    options: extracted.options
                 )
             }
         } catch {

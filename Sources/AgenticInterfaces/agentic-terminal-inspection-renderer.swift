@@ -1,8 +1,8 @@
 import Agentic
 import Terminal
 
-enum AgenticTerminalInspectionRenderer {
-    static func render(
+public enum AgenticTerminalInspectionRenderer {
+    public static func render(
         _ document: ToolInspectionDocument,
         stream: TerminalStream,
         theme: TerminalTheme,

@@ -52,7 +52,9 @@ enum AppleMutateApprovalTestCase {
                 )
         )
 
-        let presenter = TerminalAgenticRunPresenter()
+        // let presenter = TerminalAgenticRunPresenter()
+        let presenter = AgenticInterfaceRuntimeFactory.presenter()
+
         let picker = TestFlowApprovalPicker(
             interaction: AgenticInterfaceTestEnvironment.interaction,
             presenter: presenter
