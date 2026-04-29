@@ -23,6 +23,7 @@ let package = Package(
         .package(url: "https://github.com/leviouwendijk/AWSConnector.git", branch: "master"),
         .package(url: "https://github.com/leviouwendijk/Difference.git", branch: "master"),
         .package(url: "https://github.com/leviouwendijk/Terminal.git", branch: "master"),
+        .package(url: "https://github.com/leviouwendijk/Arguments.git", branch: "master"),
         .package(url: "https://github.com/leviouwendijk/TestFlows.git", branch: "master"),
     ],
     targets: [
@@ -32,6 +33,7 @@ let package = Package(
                 .product(name: "Agentic", package: "Agentic"),
                 .product(name: "Terminal", package: "Terminal"),
                 .product(name: "Difference", package: "Difference"),
+                .product(name: "Arguments", package: "Arguments"),
                 // .product(name: "DifferenceTerminal", package: "Difference")
             ]
         ),

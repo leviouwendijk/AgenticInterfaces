@@ -1,5 +1,5 @@
 {
-  "originHash" : "74ae8c8944a0c2bb7ad8d1f04a0a48735a4623d9a994a5fe189eb0806ea79c44",
+  "originHash" : "a9277ace0225a70cbd8c29f35e752de7867c22532ad45b3a844da204a02c0566",
   "pins" : [
     {
       "identity" : "agentic",
@@ -26,6 +26,15 @@
       "state" : {
         "branch" : "master",
         "revision" : "073d9ca7870b688a312608acf14eae6ba052c0d6"
+      }
+    },
+    {
+      "identity" : "arguments",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/leviouwendijk/Arguments.git",
+      "state" : {
+        "branch" : "master",
+        "revision" : "58137308ef2c29230f793ac0202e27f23476a194"
       }
     },
     {

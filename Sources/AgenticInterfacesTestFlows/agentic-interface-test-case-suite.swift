@@ -42,6 +42,24 @@ struct AgenticInterfaceTestCatalog: Sendable {
                 ScriptedProjectDiscoveryApprovalTestCase.make(),
 
                 ModeAwareInterfaceTestCase.make(),
+                ModeAwareRunnerSmokeTestCase.make(),
+
+                ModeAwareControllerTestCase.makeApprove(),
+                ModeAwareControllerTestCase.makeDeny(),
+                ModeAwareControllerTestCase.makeStop(),
+
+                ModeCommandArgumentsTestCase.makeDefaultsToCoder(),
+                ModeCommandArgumentsTestCase.makeSelectsMode(),
+                ModeCommandArgumentsTestCase.makeCapturesSystem(),
+                ModeCommandArgumentsTestCase.makeCapturesMetadata(),
+                ModeCommandArgumentsTestCase.makeRejectsMissingPrompt(),
+                ModeCommandArgumentsTestCase.makeRejectsUnknownMode(),
+                ModeCommandArgumentsTestCase.makeCodableRoundtrip(),
+
+                ModeCommandInvocationTestCase.makeParsesAndPrepares(),
+                ModeCommandInvocationTestCase.makeExecutesApprovedCoderCommand(),
+                ModeCommandInvocationTestCase.makePreservesArgvMetadata(),
+                ModeCommandInvocationTestCase.makeRejectsUnknownModeBeforeExecution(),
 
                 AWSAdapterCallTestCase.make(),
                 AWSRefactorApprovalTestCase.make(),
