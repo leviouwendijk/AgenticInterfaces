@@ -129,7 +129,7 @@ private extension AgenticRunCommandArgumentParser {
                 opt(
                     "metadata",
                     as: String.self,
-                    repeatMode: .multiple,
+                    take: .repeating,
                     help: "Metadata entry in key=value form. Repeatable."
                 )
 
