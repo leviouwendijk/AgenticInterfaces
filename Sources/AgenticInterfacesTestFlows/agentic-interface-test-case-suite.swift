@@ -41,6 +41,12 @@ struct AgenticInterfaceTestCatalog: Sendable {
                 ScriptedMutateFilesApprovalTestCase.makeRollbackMetadata(),
                 ScriptedProjectDiscoveryApprovalTestCase.make(),
 
+                ToolHostTestCase.makeListDescribe(),
+                ToolHostTestCase.makeJSONRoundtrip(),
+                ToolHostTestCase.makePreflightNoExecution(),
+                ToolHostTestCase.makeInvokeObserve(),
+                ToolHostTestCase.makeInvokeApprovedReview(),
+
                 ModeAwareInterfaceTestCase.make(),
                 ModeAwareRunnerSmokeTestCase.make(),
 
