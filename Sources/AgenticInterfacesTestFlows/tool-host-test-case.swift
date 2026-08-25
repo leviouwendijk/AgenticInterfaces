@@ -49,9 +49,101 @@ enum ToolHostTestCase {
             try await runInvokeApprovedReview()
         }
     }
+    static func makeCapabilityManifest()
+        -> AgenticInterfaceTestCase
+    {
+        .init(
+            id: "tool-host-capability-manifest",
+            summary:
+                "Render the canonical registered-tool capability manifest."
+        ) { _ in
+            try await runCapabilityManifest()
+        }
+    }
+
 }
 
 private extension ToolHostTestCase {
+    static func runCapabilityManifest() async throws {
+        let probe =
+            ToolHostProbe()
+
+        let host =
+            makeHost(
+                risk: .privileged,
+                autonomyMode: .auto_observe,
+                probe: probe
+            )
+
+        let manifest =
+            host.capabilityManifest()
+
+        try Expect.equal(
+            manifest.sessionID,
+            Optional(
+                "tool-host-session"
+            ),
+            "manifest retains host session identity"
+        )
+
+        try Expect.equal(
+            manifest.definitions,
+            host.registry.definitions,
+            "manifest definitions are exactly the canonical registry definitions"
+        )
+
+        guard
+            manifest.definitions.count == 1,
+            let definition =
+                manifest.definitions.first
+        else {
+            throw toolHostAssertionFailure(
+                "Expected exactly one tool definition in capability manifest fixture."
+            )
+        }
+
+        try Expect.equal(
+            definition.identifier.rawValue,
+            "tool_host_probe",
+            "manifest retains registered tool identifier"
+        )
+
+        try Expect.equal(
+            definition.risk,
+            ActionRisk.privileged,
+            "manifest retains canonical tool risk"
+        )
+
+        let rendered =
+            try host.capabilityManifestText()
+
+        let required = [
+            "AGENTIC CAPABILITY MANIFEST",
+            "Session:",
+            "    tool-host-session",
+            "Available tools (1):",
+            "tool_host_probe",
+            "    risk: privileged",
+            "    input_schema:",
+            "Protocol:",
+            "Treat the declared tools and schemas as the authoritative local tool surface for this session.",
+            "Do not assume undeclared tools exist.",
+            "Request tool invocations as AgentToolCall JSON.",
+            "Prefer a declared typed Agentic tool over an equivalent shell or process operation.",
+            "Treat Agentic preflight and invocation results as authoritative execution state.",
+        ]
+
+        for token in required {
+            guard rendered.contains(
+                token
+            ) else {
+                throw toolHostAssertionFailure(
+                    "Capability manifest missing expected text: \(token)"
+                )
+            }
+        }
+    }
+
     static func runListDescribe() async throws {
         let probe = ToolHostProbe()
         let host = makeHost(
