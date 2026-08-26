@@ -50,6 +50,7 @@ struct AgenticInterfaceTestCatalog: Sendable {
                 ToolHostTestCase.makeInvokeObserve(),
                 ToolHostTestCase.makeInvokeApprovedReview(),
                 ToolHostTestCase.makeCapabilityManifest(),
+                ToolHostResultProcessingTestCase.make(),
 
                 ModeAwareInterfaceTestCase.make(),
                 ModeAwareRunnerSmokeTestCase.make(),

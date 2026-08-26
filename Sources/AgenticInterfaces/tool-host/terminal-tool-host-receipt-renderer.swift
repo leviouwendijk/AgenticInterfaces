@@ -47,8 +47,10 @@ private extension TerminalToolHostReceiptRenderer {
         _ invocation: ToolInvocation.Result,
         copiedToClipboard: Bool
     ) -> String {
-        let receipt =
-            invocation.toolResult?.receipt
+        let processing =
+            invocation.toolResult?.processing
+        let projection =
+            processing?.projection
 
         var fields: [TerminalField] = [
             .init(
@@ -67,16 +69,16 @@ private extension TerminalToolHostReceiptRenderer {
             ),
             .init(
                 "summary",
-                receipt?.summary
+                projection?.summary
                     ?? invocation.review.preflight.summary
             ),
         ]
 
-        if let receipt {
+        if let projection {
             fields.insert(
                 .init(
                     "operation",
-                    receipt.status
+                    projection.status
                 ),
                 at: 1
             )
@@ -92,8 +94,8 @@ private extension TerminalToolHostReceiptRenderer {
         return block(
             title: invocation.review.call.name,
             fields: fields,
-            body: receiptBody(
-                receipt
+            body: processingBody(
+                processing
             )
         )
     }
@@ -142,10 +144,13 @@ private extension TerminalToolHostReceiptRenderer {
         _ record: AgentToolPlanRecord
     ) -> String {
         let invocation = record.invocation
-        let receipt =
+        let processing =
             invocation?
                 .toolResult?
-                .receipt
+                .processing
+        let projection =
+            processing?
+                .projection
 
         var details: [String] = [
             record.outcome.rawValue
@@ -168,13 +173,13 @@ private extension TerminalToolHostReceiptRenderer {
             "\(record.call.name)  \(details.joined(separator: " · "))"
         ]
 
-        if let receipt {
+        if let projection {
             lines.append(
-                "  operation  \(receipt.status)"
+                "  operation  \(projection.status)"
             )
         }
 
-        if let summary = receipt?.summary,
+        if let summary = projection?.summary,
            !summary.isEmpty
         {
             lines.append(
@@ -182,16 +187,41 @@ private extension TerminalToolHostReceiptRenderer {
             )
         }
 
-        if let receipt {
+        if let projection,
+           !projection.facts.isEmpty
+        {
             lines.append(
                 contentsOf:
-                    receipt.items.flatMap { item in
-                        receiptItemLines(
-                            item,
+                    projection.facts.flatMap { fact in
+                        projectionFactLines(
+                            fact,
                             prefix: "  "
                         )
                     }
             )
+        }
+
+        if let processing,
+           !processing.observations.isEmpty
+        {
+            lines.append("")
+
+            for (
+                index,
+                observation
+            ) in processing.observations.enumerated() {
+                if index > 0 {
+                    lines.append("")
+                }
+
+                lines.append(
+                    contentsOf:
+                        observationLines(
+                            observation,
+                            prefix: "  "
+                        )
+                )
+            }
         }
 
         if let error = record.errorDescription,
@@ -233,32 +263,106 @@ private extension TerminalToolHostReceiptRenderer {
         return invocation.decision.rawValue
     }
 
-    func receiptBody(
-        _ receipt: AgentToolReceipt?
+    func processingBody(
+        _ processing: AgentToolResultProcessing?
     ) -> String? {
-        guard let receipt,
-              !receipt.items.isEmpty
-        else {
+        guard let processing else {
             return nil
         }
 
-        return receipt.items
-            .flatMap { item in
-                receiptItemLines(
-                    item
-                )
-            }
-            .joined(
-                separator: "\n"
+        var sections: [String] = []
+
+        if let projection = processing.projection,
+           !projection.facts.isEmpty
+        {
+            sections.append(
+                projection.facts
+                    .flatMap { fact in
+                        projectionFactLines(
+                            fact
+                        )
+                    }
+                    .joined(
+                        separator: "\n"
+                    )
             )
+        }
+
+        sections.append(
+            contentsOf:
+                processing.observations.map { observation in
+                    observationLines(
+                        observation
+                    )
+                    .joined(
+                        separator: "\n"
+                    )
+                }
+        )
+
+        guard !sections.isEmpty else {
+            return nil
+        }
+
+        return sections.joined(
+            separator: "\n\n"
+        )
     }
 
-    func receiptItemLines(
-        _ item: AgentToolReceipt.Item,
+    func projectionFactLines(
+        _ fact: AgentToolResultProjection.Fact,
+        prefix: String = ""
+    ) -> [String] {
+        labeledValueLines(
+            label: fact.label,
+            value: fact.value,
+            prefix: prefix
+        )
+    }
+
+    func observationLines(
+        _ observation: AgentToolResultObservation,
+        prefix: String = ""
+    ) -> [String] {
+        labeledValueLines(
+            label:
+                observation.label
+                    ?? observationLabel(
+                        observation.kind
+                    ),
+            value: observation.content,
+            prefix: prefix
+        )
+    }
+
+    func observationLabel(
+        _ kind: AgentToolResultObservation.Kind
+    ) -> String {
+        switch kind {
+        case .standard_output:
+            return "stdout"
+
+        case .standard_error:
+            return "stderr"
+
+        case .diagnostic:
+            return "diagnostic"
+
+        case .log:
+            return "log"
+
+        case .detail:
+            return "detail"
+        }
+    }
+
+    func labeledValueLines(
+        label: String,
+        value: String,
         prefix: String = ""
     ) -> [String] {
         var valueLines =
-            item.value
+            value
                 .split(
                     separator: "\n",
                     omittingEmptySubsequences: false
@@ -277,18 +381,18 @@ private extension TerminalToolHostReceiptRenderer {
 
         guard !valueLines.isEmpty else {
             return [
-                "\(prefix)\(item.label)"
+                "\(prefix)\(label)"
             ]
         }
 
-        guard item.value.contains("\n") else {
+        guard valueLines.count > 1 else {
             return [
-                "\(prefix)\(item.label)  \(valueLines[0])"
+                "\(prefix)\(label)  \(valueLines[0])"
             ]
         }
 
         return [
-            "\(prefix)\(item.label)"
+            "\(prefix)\(label)"
         ] + valueLines.map { line in
             "\(prefix)  \(line)"
         }
