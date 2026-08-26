@@ -133,7 +133,7 @@ private extension TerminalToolHostReceiptRenderer {
                         recordBody
                     )
                     .joined(
-                        separator: "\n"
+                        separator: "\n\n"
                     )
         )
     }
@@ -257,7 +257,7 @@ private extension TerminalToolHostReceiptRenderer {
         _ item: AgentToolReceipt.Item,
         prefix: String = ""
     ) -> [String] {
-        let valueLines =
+        var valueLines =
             item.value
                 .split(
                     separator: "\n",
@@ -267,9 +267,23 @@ private extension TerminalToolHostReceiptRenderer {
                     String(line)
                 }
 
-        guard valueLines.count > 1 else {
+        while valueLines.first?.isEmpty == true {
+            valueLines.removeFirst()
+        }
+
+        while valueLines.last?.isEmpty == true {
+            valueLines.removeLast()
+        }
+
+        guard !valueLines.isEmpty else {
             return [
-                "\(prefix)\(item.label)  \(item.value)"
+                "\(prefix)\(item.label)"
+            ]
+        }
+
+        guard item.value.contains("\n") else {
+            return [
+                "\(prefix)\(item.label)  \(valueLines[0])"
             ]
         }
 
