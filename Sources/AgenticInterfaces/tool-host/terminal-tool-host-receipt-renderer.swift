@@ -52,10 +52,9 @@ private extension TerminalToolHostReceiptRenderer {
 
         var fields: [TerminalField] = [
             .init(
-                "result",
-                status(
-                    invocation,
-                    receipt: receipt
+                "execution",
+                executionStatus(
+                    invocation
                 )
             ),
             .init(
@@ -72,6 +71,16 @@ private extension TerminalToolHostReceiptRenderer {
                     ?? invocation.review.preflight.summary
             ),
         ]
+
+        if let receipt {
+            fields.insert(
+                .init(
+                    "operation",
+                    receipt.status
+                ),
+                at: 1
+            )
+        }
 
         fields.append(
             contentsOf:
@@ -95,7 +104,7 @@ private extension TerminalToolHostReceiptRenderer {
     ) -> String {
         var fields: [TerminalField] = [
             .init(
-                "result",
+                "execution",
                 plan.outcome.rawValue
             ),
             .init(
@@ -139,8 +148,7 @@ private extension TerminalToolHostReceiptRenderer {
                 .receipt
 
         var details: [String] = [
-            receipt?.status
-                ?? record.outcome.rawValue
+            record.outcome.rawValue
         ]
 
         if let invocation {
@@ -160,6 +168,12 @@ private extension TerminalToolHostReceiptRenderer {
             "\(record.call.name)  \(details.joined(separator: " · "))"
         ]
 
+        if let receipt {
+            lines.append(
+                "  operation  \(receipt.status)"
+            )
+        }
+
         if let summary = receipt?.summary,
            !summary.isEmpty
         {
@@ -171,8 +185,11 @@ private extension TerminalToolHostReceiptRenderer {
         if let receipt {
             lines.append(
                 contentsOf:
-                    receipt.items.map { item in
-                        "  \(item.label)  \(item.value)"
+                    receipt.items.flatMap { item in
+                        receiptItemLines(
+                            item,
+                            prefix: "  "
+                        )
                     }
             )
         }
@@ -198,16 +215,11 @@ private extension TerminalToolHostReceiptRenderer {
         )
     }
 
-    func status(
-        _ invocation: ToolInvocation.Result,
-        receipt: AgentToolReceipt?
+    func executionStatus(
+        _ invocation: ToolInvocation.Result
     ) -> String {
         if invocation.decision == .denied {
             return "denied"
-        }
-
-        if let receipt {
-            return receipt.status
         }
 
         if invocation.toolResult?.isError == true {
@@ -231,12 +243,41 @@ private extension TerminalToolHostReceiptRenderer {
         }
 
         return receipt.items
-            .map { item in
-                "\(item.label)  \(item.value)"
+            .flatMap { item in
+                receiptItemLines(
+                    item
+                )
             }
             .joined(
                 separator: "\n"
             )
+    }
+
+    func receiptItemLines(
+        _ item: AgentToolReceipt.Item,
+        prefix: String = ""
+    ) -> [String] {
+        let valueLines =
+            item.value
+                .split(
+                    separator: "\n",
+                    omittingEmptySubsequences: false
+                )
+                .map { line in
+                    String(line)
+                }
+
+        guard valueLines.count > 1 else {
+            return [
+                "\(prefix)\(item.label)  \(item.value)"
+            ]
+        }
+
+        return [
+            "\(prefix)\(item.label)"
+        ] + valueLines.map { line in
+            "\(prefix)  \(line)"
+        }
     }
 
     func clipboardFields(
