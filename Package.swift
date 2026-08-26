@@ -19,6 +19,7 @@ let package = Package(
     ],
     dependencies: [
         .package(url: "https://github.com/leviouwendijk/Agentic.git", branch: "master"),
+        .package(url: "https://github.com/leviouwendijk/Guidelines.git", branch: "master"),
         .package(url: "https://github.com/leviouwendijk/AgenticAdapters.git", branch: "master"),
         .package(url: "https://github.com/leviouwendijk/AWSConnector.git", branch: "master"),
         .package(url: "https://github.com/leviouwendijk/Difference.git", branch: "master"),
@@ -31,6 +32,7 @@ let package = Package(
             name: "AgenticInterfaces",
             dependencies: [
                 .product(name: "Agentic", package: "Agentic"),
+                .product(name: "Guidelines", package: "Guidelines"),
                 .product(name: "Terminal", package: "Terminal"),
                 .product(name: "Difference", package: "Difference"),
                 .product(name: "Arguments", package: "Arguments"),
