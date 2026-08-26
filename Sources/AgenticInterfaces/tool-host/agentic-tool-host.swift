@@ -12,15 +12,21 @@ public struct AgenticToolHostRequest: Sendable, Codable, Hashable {
     public let action: AgenticToolHostAction
     public let name: String?
     public let call: AgentToolCall?
+    public let calls: [AgentToolCall]?
+    public let plan: AgentToolPlan?
 
     public init(
         action: AgenticToolHostAction,
         name: String? = nil,
-        call: AgentToolCall? = nil
+        call: AgentToolCall? = nil,
+        calls: [AgentToolCall]? = nil,
+        plan: AgentToolPlan? = nil
     ) {
         self.action = action
         self.name = name
         self.call = call
+        self.calls = calls
+        self.plan = plan
     }
 }
 
@@ -30,19 +36,22 @@ public struct AgenticToolHostEnvelope: Sendable, Codable, Hashable {
     public let definition: AgentToolDefinition?
     public let review: ToolInvocation.Review?
     public let invocation: ToolInvocation.Result?
+    public let planResult: AgentToolPlanResult?
 
     public init(
         action: AgenticToolHostAction,
         definitions: [AgentToolDefinition]? = nil,
         definition: AgentToolDefinition? = nil,
         review: ToolInvocation.Review? = nil,
-        invocation: ToolInvocation.Result? = nil
+        invocation: ToolInvocation.Result? = nil,
+        planResult: AgentToolPlanResult? = nil
     ) {
         self.action = action
         self.definitions = definitions
         self.definition = definition
         self.review = review
         self.invocation = invocation
+        self.planResult = planResult
     }
 }
 
@@ -50,6 +59,7 @@ public enum AgenticToolHostError: Error, LocalizedError, Sendable, Equatable {
     case missingTool(String)
     case missingName(AgenticToolHostAction)
     case missingCall(AgenticToolHostAction)
+    case invalidInvocationPayload(String)
 
     public var errorDescription: String? {
         switch self {
@@ -61,6 +71,9 @@ public enum AgenticToolHostError: Error, LocalizedError, Sendable, Equatable {
 
         case .missingCall(let action):
             return "Tool host action '\(action.rawValue)' requires an AgentToolCall."
+
+        case .invalidInvocationPayload(let message):
+            return message
         }
     }
 }
@@ -116,14 +129,8 @@ public struct AgenticToolHost {
             )
 
         case .invoke:
-            guard let call = request.call else {
-                throw AgenticToolHostError.missingCall(
-                    request.action
-                )
-            }
-
-            return try await invoke(
-                call
+            return try await invokePayload(
+                request
             )
         }
     }
@@ -181,6 +188,85 @@ public struct AgenticToolHost {
             action: .invoke,
             review: invocation.review,
             invocation: invocation
+        )
+    }
+
+    public func invoke(
+        _ calls: [AgentToolCall]
+    ) async throws -> AgenticToolHostEnvelope {
+        guard !calls.isEmpty else {
+            throw AgenticToolHostError.invalidInvocationPayload(
+                "Tool host batch invocation requires at least one AgentToolCall."
+            )
+        }
+
+        return try await invoke(
+            AgentToolPlan(
+                root: .batch(
+                    calls.map {
+                        .call(
+                            $0
+                        )
+                    }
+                )
+            )
+        )
+    }
+
+    public func invoke(
+        _ plan: AgentToolPlan
+    ) async throws -> AgenticToolHostEnvelope {
+        let result = try await invoker.invoke(
+            plan,
+            context: context,
+            approvalHandler: approvalHandler
+        )
+
+        return .init(
+            action: .invoke,
+            planResult: result
+        )
+    }
+}
+
+private extension AgenticToolHost {
+    func invokePayload(
+        _ request: AgenticToolHostRequest
+    ) async throws -> AgenticToolHostEnvelope {
+        let payloadCount = [
+            request.call != nil,
+            request.calls != nil,
+            request.plan != nil,
+        ].filter {
+            $0
+        }.count
+
+        guard payloadCount == 1 else {
+            throw AgenticToolHostError.invalidInvocationPayload(
+                "Tool host invoke requires exactly one of call, calls, or plan."
+            )
+        }
+
+        if let call = request.call {
+            return try await invoke(
+                call
+            )
+        }
+
+        if let calls = request.calls {
+            return try await invoke(
+                calls
+            )
+        }
+
+        if let plan = request.plan {
+            return try await invoke(
+                plan
+            )
+        }
+
+        throw AgenticToolHostError.invalidInvocationPayload(
+            "Tool host invoke requires an AgentToolCall, call batch, or AgentToolPlan."
         )
     }
 }

@@ -43,6 +43,9 @@ struct AgenticInterfaceTestCatalog: Sendable {
 
                 ToolHostTestCase.makeListDescribe(),
                 ToolHostTestCase.makeJSONRoundtrip(),
+                ToolHostTestCase.makeInvocationInputDecoding(),
+                ToolHostTestCase.makeInvokeBatch(),
+                ToolHostTestCase.makeInvokePlan(),
                 ToolHostTestCase.makePreflightNoExecution(),
                 ToolHostTestCase.makeInvokeObserve(),
                 ToolHostTestCase.makeInvokeApprovedReview(),

@@ -1,3 +1,4 @@
+import Agentic
 import Foundation
 
 public enum AgenticToolHostJSON {
@@ -8,6 +9,51 @@ public enum AgenticToolHostJSON {
             AgenticToolHostRequest.self,
             from: data
         )
+    }
+
+    public static func decodeInvocationRequest(
+        _ data: Data
+    ) throws -> AgenticToolHostRequest {
+        let decoder = JSONDecoder()
+
+        if let request = try? decoder.decode(
+            AgenticToolHostRequest.self,
+            from: data
+        ) {
+            return request
+        }
+
+        if let call = try? decoder.decode(
+            AgentToolCall.self,
+            from: data
+        ) {
+            return .init(
+                action: .invoke,
+                call: call
+            )
+        }
+
+        if let calls = try? decoder.decode(
+            [AgentToolCall].self,
+            from: data
+        ), !calls.isEmpty {
+            return .init(
+                action: .invoke,
+                calls: calls
+            )
+        }
+
+        if let plan = try? decoder.decode(
+            AgentToolPlan.self,
+            from: data
+        ) {
+            return .init(
+                action: .invoke,
+                plan: plan
+            )
+        }
+
+        throw AgenticToolHostJSONError.invalidInvocationRequest
     }
 
     public static func decodeEnvelope(
@@ -102,11 +148,15 @@ private extension AgenticToolHostJSON {
 
 public enum AgenticToolHostJSONError: Error, LocalizedError, Sendable {
     case invalidUTF8
+    case invalidInvocationRequest
 
     public var errorDescription: String? {
         switch self {
         case .invalidUTF8:
             return "Encoded Agentic tool-host JSON was not valid UTF-8."
+
+        case .invalidInvocationRequest:
+            return "Expected Agentic tool-host invocation JSON as a host request, AgentToolCall, non-empty AgentToolCall array, or AgentToolPlan."
         }
     }
 }

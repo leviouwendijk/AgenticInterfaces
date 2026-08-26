@@ -23,6 +23,33 @@ enum ToolHostTestCase {
         }
     }
 
+    static func makeInvocationInputDecoding() -> AgenticInterfaceTestCase {
+        .init(
+            id: "tool-host-invocation-input-decoding",
+            summary: "Decode bare calls, call arrays, and recursive plans into host invoke requests."
+        ) { _ in
+            try await runInvocationInputDecoding()
+        }
+    }
+
+    static func makeInvokeBatch() -> AgenticInterfaceTestCase {
+        .init(
+            id: "tool-host-invoke-batch",
+            summary: "Invoke independent AgentToolCall siblings through one host batch."
+        ) { _ in
+            try await runInvokeBatch()
+        }
+    }
+
+    static func makeInvokePlan() -> AgenticInterfaceTestCase {
+        .init(
+            id: "tool-host-invoke-plan",
+            summary: "Invoke a recursive AgentToolPlan through the governed host."
+        ) { _ in
+            try await runInvokePlan()
+        }
+    }
+
     static func makePreflightNoExecution() -> AgenticInterfaceTestCase {
         .init(
             id: "tool-host-preflight-no-execution",
@@ -251,6 +278,204 @@ private extension ToolHostTestCase {
             json.contains("\"tool_host_probe\""),
             true,
             "machine JSON includes tool identifier"
+        )
+    }
+
+    static func runInvocationInputDecoding() async throws {
+        let first = try makeCall(
+            marker: "decode-first"
+        )
+        let second = try makeCall(
+            marker: "decode-second"
+        )
+
+        let callData = try JSONEncoder().encode(
+            first
+        )
+        let callRequest = try AgenticToolHostJSON
+            .decodeInvocationRequest(
+                callData
+            )
+
+        try Expect.equal(
+            callRequest.call,
+            Optional(
+                first
+            ),
+            "bare AgentToolCall decodes as invoke call"
+        )
+
+        let calls = [
+            first,
+            second,
+        ]
+        let callsData = try JSONEncoder().encode(
+            calls
+        )
+        let callsRequest = try AgenticToolHostJSON
+            .decodeInvocationRequest(
+                callsData
+            )
+
+        try Expect.equal(
+            callsRequest.calls,
+            Optional(
+                calls
+            ),
+            "AgentToolCall array decodes as invoke batch"
+        )
+
+        let plan = AgentToolPlan(
+            id: "tool-host-decode-plan",
+            root: .sequence(
+                calls.map {
+                    .call(
+                        $0
+                    )
+                }
+            )
+        )
+        let planData = try JSONEncoder().encode(
+            plan
+        )
+        let planRequest = try AgenticToolHostJSON
+            .decodeInvocationRequest(
+                planData
+            )
+
+        try Expect.equal(
+            planRequest.plan,
+            Optional(
+                plan
+            ),
+            "AgentToolPlan decodes as invoke plan"
+        )
+    }
+
+    static func runInvokeBatch() async throws {
+        let probe = ToolHostProbe()
+        let host = makeHost(
+            risk: .observe,
+            autonomyMode: .auto_observe,
+            probe: probe
+        )
+        let calls = [
+            try makeCall(
+                marker: "batch-first"
+            ),
+            try makeCall(
+                marker: "batch-second"
+            ),
+        ]
+
+        let envelope = try await host.execute(
+            .init(
+                action: .invoke,
+                calls: calls
+            )
+        )
+
+        guard let result = envelope.planResult else {
+            throw toolHostAssertionFailure(
+                "Expected batch host invocation to return an AgentToolPlanResult."
+            )
+        }
+
+        try Expect.equal(
+            result.outcome,
+            .succeeded,
+            "batch host invocation succeeds"
+        )
+
+        try Expect.equal(
+            result.records.map(\.call.id),
+            calls.map(\.id),
+            "batch host invocation preserves call order"
+        )
+
+        try Expect.equal(
+            await probe.count(),
+            2,
+            "batch host invocation executes both calls"
+        )
+    }
+
+    static func runInvokePlan() async throws {
+        let probe = ToolHostProbe()
+        let host = makeHost(
+            risk: .observe,
+            autonomyMode: .auto_observe,
+            probe: probe
+        )
+
+        let first = try makeCall(
+            marker: "plan-first"
+        )
+        let second = try makeCall(
+            marker: "plan-second"
+        )
+        let nested = try makeCall(
+            marker: "plan-nested"
+        )
+
+        let plan = AgentToolPlan(
+            id: "tool-host-recursive-plan",
+            root: .sequence(
+                [
+                    .call(
+                        first
+                    ),
+                    .call(
+                        second,
+                        onSuccess: [
+                            .call(
+                                nested
+                            ),
+                        ]
+                    ),
+                ]
+            )
+        )
+
+        let envelope = try await host.execute(
+            .init(
+                action: .invoke,
+                plan: plan
+            )
+        )
+
+        guard let result = envelope.planResult else {
+            throw toolHostAssertionFailure(
+                "Expected recursive host invocation to return an AgentToolPlanResult."
+            )
+        }
+
+        try Expect.equal(
+            result.planID,
+            plan.id,
+            "host preserves plan identity"
+        )
+
+        try Expect.equal(
+            result.outcome,
+            .succeeded,
+            "recursive host plan succeeds"
+        )
+
+        try Expect.equal(
+            result.records.map(\.call.id),
+            [
+                first.id,
+                second.id,
+                nested.id,
+            ],
+            "recursive host plan preserves nested execution order"
+        )
+
+        try Expect.equal(
+            await probe.count(),
+            3,
+            "recursive host plan executes every reachable call once"
         )
     }
 
