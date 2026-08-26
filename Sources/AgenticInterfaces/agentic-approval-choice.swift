@@ -273,14 +273,27 @@ private extension TerminalAgenticRunPresenter {
             )
 
         case .approvalRequested(let prompt):
+            var fields: [TerminalField] = [
+                .init("tool", prompt.toolName),
+                .init("requirement", prompt.requirement.rawValue),
+                .init("risk", prompt.preflight.risk.rawValue),
+                .init("summary", prompt.preflight.summary),
+            ]
+
+            if let guidelines = AgenticGuidelinePresentation.summary(
+                prompt.guidelineRelations
+            ) {
+                fields.append(
+                    .init(
+                        "guidelines",
+                        guidelines
+                    )
+                )
+            }
+
             return block(
                 title: "Approval required",
-                fields: [
-                    .init("tool", prompt.toolName),
-                    .init("requirement", prompt.requirement.rawValue),
-                    .init("risk", prompt.preflight.risk.rawValue),
-                    .init("summary", prompt.preflight.summary),
-                ]
+                fields: fields
             )
 
         case .approvalChoice(let choice):

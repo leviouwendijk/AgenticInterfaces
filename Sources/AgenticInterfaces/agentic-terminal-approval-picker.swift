@@ -8,22 +8,40 @@ public typealias TerminalApprovalHandler = TerminalApprovalPicker
 
 extension TerminalApprovalPicker: ToolApprovalHandler {
     public func decide(
+        on review: ToolInvocation.Review
+    ) async throws -> ApprovalDecision {
+        try await decide(
+            AgenticApprovalPrompt(
+                review: review
+            )
+        )
+    }
+
+    public func decide(
         on preflight: ToolPreflight,
         requirement: ApprovalRequirement
     ) async throws -> ApprovalDecision {
-        if requirement.isDenied {
-            return .denied
-        }
-
-        if !requirement.requiresHumanReview {
-            return .approved
-        }
-
-        let choice = try await pick(
+        try await decide(
             AgenticApprovalPrompt(
                 preflight: preflight,
                 requirement: requirement
             )
+        )
+    }
+
+    private func decide(
+        _ prompt: AgenticApprovalPrompt
+    ) async throws -> ApprovalDecision {
+        if prompt.requirement.isDenied {
+            return .denied
+        }
+
+        if !prompt.requirement.requiresHumanReview {
+            return .approved
+        }
+
+        let choice = try await pick(
+            prompt
         )
 
         switch choice {
@@ -51,11 +69,19 @@ extension TerminalApprovalPicker {
             for: stream
         ).columns
 
+        var instructions = prompt.preflight.summary
+
+        if let guidelines = AgenticGuidelinePresentation.summary(
+            prompt.guidelineRelations
+        ) {
+            instructions += "\n\nguidelines\n\(guidelines)"
+        }
+
         let menu = TerminalInteractiveMenu<AgenticApprovalChoice, String>(
             items: AgenticApprovalChoice.allCases,
             configuration: .inline(
                 title: "\(prompt.title): \(prompt.toolName)",
-                instructions: prompt.preflight.summary,
+                instructions: instructions,
                 outputStream: stream,
                 completionPresentation: .leaveSummary,
                 currentRowStyle: .none
@@ -113,6 +139,22 @@ extension TerminalApprovalPicker {
             ),
             to: stream
         )
+
+        if let guidelineDetails = AgenticGuidelinePresentation.details(
+            prompt.guidelineRelations
+        ) {
+            Terminal.write(
+                TerminalBlock(
+                    title: "Guideline rationale",
+                    body: guidelineDetails,
+                    theme: theme,
+                    layout: .agentic
+                ).render(
+                    stream: stream
+                ),
+                to: stream
+            )
+        }
     }
 
     func renderDiff(
