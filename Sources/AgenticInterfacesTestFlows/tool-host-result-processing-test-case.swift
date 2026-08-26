@@ -18,13 +18,9 @@ private extension ToolHostResultProcessingTestCase {
     static func run() async throws {
         let invocation = try fixtureInvocation()
 
-        guard let result = invocation.toolResult else {
-            throw ToolHostResultProcessingTestError.missingToolResult
-        }
-
-        try Expect.true(
-            result.receipt == nil,
-            "result-processing rendering fixture deliberately has no compatibility receipt"
+        _ = try Expect.notNil(
+            invocation.toolResult,
+            "result-processing rendering fixture tool result"
         )
 
         let renderer =
@@ -123,7 +119,6 @@ private extension ToolHostResultProcessingTestCase {
                     ),
                 ]
             ),
-            receipt: nil,
             isError: false
         )
 
@@ -213,6 +208,3 @@ private struct ResultProcessingFixture:
     let value: String
 }
 
-private enum ToolHostResultProcessingTestError: Error {
-    case missingToolResult
-}
