@@ -1,6 +1,59 @@
 import Agentic
 import Foundation
 
+public enum AgenticCapabilityInvocationForm:
+    String,
+    Sendable,
+    Codable,
+    Hashable,
+    CaseIterable
+{
+    case call = "AgentToolCall"
+    case batch = "non-empty AgentToolCall array"
+    case plan = "AgentToolPlan"
+}
+
+public struct AgenticCapabilityProtocol:
+    Sendable,
+    Codable,
+    Hashable
+{
+    public let invocationForms: [AgenticCapabilityInvocationForm]
+    public let normalInvocationPerformsPreflight: Bool
+    public let explicitPreflightExecutes: Bool
+    public let sequenceStopsOnNonSuccess: Bool
+    public let supportsOutcomeBranches: Bool
+
+    public static var current: Self {
+        .init(
+            invocationForms:
+                AgenticCapabilityInvocationForm.allCases,
+            normalInvocationPerformsPreflight: true,
+            explicitPreflightExecutes: false,
+            sequenceStopsOnNonSuccess: true,
+            supportsOutcomeBranches: true
+        )
+    }
+
+    public init(
+        invocationForms: [AgenticCapabilityInvocationForm],
+        normalInvocationPerformsPreflight: Bool,
+        explicitPreflightExecutes: Bool,
+        sequenceStopsOnNonSuccess: Bool,
+        supportsOutcomeBranches: Bool
+    ) {
+        self.invocationForms = invocationForms
+        self.normalInvocationPerformsPreflight =
+            normalInvocationPerformsPreflight
+        self.explicitPreflightExecutes =
+            explicitPreflightExecutes
+        self.sequenceStopsOnNonSuccess =
+            sequenceStopsOnNonSuccess
+        self.supportsOutcomeBranches =
+            supportsOutcomeBranches
+    }
+}
+
 public struct AgenticCapabilityManifest:
     Sendable,
     Codable,
@@ -9,6 +62,10 @@ public struct AgenticCapabilityManifest:
     public let workspaceRoot: String?
     public let sessionID: String?
     public let definitions: [AgentToolDefinition]
+
+    public var protocolCapabilities: AgenticCapabilityProtocol {
+        .current
+    }
 
     public init(
         workspaceRoot: String? = nil,
@@ -110,27 +167,10 @@ public enum AgenticCapabilityManifestRenderer {
         )
 
         lines.append(
-            "    - Treat the declared tools and schemas as the authoritative local tool surface for this session."
-        )
-
-        lines.append(
-            "    - Do not assume undeclared tools exist."
-        )
-
-        lines.append(
-            "    - Request tool invocations as AgentToolCall JSON."
-        )
-
-        lines.append(
-            "    - Prefer a declared typed Agentic tool over an equivalent shell or process operation."
-        )
-
-        lines.append(
-            "    - Use preflight before consequential mutation."
-        )
-
-        lines.append(
-            "    - Treat Agentic preflight and invocation results as authoritative execution state."
+            contentsOf:
+                protocolLines(
+                    for: manifest.protocolCapabilities
+                )
         )
 
         return lines.joined(
@@ -140,6 +180,52 @@ public enum AgenticCapabilityManifestRenderer {
 }
 
 private extension AgenticCapabilityManifestRenderer {
+    static func protocolLines(
+        for capabilities: AgenticCapabilityProtocol
+    ) -> [String] {
+        let invocationForms =
+            capabilities.invocationForms
+                .map(\.rawValue)
+                .joined(separator: ", ")
+
+        var lines = [
+            "    - Treat the declared tools and schemas as the authoritative local tool surface for this session.",
+            "    - Do not assume undeclared tools exist.",
+            "    - Supported invocation payloads: \(invocationForms).",
+            "    - Prefer a declared typed Agentic tool over an equivalent shell or process operation.",
+        ]
+
+        if capabilities.normalInvocationPerformsPreflight {
+            lines.append(
+                "    - Normal invocation performs governed preflight, policy evaluation, and approval handling before execution; do not issue a separate preflight by default."
+            )
+        }
+
+        if !capabilities.explicitPreflightExecutes {
+            lines.append(
+                "    - Use explicit preflight only when a tool call should be inspected or reviewed without executing it."
+            )
+        }
+
+        if capabilities.sequenceStopsOnNonSuccess {
+            lines.append(
+                "    - Use sequence for ordered success-gated dependencies; sequence stops after the first non-success and skips remaining siblings."
+            )
+        }
+
+        if capabilities.supportsOutcomeBranches {
+            lines.append(
+                "    - Use onSuccess, onFailure, and onDenied when subsequent work differs by call outcome."
+            )
+        }
+
+        lines.append(
+            "    - Treat Agentic invocation and AgentToolPlan results as authoritative execution state."
+        )
+
+        return lines
+    }
+
     static func renderedSchemaLines(
         for definition: AgentToolDefinition,
         spaces: Int

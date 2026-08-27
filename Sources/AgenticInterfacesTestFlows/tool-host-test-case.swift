@@ -119,6 +119,43 @@ private extension ToolHostTestCase {
             "manifest definitions are exactly the canonical registry definitions"
         )
 
+        let protocolCapabilities =
+            manifest.protocolCapabilities
+
+        try Expect.equal(
+            protocolCapabilities.invocationForms,
+            [
+                .call,
+                .batch,
+                .plan,
+            ],
+            "manifest exposes all supported invocation payload forms"
+        )
+
+        try Expect.equal(
+            protocolCapabilities.normalInvocationPerformsPreflight,
+            true,
+            "normal invocation performs governed preflight"
+        )
+
+        try Expect.equal(
+            protocolCapabilities.explicitPreflightExecutes,
+            false,
+            "explicit preflight remains inspection without execution"
+        )
+
+        try Expect.equal(
+            protocolCapabilities.sequenceStopsOnNonSuccess,
+            true,
+            "manifest describes sequence success gating"
+        )
+
+        try Expect.equal(
+            protocolCapabilities.supportsOutcomeBranches,
+            true,
+            "manifest describes outcome branch support"
+        )
+
         guard
             manifest.definitions.count == 1,
             let definition =
@@ -155,9 +192,13 @@ private extension ToolHostTestCase {
             "Protocol:",
             "Treat the declared tools and schemas as the authoritative local tool surface for this session.",
             "Do not assume undeclared tools exist.",
-            "Request tool invocations as AgentToolCall JSON.",
+            "Supported invocation payloads: AgentToolCall, non-empty AgentToolCall array, AgentToolPlan.",
             "Prefer a declared typed Agentic tool over an equivalent shell or process operation.",
-            "Treat Agentic preflight and invocation results as authoritative execution state.",
+            "Normal invocation performs governed preflight, policy evaluation, and approval handling before execution; do not issue a separate preflight by default.",
+            "Use explicit preflight only when a tool call should be inspected or reviewed without executing it.",
+            "Use sequence for ordered success-gated dependencies; sequence stops after the first non-success and skips remaining siblings.",
+            "Use onSuccess, onFailure, and onDenied when subsequent work differs by call outcome.",
+            "Treat Agentic invocation and AgentToolPlan results as authoritative execution state.",
         ]
 
         for token in required {
