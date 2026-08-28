@@ -1,5 +1,7 @@
 import Agentic
+import AgenticExecution
 import Foundation
+import Primitives
 
 public enum AgenticToolHostJSON {
     public static func decodeRequest(
@@ -21,6 +23,17 @@ public enum AgenticToolHostJSON {
             from: data
         ) {
             return request
+        }
+
+        if let invocation = try? decoder.decode(
+            DirectInvocation.self,
+            from: data
+        ) {
+            return .init(
+                action: .invoke,
+                call: invocation.call,
+                execution: invocation.execution
+            )
         }
 
         if let call = try? decoder.decode(
@@ -157,6 +170,26 @@ public enum AgenticToolHostJSONError: Error, LocalizedError, Sendable {
 
         case .invalidInvocationRequest:
             return "Expected Agentic tool-host invocation JSON as a host request, AgentToolCall, non-empty AgentToolCall array, or AgentToolPlan."
+        }
+    }
+}
+
+private extension AgenticToolHostJSON {
+    struct DirectInvocation:
+        Sendable,
+        Decodable
+    {
+        let id: String
+        let name: String
+        let input: JSONValue
+        let execution: ToolInvocation.Execution?
+
+        var call: AgentToolCall {
+            .init(
+                id: id,
+                name: name,
+                input: input
+            )
         }
     }
 }

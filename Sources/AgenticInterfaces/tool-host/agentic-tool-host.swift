@@ -15,19 +15,22 @@ public struct AgenticToolHostRequest: Sendable, Codable, Hashable {
     public let call: AgentToolCall?
     public let calls: [AgentToolCall]?
     public let plan: AgentToolPlan?
+    public let execution: ToolInvocation.Execution?
 
     public init(
         action: AgenticToolHostAction,
         name: String? = nil,
         call: AgentToolCall? = nil,
         calls: [AgentToolCall]? = nil,
-        plan: AgentToolPlan? = nil
+        plan: AgentToolPlan? = nil,
+        execution: ToolInvocation.Execution? = nil
     ) {
         self.action = action
         self.name = name
         self.call = call
         self.calls = calls
         self.plan = plan
+        self.execution = execution
     }
 }
 
@@ -126,7 +129,8 @@ public struct AgenticToolHost {
             }
 
             return try await preflight(
-                call
+                call,
+                execution: request.execution
             )
 
         case .invoke:
@@ -163,10 +167,12 @@ public struct AgenticToolHost {
     }
 
     public func preflight(
-        _ call: AgentToolCall
+        _ call: AgentToolCall,
+        execution: ToolInvocation.Execution? = nil
     ) async throws -> AgenticToolHostEnvelope {
         let review = try await invoker.review(
             call,
+            execution: execution,
             context: context
         )
 
@@ -177,10 +183,12 @@ public struct AgenticToolHost {
     }
 
     public func invoke(
-        _ call: AgentToolCall
+        _ call: AgentToolCall,
+        execution: ToolInvocation.Execution? = nil
     ) async throws -> AgenticToolHostEnvelope {
         let invocation = try await invoker.invoke(
             call,
+            execution: execution,
             context: context,
             approvalHandler: approvalHandler
         )
@@ -248,9 +256,18 @@ private extension AgenticToolHost {
             )
         }
 
+        if request.execution != nil,
+           request.call == nil
+        {
+            throw AgenticToolHostError.invalidInvocationPayload(
+                "Request-level execution is only valid for a single direct call; plans carry execution on their call nodes."
+            )
+        }
+
         if let call = request.call {
             return try await invoke(
-                call
+                call,
+                execution: request.execution
             )
         }
 
