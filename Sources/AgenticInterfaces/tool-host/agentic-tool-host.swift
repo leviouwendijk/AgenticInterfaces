@@ -1,4 +1,5 @@
 import Agentic
+import AgenticExecution
 import Foundation
 
 public enum AgenticToolHostAction: String, Sendable, Codable, Hashable {

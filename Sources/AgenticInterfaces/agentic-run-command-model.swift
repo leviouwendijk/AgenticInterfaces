@@ -1,4 +1,5 @@
 import Agentic
+import AgenticExecution
 
 public struct AgenticRunCommandModel: Sendable, Codable, Hashable {
     public var prompt: String
@@ -37,26 +38,6 @@ public struct AgenticRunCommandModel: Sendable, Codable, Hashable {
         self.loadedSkillIDs = loadedSkillIDs
         self.missingSkillIDs = missingSkillIDs
         self.metadata = metadata
-    }
-
-    public init(
-        prompt: String,
-        application: ModeRuntimeApplication,
-        request: AgentRequest
-    ) {
-        self.init(
-            prompt: prompt,
-            modeID: application.modeID,
-            modeTitle: application.selection.mode.title,
-            routePurpose: application.routePolicy.purpose,
-            autonomyMode: application.configuration.autonomyMode,
-            budgetPosture: application.selection.budgetPosture,
-            approvalStrictness: application.selection.approvalStrictness,
-            exposedToolNames: request.tools.map(\.name).sorted(),
-            loadedSkillIDs: application.loadedSkills.map(\.identifier),
-            missingSkillIDs: application.missingSkillIdentifiers,
-            metadata: request.metadata
-        )
     }
 }
 

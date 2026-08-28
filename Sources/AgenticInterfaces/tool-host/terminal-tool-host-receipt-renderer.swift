@@ -1,4 +1,5 @@
 import Agentic
+import AgenticExecution
 import Terminal
 
 public struct TerminalToolHostReceiptRenderer:

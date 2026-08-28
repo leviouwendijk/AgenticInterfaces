@@ -1,4 +1,5 @@
 import Agentic
+import AgenticExecution
 import Terminal
 import Foundation
 
@@ -81,13 +82,42 @@ public protocol AgenticInterfaceEventSink: Sendable {
     ) async throws
 }
 
+public enum AgenticRunPresentationState: String, Sendable, Codable, Hashable {
+    case active
+    case awaiting_approval
+    case awaiting_user_input
+    case completed
+}
+
+public struct AgenticRunPresentation: Sendable, Codable, Hashable {
+    public var sessionID: String
+    public var state: AgenticRunPresentationState
+    public var toolName: String?
+    public var summary: String?
+    public var body: String?
+
+    public init(
+        sessionID: String,
+        state: AgenticRunPresentationState,
+        toolName: String? = nil,
+        summary: String? = nil,
+        body: String? = nil
+    ) {
+        self.sessionID = sessionID
+        self.state = state
+        self.toolName = toolName
+        self.summary = summary
+        self.body = body
+    }
+}
+
 public protocol AgenticRunPresenter: Sendable {
     func present(
         _ event: AgenticInterfaceEvent
     ) async throws
 
     func present(
-        _ result: AgentRunResult
+        _ result: AgenticRunPresentation
     ) async throws
 }
 
@@ -133,7 +163,7 @@ public struct TerminalAgenticRunPresenter: AgenticRunPresenter {
     }
 
     public func present(
-        _ result: AgentRunResult
+        _ result: AgenticRunPresentation
     ) async throws {
         let rendered = render(
             result
@@ -152,47 +182,59 @@ public struct TerminalAgenticRunPresenter: AgenticRunPresenter {
 
 private extension TerminalAgenticRunPresenter {
     func render(
-        _ result: AgentRunResult
+        _ result: AgenticRunPresentation
     ) -> String {
-        if let pendingApproval = result.pendingApproval {
-            return block(
-                title: "Run suspended",
-                fields: [
-                    .init("session", "\(result.sessionID)"),
-                    .init("awaiting", "approval"),
-                    .init("tool", pendingApproval.toolCall.name),
-                    .init("summary", pendingApproval.preflight.summary),
-                ]
-            )
-        }
+        switch result.state {
+        case .awaiting_approval:
+            var fields: [TerminalField] = [
+                .init("session", result.sessionID),
+                .init("awaiting", "approval"),
+            ]
 
-        if result.isAwaitingUserInput {
+            if let toolName = result.toolName {
+                fields.append(
+                    .init("tool", toolName)
+                )
+            }
+
+            if let summary = result.summary {
+                fields.append(
+                    .init("summary", summary)
+                )
+            }
+
+            return block(
+                title: "Run suspended",
+                fields: fields
+            )
+
+        case .awaiting_user_input:
             return block(
                 title: "Run suspended",
                 fields: [
-                    .init("session", "\(result.sessionID)"),
+                    .init("session", result.sessionID),
                     .init("awaiting", "user input"),
                 ]
             )
-        }
 
-        if result.isCompleted {
+        case .completed:
             return block(
                 title: "Run completed",
                 fields: [
-                    .init("session", "\(result.sessionID)"),
+                    .init("session", result.sessionID),
                 ],
-                body: result.response?.message.content.text ?? "<empty>"
+                body: result.body ?? "<empty>"
+            )
+
+        case .active:
+            return block(
+                title: "Run result",
+                fields: [
+                    .init("session", result.sessionID),
+                    .init("state", "active"),
+                ]
             )
         }
-
-        return block(
-            title: "Run result",
-            fields: [
-                .init("session", "\(result.sessionID)"),
-                .init("state", "active"),
-            ]
-        )
     }
 
     func render(
