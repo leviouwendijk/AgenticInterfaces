@@ -211,13 +211,35 @@ public struct AgenticToolHostPlanNode:
     }
 }
 
+/// Macro-derived nonrecursive structural source for recursive plan-node schemas.
+///
+/// Runtime composition replaces JSONValue placeholders with the recursive node
+/// reference and the exact registered-tool call variant. Core Agentic remains
+/// Schema-free.
+@JSONSchema
+private struct AgenticToolHostPlanNodeSchemaShape:
+    Codable
+{
+    let kind: String
+    let call: JSONValue?
+    let execution: AgenticToolHostExecution?
+    let children: [JSONValue]
+    let onSuccess: [JSONValue]
+    let onFailure: [JSONValue]
+    let onDenied: [JSONValue]
+}
+
 /// Runtime-specialized host invocation contract generated from the registered ToolRegistry.
 public enum AgenticToolHostInvocationContract {
     public static func schema(
         capabilities: [AgentToolCapability]
     ) -> JSONSchema {
+        let supportedCapabilities =
+            capabilities.filter {
+                $0.semanticInputSchema != nil
+            }
         let indexed = Array(
-            capabilities.enumerated()
+            supportedCapabilities.enumerated()
         )
 
         let callDefinitions = Dictionary(
@@ -246,16 +268,16 @@ public enum AgenticToolHostInvocationContract {
                     "#/$defs/\(callDefinitionName(index: index, capability: capability))"
                 )
             },
-            description: "One AgentToolCall specialized to the tools registered for this host session."
+            description: "One AgentToolCall specialized to schema-backed tools registered for this host session."
         )
 
         let direct = JSONSchema.oneOf(
-            capabilities.map {
+            supportedCapabilities.map {
                 directInvocationSchema(
                     for: $0
                 )
             },
-            description: "One direct registered-tool invocation."
+            description: "One direct schema-backed registered-tool invocation."
         )
 
         let batch = JSONSchema.array(
@@ -273,6 +295,7 @@ public enum AgenticToolHostInvocationContract {
 
         var definitions = callDefinitions
         definitions["AgentToolCall"] = callUnion
+        definitions["AgentToolExecution"] = executionSchema()
         definitions["AgentToolPlanNode"] = planNode
 
         return JSONSchema.oneOf(
@@ -286,6 +309,34 @@ public enum AgenticToolHostInvocationContract {
         .defining(
             definitions
         )
+    }
+
+    /// Validate one normalized host invocation against the same live schema
+    /// rendered in the capability manifest.
+    public static func validate(
+        _ request: AgenticToolHostRequest,
+        capabilities: [AgentToolCapability]
+    ) throws {
+        guard request.action == .invoke else {
+            return
+        }
+
+        let value = try invocationValue(
+            for: request
+        )
+
+        do {
+            try schema(
+                capabilities: capabilities
+            )
+            .validate(
+                value
+            )
+        } catch {
+            throw AgenticToolHostError.invalidInvocationPayload(
+                "Invocation does not match the live capability-manifest schema: \(error)"
+            )
+        }
     }
 
     public static func canonicalPlanExample(
@@ -335,6 +386,56 @@ public enum AgenticToolHostInvocationContract {
 }
 
 private extension AgenticToolHostInvocationContract {
+    static func invocationValue(
+        for request: AgenticToolHostRequest
+    ) throws -> JSONValue {
+        if let call = request.call {
+            let execution: AgenticToolHostExecution?
+
+            if let requestExecution = request.execution {
+                execution = try JSONToolBridge.decode(
+                    AgenticToolHostExecution.self,
+                    from: JSONToolBridge.encode(
+                        requestExecution
+                    )
+                )
+            } else {
+                execution = nil
+            }
+
+            return try JSONToolBridge.encode(
+                AgenticToolHostDirectInvocation(
+                    id: call.id,
+                    name: call.name,
+                    input: call.input,
+                    execution: execution
+                )
+            )
+        }
+
+        if let calls = request.calls {
+            return try JSONToolBridge.encode(
+                calls.map {
+                    AgenticToolHostCall(
+                        id: $0.id,
+                        name: $0.name,
+                        input: $0.input
+                    )
+                }
+            )
+        }
+
+        if let plan = request.plan {
+            return try JSONToolBridge.encode(
+                plan
+            )
+        }
+
+        throw AgenticToolHostError.invalidInvocationPayload(
+            "Tool host invoke requires an AgentToolCall, call batch, or AgentToolPlan."
+        )
+    }
+
     static func semanticInputSchema(
         for capability: AgentToolCapability
     ) -> JSONSchema {
@@ -419,7 +520,9 @@ private extension AgenticToolHostInvocationContract {
 
                 return replacing(
                     property,
-                    schema: executionSchema()
+                    schema: JSONSchema.reference(
+                        "#/$defs/AgentToolExecution"
+                    )
                 )
 
             default:
@@ -513,63 +616,87 @@ private extension AgenticToolHostInvocationContract {
             "#/$defs/AgentToolPlanNode"
         )
 
-        return JSONSchema.object(
-            description: "Call node for \(capability.definition.name).",
-            additionalProperties: .disallowed
-        ) {
-            JSONSchema.property(
-                "kind",
-                schema: JSONSchema.constant(
-                    JSONValue.string(
-                        AgentToolPlanNodeKind.call.rawValue
-                    )
-                ),
-                required: true
-            )
-
-            JSONSchema.property(
-                "call",
-                schema: JSONSchema.reference(
-                    "#/$defs/\(callDefinition)"
-                ),
-                required: true
-            )
-
-            if capability.supportsWorkspaceTargeting {
-                JSONSchema.property(
-                    "execution",
-                    schema: executionSchema()
+        return specializeObject(
+            AgenticToolHostPlanNodeSchemaShape.jsonschema,
+            description: "Call node for \(capability.definition.name)."
+        ) { property in
+            switch property.name {
+            case "kind":
+                return replacing(
+                    property,
+                    schema: .constant(
+                        .string(
+                            AgentToolPlanNodeKind.call.rawValue
+                        )
+                    ),
+                    required: true
                 )
+
+            case "call":
+                return replacing(
+                    property,
+                    schema: .reference(
+                        "#/$defs/\(callDefinition)"
+                    ),
+                    required: true
+                )
+
+            case "execution":
+                guard capability.supportsWorkspaceTargeting else {
+                    return nil
+                }
+
+                return replacing(
+                    property,
+                    schema: .reference(
+                        "#/$defs/AgentToolExecution"
+                    )
+                )
+
+            case "children":
+                return replacing(
+                    property,
+                    schema: .array(
+                        description: "Call nodes cannot contain ordinary children.",
+                        items: recursive,
+                        maxItems: 0
+                    ),
+                    required: true
+                )
+
+            case "onSuccess":
+                return replacing(
+                    property,
+                    schema: .array(
+                        description: "Nodes to run only after this call succeeds.",
+                        items: recursive
+                    ),
+                    required: true
+                )
+
+            case "onFailure":
+                return replacing(
+                    property,
+                    schema: .array(
+                        description: "Nodes to run only after this call fails.",
+                        items: recursive
+                    ),
+                    required: true
+                )
+
+            case "onDenied":
+                return replacing(
+                    property,
+                    schema: .array(
+                        description: "Nodes to run only after this call is denied.",
+                        items: recursive
+                    ),
+                    required: true
+                )
+
+            default:
+                return nil
             }
-
-            JSONSchema.array(
-                "children",
-                required: true,
-                description: "Call nodes cannot contain ordinary children.",
-                items: recursive,
-                maxItems: 0
-            )
-
-            JSONSchema.array(
-                "onSuccess",
-                required: true,
-                description: "Nodes to run only after this call succeeds.",
-                items: recursive
-            )
-
-            JSONSchema.array(
-                "onFailure",
-                required: true,
-                description: "Nodes to run only after this call fails.",
-                items: recursive
-            )
-
-            JSONSchema.array(
-                "onDenied",
-                required: true,
-                description: "Nodes to run only after this call is denied.",
-                items: recursive
-            )
         }
     }
 
@@ -584,50 +711,53 @@ private extension AgenticToolHostInvocationContract {
             maxItems: 0
         )
 
-        return JSONSchema.object(
-            description: "\(kind.rawValue) plan node.",
-            additionalProperties: .disallowed
-        ) {
-            JSONSchema.property(
-                "kind",
-                schema: JSONSchema.constant(
-                    JSONValue.string(
-                        kind.rawValue
-                    )
-                ),
-                required: true
-            )
+        return specializeObject(
+            AgenticToolHostPlanNodeSchemaShape.jsonschema,
+            description: "\(kind.rawValue) plan node."
+        ) { property in
+            switch property.name {
+            case "kind":
+                return replacing(
+                    property,
+                    schema: .constant(
+                        .string(
+                            kind.rawValue
+                        )
+                    ),
+                    required: true
+                )
 
-            JSONSchema.array(
-                "children",
-                required: true,
-                description:
-                    kind == .sequence
-                        ? "Ordered success-gated child nodes."
-                        : "Independent child nodes executed with batch semantics.",
-                items: recursive
-            )
+            case "call",
+                 "execution":
+                return nil
 
-            JSONSchema.property(
-                "onSuccess",
-                schema: emptyRecursiveArray,
-                required: true,
-                description: "Container nodes do not define outcome branches."
-            )
+            case "children":
+                return replacing(
+                    property,
+                    schema: .array(
+                        description:
+                            kind == .sequence
+                                ? "Ordered success-gated child nodes."
+                                : "Independent child nodes executed with batch semantics.",
+                        items: recursive
+                    ),
+                    required: true
+                )
 
-            JSONSchema.property(
-                "onFailure",
-                schema: emptyRecursiveArray,
-                required: true,
-                description: "Container nodes do not define outcome branches."
-            )
+            case "onSuccess",
+                 "onFailure",
+                 "onDenied":
+                return replacing(
+                    property,
+                    schema: emptyRecursiveArray.described(
+                        "Container nodes do not define outcome branches."
+                    ),
+                    required: true
+                )
 
-            JSONSchema.property(
-                "onDenied",
-                schema: emptyRecursiveArray,
-                required: true,
-                description: "Container nodes do not define outcome branches."
-            )
+            default:
+                return nil
+            }
         }
     }
 
@@ -707,12 +837,13 @@ private extension AgenticToolHostInvocationContract {
 
     static func replacing(
         _ property: JSONSchema.Property,
-        schema: JSONSchema
+        schema: JSONSchema,
+        required: Bool? = nil
     ) -> JSONSchema.Property {
         .init(
             name: property.name,
             schema: schema,
-            required: property.required,
+            required: required ?? property.required,
             description: property.description
         )
     }

@@ -154,6 +154,7 @@ private extension AgenticCapabilityManifestRenderer {
         [
             "    - Treat the Invocation schema as the authoritative local host-call grammar and the registered tool variants inside it as the authoritative tool surface for this session.",
             "    - Submit a DirectInvocation, non-empty AgentToolCall array, or AgentToolPlan directly. Do not invent action/request/tool_call/tool_calls wrappers that are not present in the Invocation schema.",
+            "    - Registered tools without semantic_input_schema are intentionally omitted from the Invocation schema until their typed contract is migrated; do not invoke them through the model-facing bridge.",
             "    - For multi-step or dependent work, prefer one AgentToolPlan with sequence, batch, and outcome branches rather than issuing unrelated invocation envelopes.",
             "    - Use sequence for ordered success-gated dependencies; it stops after the first non-success and skips remaining siblings.",
             "    - Use onSuccess, onFailure, and onDenied when subsequent work differs by call outcome.",

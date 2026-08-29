@@ -2,6 +2,7 @@ import Agentic
 import AgenticExecution
 import Foundation
 import Primitives
+import Schema
 
 public enum AgenticToolHostJSON {
     public static func decodeRequest(
@@ -51,6 +52,34 @@ public enum AgenticToolHostJSON {
         }
 
         throw AgenticToolHostJSONError.invalidInvocationRequest
+    }
+
+    /// Decode and validate the raw envelope against the exact live registry schema.
+    public static func decodeInvocationRequest(
+        _ data: Data,
+        capabilities: [AgentToolCapability]
+    ) throws -> AgenticToolHostRequest {
+        let value: JSONValue
+
+        do {
+            value = try JSONDecoder().decode(
+                JSONValue.self,
+                from: data
+            )
+
+            try AgenticToolHostInvocationContract.schema(
+                capabilities: capabilities
+            )
+            .validate(
+                value
+            )
+        } catch {
+            throw AgenticToolHostJSONError.invalidInvocationRequest
+        }
+
+        return try decodeInvocationRequest(
+            data
+        )
     }
 
     public static func decodeEnvelope(
@@ -140,6 +169,18 @@ private extension AgenticToolHostJSON {
         }
 
         return value
+    }
+}
+
+public extension AgenticToolHost {
+    /// Decode raw invocation JSON against this host's exact live registry.
+    func decodeInvocationRequest(
+        _ data: Data
+    ) throws -> AgenticToolHostRequest {
+        try AgenticToolHostJSON.decodeInvocationRequest(
+            data,
+            capabilities: registry.capabilities
+        )
     }
 }
 

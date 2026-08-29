@@ -264,6 +264,11 @@ private extension AgenticToolHost {
             )
         }
 
+        try AgenticToolHostInvocationContract.validate(
+            request,
+            capabilities: registry.capabilities
+        )
+
         if let call = request.call {
             return try await invoke(
                 call,
