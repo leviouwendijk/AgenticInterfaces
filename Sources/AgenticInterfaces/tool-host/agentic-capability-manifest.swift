@@ -1,80 +1,39 @@
 import Agentic
+import AgenticExecution
 import Foundation
+import Primitives
+import Schema
 
-public enum AgenticCapabilityInvocationForm:
-    String,
-    Sendable,
-    Codable,
-    Hashable,
-    CaseIterable
-{
-    case call = "AgentToolCall"
-    case batch = "non-empty AgentToolCall array"
-    case plan = "AgentToolPlan"
-}
-
-public struct AgenticCapabilityProtocol:
-    Sendable,
-    Codable,
-    Hashable
-{
-    public let invocationForms: [AgenticCapabilityInvocationForm]
-    public let normalInvocationPerformsPreflight: Bool
-    public let explicitPreflightExecutes: Bool
-    public let sequenceStopsOnNonSuccess: Bool
-    public let supportsOutcomeBranches: Bool
-
-    public static var current: Self {
-        .init(
-            invocationForms:
-                AgenticCapabilityInvocationForm.allCases,
-            normalInvocationPerformsPreflight: true,
-            explicitPreflightExecutes: false,
-            sequenceStopsOnNonSuccess: true,
-            supportsOutcomeBranches: true
-        )
-    }
-
-    public init(
-        invocationForms: [AgenticCapabilityInvocationForm],
-        normalInvocationPerformsPreflight: Bool,
-        explicitPreflightExecutes: Bool,
-        sequenceStopsOnNonSuccess: Bool,
-        supportsOutcomeBranches: Bool
-    ) {
-        self.invocationForms = invocationForms
-        self.normalInvocationPerformsPreflight =
-            normalInvocationPerformsPreflight
-        self.explicitPreflightExecutes =
-            explicitPreflightExecutes
-        self.sequenceStopsOnNonSuccess =
-            sequenceStopsOnNonSuccess
-        self.supportsOutcomeBranches =
-            supportsOutcomeBranches
-    }
-}
-
+/// Runtime manifest derived from the exact ToolRegistry supplied to this host.
 public struct AgenticCapabilityManifest:
-    Sendable,
-    Codable,
-    Hashable
+    Sendable
 {
     public let workspaceRoot: String?
     public let sessionID: String?
-    public let definitions: [AgentToolDefinition]
+    public let capabilities: [AgentToolCapability]
+    public let invocationSchema: JSONSchema
+    public let canonicalPlanExample: AgentToolPlan?
 
-    public var protocolCapabilities: AgenticCapabilityProtocol {
-        .current
+    public var definitions: [AgentToolDefinition] {
+        capabilities.map(\.definition)
     }
 
     public init(
         workspaceRoot: String? = nil,
         sessionID: String? = nil,
-        definitions: [AgentToolDefinition]
+        capabilities: [AgentToolCapability]
     ) {
         self.workspaceRoot = workspaceRoot
         self.sessionID = sessionID
-        self.definitions = definitions
+        self.capabilities = capabilities
+        self.invocationSchema =
+            AgenticToolHostInvocationContract.schema(
+                capabilities: capabilities
+            )
+        self.canonicalPlanExample =
+            AgenticToolHostInvocationContract.canonicalPlanExample(
+                capabilities: capabilities
+            )
     }
 }
 
@@ -90,18 +49,17 @@ public extension AgenticToolHost {
                     .path,
             sessionID:
                 context.sessionID,
-            definitions:
-                registry.definitions
+            capabilities:
+                registry.capabilities
         )
     }
 
     func capabilityManifestText() throws
         -> String
     {
-        try AgenticCapabilityManifestRenderer
-            .render(
-                capabilityManifest()
-            )
+        try AgenticCapabilityManifestRenderer.render(
+            capabilityManifest()
+        )
     }
 }
 
@@ -112,65 +70,77 @@ public enum AgenticCapabilityManifestRenderer {
         var lines = [
             "AGENTIC CAPABILITY MANIFEST",
             "",
-            "Workspace:",
+            "Workspace authority root:",
             "    \(manifest.workspaceRoot ?? "<none>")",
             "Session:",
             "    \(manifest.sessionID ?? "<none>")",
             "",
-            "Available tools (\(manifest.definitions.count)):",
+            "Available tools (\(manifest.capabilities.count)):",
         ]
 
-        for definition in manifest.definitions {
+        for capability in manifest.capabilities {
+            lines.append("")
             lines.append(
-                ""
+                capability.definition.identifier.rawValue
             )
-
             lines.append(
-                definition.identifier.rawValue
+                "    risk: \(capability.definition.risk.rawValue)"
             )
-
             lines.append(
-                "    risk: \(definition.risk.rawValue)"
+                "    workspace_targeting: \(capability.supportsWorkspaceTargeting ? "supported" : "not_supported")"
             )
-
+            lines.append(
+                "    semantic_input_schema: \(capability.semanticInputSchema == nil ? "unavailable" : "available")"
+            )
             lines.append(
                 "    description:"
             )
-
             lines.append(
-                contentsOf:
-                    indentedLines(
-                        definition.description,
-                        spaces: 8
-                    )
-            )
-
-            lines.append(
-                "    input_schema:"
-            )
-
-            lines.append(
-                contentsOf:
-                    try renderedSchemaLines(
-                        for: definition,
-                        spaces: 8
-                    )
+                contentsOf: indentedLines(
+                    capability.definition.description,
+                    spaces: 8
+                )
             )
         }
 
+        lines.append("")
         lines.append(
-            ""
+            "Invocation schema:"
+        )
+        lines.append(
+            "    Submit exactly one of these JSON shapes directly to agentic host bridge."
+        )
+        lines.append(
+            contentsOf: try renderedJSONLines(
+                manifest.invocationSchema.jsonvalue,
+                spaces: 4
+            )
         )
 
+        lines.append("")
         lines.append(
-            "Protocol:"
+            "Canonical AgentToolPlan example:"
         )
 
-        lines.append(
-            contentsOf:
-                protocolLines(
-                    for: manifest.protocolCapabilities
+        if let example = manifest.canonicalPlanExample {
+            lines.append(
+                contentsOf: try renderedEncodableLines(
+                    example,
+                    spaces: 4
                 )
+            )
+        } else {
+            lines.append(
+                "    <no registered tools>"
+            )
+        }
+
+        lines.append("")
+        lines.append(
+            "Protocol guidance:"
+        )
+        lines.append(
+            contentsOf: protocolLines()
         )
 
         return lines.joined(
@@ -180,101 +150,73 @@ public enum AgenticCapabilityManifestRenderer {
 }
 
 private extension AgenticCapabilityManifestRenderer {
-    static func protocolLines(
-        for capabilities: AgenticCapabilityProtocol
-    ) -> [String] {
-        let invocationForms =
-            capabilities.invocationForms
-                .map(\.rawValue)
-                .joined(separator: ", ")
-
-        var lines = [
-            "    - Treat the declared tools and schemas as the authoritative local tool surface for this session.",
-            "    - Do not assume undeclared tools exist.",
-            "    - Supported invocation payloads: \(invocationForms).",
+    static func protocolLines() -> [String] {
+        [
+            "    - Treat the Invocation schema as the authoritative local host-call grammar and the registered tool variants inside it as the authoritative tool surface for this session.",
+            "    - Submit a DirectInvocation, non-empty AgentToolCall array, or AgentToolPlan directly. Do not invent action/request/tool_call/tool_calls wrappers that are not present in the Invocation schema.",
+            "    - For multi-step or dependent work, prefer one AgentToolPlan with sequence, batch, and outcome branches rather than issuing unrelated invocation envelopes.",
+            "    - Use sequence for ordered success-gated dependencies; it stops after the first non-success and skips remaining siblings.",
+            "    - Use onSuccess, onFailure, and onDenied when subsequent work differs by call outcome.",
+            "    - After pushing an upstream Swift package, when a later step builds or tests a dependent package and swift_package_update is declared, run swift_package_update in that dependent package first so it consumes the new upstream revision.",
+            "    - Use execution.workspace.subpath only on tool variants whose Invocation schema advertises execution. It selects a working location beneath the workspace authority root; it does not narrow or rebase authority.",
+            "    - Normal invocation already performs governed preflight, policy evaluation, and approval handling before execution; do not issue a separate preflight by default.",
+            "    - Use explicit preflight only when a tool call should be inspected or reviewed without executing it.",
             "    - Prefer a declared typed Agentic tool over an equivalent shell or process operation.",
+            "    - Treat Agentic invocation and AgentToolPlan results as authoritative execution state.",
         ]
-
-        if capabilities.normalInvocationPerformsPreflight {
-            lines.append(
-                "    - Normal invocation performs governed preflight, policy evaluation, and approval handling before execution; do not issue a separate preflight by default."
-            )
-        }
-
-        if !capabilities.explicitPreflightExecutes {
-            lines.append(
-                "    - Use explicit preflight only when a tool call should be inspected or reviewed without executing it."
-            )
-        }
-
-        if capabilities.sequenceStopsOnNonSuccess {
-            lines.append(
-                "    - Use sequence for ordered success-gated dependencies; sequence stops after the first non-success and skips remaining siblings."
-            )
-        }
-
-        if capabilities.supportsOutcomeBranches {
-            lines.append(
-                "    - Use onSuccess, onFailure, and onDenied when subsequent work differs by call outcome."
-            )
-        }
-
-        lines.append(
-            "    - Treat Agentic invocation and AgentToolPlan results as authoritative execution state."
-        )
-
-        return lines
     }
 
-    static func renderedSchemaLines(
-        for definition: AgentToolDefinition,
+    static func renderedJSONLines(
+        _ value: JSONValue,
         spaces: Int
     ) throws -> [String] {
-        guard let schema =
-            definition.inputSchema
-        else {
-            return [
-                String(
-                    repeating: " ",
-                    count: spaces
-                ) + "null",
-            ]
-        }
+        let data = try encoder().encode(
+            value
+        )
 
-        let encoder =
-            JSONEncoder()
+        return indentedLines(
+            String(
+                decoding: data,
+                as: UTF8.self
+            ),
+            spaces: spaces
+        )
+    }
 
+    static func renderedEncodableLines<Value: Encodable>(
+        _ value: Value,
+        spaces: Int
+    ) throws -> [String] {
+        let data = try encoder().encode(
+            value
+        )
+
+        return indentedLines(
+            String(
+                decoding: data,
+                as: UTF8.self
+            ),
+            spaces: spaces
+        )
+    }
+
+    static func encoder() -> JSONEncoder {
+        let encoder = JSONEncoder()
         encoder.outputFormatting = [
             .prettyPrinted,
             .sortedKeys,
         ]
-
-        let data =
-            try encoder.encode(
-                schema
-            )
-
-        let text =
-            String(
-                decoding: data,
-                as: UTF8.self
-            )
-
-        return indentedLines(
-            text,
-            spaces: spaces
-        )
+        return encoder
     }
 
     static func indentedLines(
         _ text: String,
         spaces: Int
     ) -> [String] {
-        let prefix =
-            String(
-                repeating: " ",
-                count: spaces
-            )
+        let prefix = String(
+            repeating: " ",
+            count: spaces
+        )
 
         return text
             .split(

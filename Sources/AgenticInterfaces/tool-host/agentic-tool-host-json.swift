@@ -13,56 +13,40 @@ public enum AgenticToolHostJSON {
         )
     }
 
+    /// Decode only the canonical invocation forms advertised by the capability manifest.
     public static func decodeInvocationRequest(
         _ data: Data
     ) throws -> AgenticToolHostRequest {
         let decoder = JSONDecoder()
 
-        if let request = try? decoder.decode(
-            AgenticToolHostRequest.self,
-            from: data
-        ) {
-            return request
-        }
-
         if let invocation = try? decoder.decode(
-            DirectInvocation.self,
+            AgenticToolHostDirectInvocation.self,
             from: data
         ) {
             return .init(
                 action: .invoke,
                 call: invocation.call,
-                execution: invocation.execution
-            )
-        }
-
-        if let call = try? decoder.decode(
-            AgentToolCall.self,
-            from: data
-        ) {
-            return .init(
-                action: .invoke,
-                call: call
+                execution: try invocation.execution?.toolExecution()
             )
         }
 
         if let calls = try? decoder.decode(
-            [AgentToolCall].self,
+            [AgenticToolHostCall].self,
             from: data
         ), !calls.isEmpty {
             return .init(
                 action: .invoke,
-                calls: calls
+                calls: calls.map(\.agentToolCall)
             )
         }
 
         if let plan = try? decoder.decode(
-            AgentToolPlan.self,
+            AgenticToolHostPlan.self,
             from: data
         ) {
             return .init(
                 action: .invoke,
-                plan: plan
+                plan: try plan.agentToolPlan()
             )
         }
 
@@ -169,27 +153,7 @@ public enum AgenticToolHostJSONError: Error, LocalizedError, Sendable {
             return "Encoded Agentic tool-host JSON was not valid UTF-8."
 
         case .invalidInvocationRequest:
-            return "Expected Agentic tool-host invocation JSON as a host request, AgentToolCall, non-empty AgentToolCall array, or AgentToolPlan."
-        }
-    }
-}
-
-private extension AgenticToolHostJSON {
-    struct DirectInvocation:
-        Sendable,
-        Decodable
-    {
-        let id: String
-        let name: String
-        let input: JSONValue
-        let execution: ToolInvocation.Execution?
-
-        var call: AgentToolCall {
-            .init(
-                id: id,
-                name: name,
-                input: input
-            )
+            return "Expected canonical Agentic host invocation JSON matching the capability manifest: DirectInvocation, non-empty AgentToolCall array, or AgentToolPlan."
         }
     }
 }

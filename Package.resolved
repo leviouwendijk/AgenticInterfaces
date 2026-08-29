@@ -1,5 +1,5 @@
 {
-  "originHash" : "9c1f81dc38aab3d049a0e21b2c5c8e514e5a75337d08e55918f7199949b54fa7",
+  "originHash" : "7f920d3d9e64e6dfa94be5beb8e1384da0a4d71730d4dd67de6eb99e715fb5a7",
   "pins" : [
     {
       "identity" : "agentic",
@@ -16,7 +16,7 @@
       "location" : "https://github.com/leviouwendijk/AgenticExecution.git",
       "state" : {
         "branch" : "master",
-        "revision" : "5df3dd46aba572534c59fb1b3ff87cce4d6f82aa"
+        "revision" : "6a858bd5034b2d3913c2ce28f05e00e064037428"
       }
     },
     {
@@ -52,7 +52,7 @@
       "location" : "https://github.com/leviouwendijk/Difference.git",
       "state" : {
         "branch" : "master",
-        "revision" : "ca0f33316fcf56ace04f1f5a1bb178667a291abc"
+        "revision" : "3fa70acbc0b96bbaf5a5021e362b48e399ca6c1e"
       }
     },
     {
@@ -124,7 +124,7 @@
       "location" : "https://github.com/leviouwendijk/Primitives.git",
       "state" : {
         "branch" : "master",
-        "revision" : "7992ebc66ba098758e574befc1b869978b38e82c"
+        "revision" : "685ba8ee4bc678c957502e7dde25c59d0c192d4a"
       }
     },
     {
@@ -146,6 +146,15 @@
       }
     },
     {
+      "identity" : "schema",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/leviouwendijk/Schema.git",
+      "state" : {
+        "branch" : "master",
+        "revision" : "7b037d74a1c99a1eca9dc14701e53bac028b7079"
+      }
+    },
+    {
       "identity" : "selection",
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/leviouwendijk/Selection.git",
@@ -164,12 +173,21 @@
       }
     },
     {
+      "identity" : "swift-syntax",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/swiftlang/swift-syntax.git",
+      "state" : {
+        "revision" : "79e4b74a295b6eb74a8b585e3a39d29e70c1dbd1",
+        "version" : "603.0.2"
+      }
+    },
+    {
       "identity" : "terminal",
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/leviouwendijk/Terminal.git",
       "state" : {
         "branch" : "master",
-        "revision" : "3424fe9a5a13942d9961adbc0dcb44925bce75b7"
+        "revision" : "d11451d89d1617ce912e33723d6194acad384838"
       }
     },
     {
