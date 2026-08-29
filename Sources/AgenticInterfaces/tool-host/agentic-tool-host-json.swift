@@ -1,8 +1,6 @@
 import Agentic
 import AgenticExecution
 import Foundation
-import Primitives
-import Schema
 
 public enum AgenticToolHostJSON {
     public static func decodeRequest(
@@ -14,70 +12,18 @@ public enum AgenticToolHostJSON {
         )
     }
 
-    /// Decode only the canonical invocation forms advertised by the capability manifest.
-    public static func decodeInvocationRequest(
-        _ data: Data
-    ) throws -> AgenticToolHostRequest {
-        let decoder = JSONDecoder()
-
-        if let invocation = try? decoder.decode(
-            AgenticToolHostDirectInvocation.self,
-            from: data
-        ) {
-            return .init(
-                action: .invoke,
-                call: invocation.call,
-                execution: try invocation.execution?.toolExecution()
-            )
-        }
-
-        if let calls = try? decoder.decode(
-            [AgenticToolHostCall].self,
-            from: data
-        ), !calls.isEmpty {
-            return .init(
-                action: .invoke,
-                calls: calls.map(\.agentToolCall)
-            )
-        }
-
-        if let plan = try? decoder.decode(
-            AgenticToolHostPlan.self,
-            from: data
-        ) {
-            return .init(
-                action: .invoke,
-                plan: try plan.agentToolPlan()
-            )
-        }
-
-        throw AgenticToolHostJSONError.invalidInvocationRequest
-    }
-
-    /// Decode and validate the raw envelope against the exact live registry schema.
+    /// Legacy structural decoder for trusted/internal callers.
+    ///
+    /// Model-facing invocation input should use AgenticToolHostInvocationParser
+    /// through AgenticToolHost.decodeInvocationRequest so every call crosses
+    /// the live registry's captured typed parser.
     public static func decodeInvocationRequest(
         _ data: Data,
-        capabilities: [AgentToolCapability]
+        registry: ToolRegistry
     ) throws -> AgenticToolHostRequest {
-        let value: JSONValue
-
-        do {
-            value = try JSONDecoder().decode(
-                JSONValue.self,
-                from: data
-            )
-
-            try AgenticToolHostInvocationContract.schema(
-                capabilities: capabilities
-            )
-            .validate(
-                value
-            )
-        } catch {
-            throw AgenticToolHostJSONError.invalidInvocationRequest
-        }
-
-        return try decodeInvocationRequest(
+        try AgenticToolHostInvocationParser(
+            registry: registry
+        ).parse(
             data
         )
     }
@@ -138,6 +84,19 @@ public enum AgenticToolHostJSON {
     }
 }
 
+public extension AgenticToolHost {
+    /// Parse raw model-facing invocation JSON against this host's exact live registry.
+    func decodeInvocationRequest(
+        _ data: Data
+    ) throws -> AgenticToolHostRequest {
+        try AgenticToolHostInvocationParser(
+            registry: registry
+        ).parse(
+            data
+        )
+    }
+}
+
 private extension AgenticToolHostJSON {
     static func encoder(
         prettyPrinted: Bool
@@ -172,19 +131,11 @@ private extension AgenticToolHostJSON {
     }
 }
 
-public extension AgenticToolHost {
-    /// Decode raw invocation JSON against this host's exact live registry.
-    func decodeInvocationRequest(
-        _ data: Data
-    ) throws -> AgenticToolHostRequest {
-        try AgenticToolHostJSON.decodeInvocationRequest(
-            data,
-            capabilities: registry.capabilities
-        )
-    }
-}
-
-public enum AgenticToolHostJSONError: Error, LocalizedError, Sendable {
+public enum AgenticToolHostJSONError:
+    Error,
+    LocalizedError,
+    Sendable
+{
     case invalidUTF8
     case invalidInvocationRequest
 

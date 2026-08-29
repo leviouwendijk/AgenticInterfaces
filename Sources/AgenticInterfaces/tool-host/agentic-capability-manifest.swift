@@ -90,6 +90,9 @@ public enum AgenticCapabilityManifestRenderer {
                 "    workspace_targeting: \(capability.supportsWorkspaceTargeting ? "supported" : "not_supported")"
             )
             lines.append(
+                "    model_exposure: \(capability.isModelFacing ? "model_facing" : "host_only")"
+            )
+            lines.append(
                 "    semantic_input_schema: \(capability.semanticInputSchema == nil ? "unavailable" : "available")"
             )
             lines.append(
@@ -154,7 +157,7 @@ private extension AgenticCapabilityManifestRenderer {
         [
             "    - Treat the Invocation schema as the authoritative local host-call grammar and the registered tool variants inside it as the authoritative tool surface for this session.",
             "    - Submit a DirectInvocation, non-empty AgentToolCall array, or AgentToolPlan directly. Do not invent action/request/tool_call/tool_calls wrappers that are not present in the Invocation schema.",
-            "    - Registered tools without semantic_input_schema are intentionally omitted from the Invocation schema until their typed contract is migrated; do not invoke them through the model-facing bridge.",
+            "    - model_exposure is explicit. model_facing tools have a captured typed parser and semantic_input_schema and appear in the Invocation schema; host_only tools remain registered for trusted host/runtime use but are not model-invokable.",
             "    - For multi-step or dependent work, prefer one AgentToolPlan with sequence, batch, and outcome branches rather than issuing unrelated invocation envelopes.",
             "    - Use sequence for ordered success-gated dependencies; it stops after the first non-success and skips remaining siblings.",
             "    - Use onSuccess, onFailure, and onDenied when subsequent work differs by call outcome.",

@@ -2,14 +2,23 @@ import Agentic
 import AgenticExecution
 import Foundation
 
-public enum AgenticToolHostAction: String, Sendable, Codable, Hashable {
+public enum AgenticToolHostAction:
+    String,
+    Sendable,
+    Codable,
+    Hashable
+{
     case list
     case describe
     case preflight
     case invoke
 }
 
-public struct AgenticToolHostRequest: Sendable, Codable, Hashable {
+public struct AgenticToolHostRequest:
+    Sendable,
+    Codable,
+    Hashable
+{
     public let action: AgenticToolHostAction
     public let name: String?
     public let call: AgentToolCall?
@@ -34,7 +43,11 @@ public struct AgenticToolHostRequest: Sendable, Codable, Hashable {
     }
 }
 
-public struct AgenticToolHostEnvelope: Sendable, Codable, Hashable {
+public struct AgenticToolHostEnvelope:
+    Sendable,
+    Codable,
+    Hashable
+{
     public let action: AgenticToolHostAction
     public let definitions: [AgentToolDefinition]?
     public let definition: AgentToolDefinition?
@@ -59,7 +72,12 @@ public struct AgenticToolHostEnvelope: Sendable, Codable, Hashable {
     }
 }
 
-public enum AgenticToolHostError: Error, LocalizedError, Sendable, Equatable {
+public enum AgenticToolHostError:
+    Error,
+    LocalizedError,
+    Sendable,
+    Equatable
+{
     case missingTool(String)
     case missingName(AgenticToolHostAction)
     case missingCall(AgenticToolHostAction)
@@ -263,11 +281,6 @@ private extension AgenticToolHost {
                 "Request-level execution is only valid for a single direct call; plans carry execution on their call nodes."
             )
         }
-
-        try AgenticToolHostInvocationContract.validate(
-            request,
-            capabilities: registry.capabilities
-        )
 
         if let call = request.call {
             return try await invoke(
