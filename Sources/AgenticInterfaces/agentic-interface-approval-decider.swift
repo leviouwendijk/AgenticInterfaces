@@ -3,6 +3,7 @@ import AgenticExecution
 public enum AgenticInterfaceApprovalResolution: Sendable, Codable, Hashable {
     case approved
     case denied
+    case skipped
     case stopped(reason: String)
 
     public var approvalDecision: ApprovalDecision? {
@@ -12,6 +13,9 @@ public enum AgenticInterfaceApprovalResolution: Sendable, Codable, Hashable {
 
         case .denied:
             return .denied
+
+        case .skipped:
+            return .skipped
 
         case .stopped:
             return nil
@@ -40,6 +44,10 @@ public struct ScriptedInterfaceApprovalDecider: AgenticInterfaceApprovalDecider 
 
     public static let denied = Self(
         resolution: .denied
+    )
+
+    public static let skipped = Self(
+        resolution: .skipped
     )
 
     public static func stopped(
@@ -75,13 +83,16 @@ extension TerminalApprovalPicker: AgenticInterfaceApprovalDecider {
         case .deny:
             return .denied
 
-        case .stopRun:
+        case .skip:
+            return .skipped
+
+        case .stop_run:
             return .stopped(
                 reason: "User stopped the run from the approval picker."
             )
 
-        case .inspectDetails,
-             .showDiff:
+        case .inspect_details,
+             .show_diff:
             return .stopped(
                 reason: "Unexpected non-terminal picker choice escaped picker loop."
             )

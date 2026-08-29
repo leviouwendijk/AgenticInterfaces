@@ -6,9 +6,10 @@ import Foundation
 public enum AgenticApprovalChoice: String, Sendable, Codable, Hashable, CaseIterable {
     case approve
     case deny
-    case inspectDetails = "inspect_details"
-    case showDiff = "show_diff"
-    case stopRun = "stop_run"
+    case skip
+    case inspect_details
+    case show_diff
+    case stop_run
 
     public var title: String {
         switch self {
@@ -18,13 +19,16 @@ public enum AgenticApprovalChoice: String, Sendable, Codable, Hashable, CaseIter
         case .deny:
             return "Deny"
 
-        case .inspectDetails:
+        case .skip:
+            return "Skip"
+
+        case .inspect_details:
             return "Inspect details"
 
-        case .showDiff:
+        case .show_diff:
             return "Show diff"
 
-        case .stopRun:
+        case .stop_run:
             return "Stop run"
         }
     }
@@ -37,13 +41,16 @@ public enum AgenticApprovalChoice: String, Sendable, Codable, Hashable, CaseIter
         case .deny:
             return "Deny this staged tool call and continue with a denial result."
 
-        case .inspectDetails:
+        case .skip:
+            return "Skip this staged tool call without executing it and continue the surrounding work."
+
+        case .inspect_details:
             return "Render the full preflight and staged intent details."
 
-        case .showDiff:
+        case .show_diff:
             return "Render the staged diff preview."
 
-        case .stopRun:
+        case .stop_run:
             return "Stop this run without approving the staged tool call."
         }
     }
@@ -56,9 +63,12 @@ public enum AgenticApprovalChoice: String, Sendable, Codable, Hashable, CaseIter
         case .deny:
             return .denied
 
-        case .inspectDetails,
-             .showDiff,
-             .stopRun:
+        case .skip:
+            return .skipped
+
+        case .inspect_details,
+             .show_diff,
+             .stop_run:
             return nil
         }
     }
@@ -438,19 +448,20 @@ public struct TerminalApprovalPicker: Sendable {
             )
 
             switch choice {
-            case .inspectDetails:
+            case .inspect_details:
                 renderDetails(
                     prompt
                 )
 
-            case .showDiff:
+            case .show_diff:
                 renderDiff(
                     prompt
                 )
 
             case .approve,
                 .deny,
-                .stopRun:
+                .skip,
+                .stop_run:
                 return choice
             }
         }

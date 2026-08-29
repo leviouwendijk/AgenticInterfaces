@@ -52,11 +52,14 @@ extension TerminalApprovalPicker: ToolApprovalHandler {
         case .deny:
             return .denied
 
-        case .stopRun:
+        case .skip:
+            return .skipped
+
+        case .stop_run:
             throw TerminalApprovalPickerError.stoppedRun
 
-        case .inspectDetails,
-             .showDiff:
+        case .inspect_details,
+             .show_diff:
             return .needshuman
         }
     }
@@ -117,7 +120,7 @@ extension TerminalApprovalPicker {
             return item
 
         case .cancelled:
-            return .stopRun
+            return .stop_run
         }
     }
 
