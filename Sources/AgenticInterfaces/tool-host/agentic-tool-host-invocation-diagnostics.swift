@@ -47,22 +47,13 @@ extension AgenticToolHostInvocationContract {
             }
 
             if object["root"] != nil {
-                let plan = forms[2]
-                    .defining(
-                        contract.definitions
-                    )
-                let structural = plan.diagnostics(
-                    value
-                )
-                let calls = planCallIssues(
-                    in: value,
-                    path: JSONCodingPath(),
-                    contract: contract,
-                    capabilities: capabilities
-                )
-
                 return JSONDiagnostics(
-                    structural.issues + calls
+                    planCallIssues(
+                        in: value,
+                        path: JSONCodingPath(),
+                        contract: contract,
+                        capabilities: capabilities
+                    )
                 )
             }
 
