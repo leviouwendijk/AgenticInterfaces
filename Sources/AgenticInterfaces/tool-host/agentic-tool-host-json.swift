@@ -1,6 +1,7 @@
 import Agentic
 import AgenticExecution
 import Foundation
+import Primitives
 
 public enum AgenticToolHostJSON {
     public static func decodeRequest(
@@ -138,6 +139,8 @@ public enum AgenticToolHostJSONError:
 {
     case invalidUTF8
     case invalidInvocationRequest
+    case malformedInvocation(JSONDecodingError)
+    case invalidInvocation(JSONDiagnostics)
 
     public var errorDescription: String? {
         switch self {
@@ -146,6 +149,26 @@ public enum AgenticToolHostJSONError:
 
         case .invalidInvocationRequest:
             return "Expected canonical Agentic host invocation JSON matching the capability manifest: DirectInvocation, non-empty AgentToolCall array, or AgentToolPlan."
+
+        case .malformedInvocation(let error):
+            return error.errorDescription
+                ?? "Malformed Agentic host invocation JSON."
+
+        case .invalidInvocation(let diagnostics):
+            guard !diagnostics.issues.isEmpty else {
+                return "Invalid Agentic host invocation."
+            }
+
+            let lines = diagnostics.issues.map {
+                issue in
+
+                "  \(issue.path.jsonPath)  \(issue.reason)"
+            }
+
+            return (
+                "Invalid Agentic host invocation (\(diagnostics.issues.count) issue(s)):\n"
+                    + lines.joined(separator: "\n")
+            )
         }
     }
 }
