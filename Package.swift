@@ -12,6 +12,10 @@ let package = Package(
             name: "AgenticInterfaces",
             targets: ["AgenticInterfaces"]
         ),
+        .executable(
+            name: "aginttest",
+            targets: ["AgenticInterfacesTestFlows"]
+        ),
     ],
     dependencies: [
         .package(url: "https://github.com/leviouwendijk/Agentic.git", branch: "master"),
@@ -37,6 +41,13 @@ let package = Package(
                 .product(name: "Terminal", package: "Terminal"),
                 .product(name: "Difference", package: "Difference"),
                 .product(name: "Arguments", package: "Arguments"),
+            ]
+        ),
+        .executableTarget(
+            name: "AgenticInterfacesTestFlows",
+            dependencies: [
+                "AgenticInterfaces",
+                .product(name: "Terminal", package: "Terminal"),
             ]
         ),
     ]

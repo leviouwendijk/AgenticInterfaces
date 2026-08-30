@@ -1,0 +1,911 @@
+import Terminal
+
+public enum AgenticHostConsoleFocus:
+    Sendable,
+    Hashable
+{
+    case runs
+    case timeline
+    case inspector
+}
+
+public enum AgenticHostConsoleEvent:
+    Sendable,
+    Hashable
+{
+    case exitRequested
+    case runSelectionChanged(String)
+    case stepSelectionChanged(
+        runID: String,
+        stepID: String
+    )
+    case stepInspectionOpened(
+        runID: String,
+        stepID: String
+    )
+    case stepInspectionClosed
+}
+
+public struct AgenticHostConsoleControl:
+    Sendable
+{
+    public private(set) var snapshot: AgenticHostConsoleSnapshot
+    public private(set) var focus: TerminalFocusStack<AgenticHostConsoleFocus>
+
+    private var runs: TerminalListControl<
+        AgenticHostConsoleRunPresentation,
+        String
+    >
+    private var steps: TerminalListControl<
+        AgenticHostConsoleStepPresentation,
+        String
+    >
+    private var runsDocument: TerminalScrollableDocument
+    private var timelineDocument: TerminalScrollableDocument
+    private var inspectorDocument: TerminalScrollableDocument
+    private var inspectedStepID: String?
+
+    public init(
+        snapshot: AgenticHostConsoleSnapshot,
+        currentRunID: String? = nil,
+        currentStepID: String? = nil
+    ) {
+        let runID = Self.preferredRunID(
+            in: snapshot,
+            requested: currentRunID
+        )
+        let run = snapshot.runs.first {
+            $0.id == runID
+        }
+        let stepID = Self.preferredStepID(
+            in: run,
+            requested: currentStepID
+        )
+
+        self.snapshot = snapshot
+        self.focus = TerminalFocusStack(
+            .runs
+        )
+        self.runs = TerminalListControl(
+            items: snapshot.runs,
+            currentID: runID,
+            id: {
+                $0.id
+            }
+        )
+        self.steps = TerminalListControl(
+            items: run?.steps ?? [],
+            currentID: stepID,
+            id: {
+                $0.id
+            }
+        )
+        self.runsDocument = TerminalScrollableDocument()
+        self.timelineDocument = TerminalScrollableDocument()
+        self.inspectorDocument = TerminalScrollableDocument()
+        self.inspectedStepID = nil
+    }
+
+    public var currentRunID: String? {
+        runs.currentID
+    }
+
+    public var currentStepID: String? {
+        steps.currentID
+    }
+
+    public var currentRun: AgenticHostConsoleRunPresentation? {
+        guard let currentRunID else {
+            return nil
+        }
+
+        return snapshot.runs.first {
+            $0.id == currentRunID
+        }
+    }
+
+    public var currentStep: AgenticHostConsoleStepPresentation? {
+        guard let currentStepID else {
+            return nil
+        }
+
+        return currentRun?.steps.first {
+            $0.id == currentStepID
+        }
+    }
+
+    public mutating func update(
+        _ snapshot: AgenticHostConsoleSnapshot
+    ) {
+        let previousRunID = currentRunID
+        let previousStepID = currentStepID
+        let preferredRunID = Self.preferredRunID(
+            in: snapshot,
+            requested: previousRunID
+        )
+
+        self.snapshot = snapshot
+        runs.updateItems(
+            snapshot.runs,
+            preservingCurrent: false
+        )
+
+        if let preferredRunID {
+            _ = runs.select(
+                id: preferredRunID
+            )
+        }
+
+        let preservesStep = previousRunID == currentRunID
+
+        rebuildSteps(
+            requestedStepID:
+                preservesStep
+                ? previousStepID
+                : nil
+        )
+
+        if let inspectedStepID,
+           currentRun?.steps.contains(
+            where: {
+                $0.id == inspectedStepID
+            }
+           ) != true {
+            self.inspectedStepID = nil
+
+            if focus.current == .inspector {
+                _ = focus.pop()
+            }
+        }
+    }
+
+    public mutating func handle(
+        _ key: TerminalKey
+    ) -> AgenticHostConsoleEvent? {
+        if key == .control("C") {
+            return .exitRequested
+        }
+
+        switch focus.current {
+        case .runs:
+            return handleRuns(
+                key
+            )
+
+        case .timeline:
+            return handleTimeline(
+                key
+            )
+
+        case .inspector:
+            return handleInspector(
+                key
+            )
+        }
+    }
+
+    public mutating func render(
+        into frame: inout TerminalFrame,
+        in region: TerminalRegion
+    ) {
+        guard !region.isEmpty else {
+            return
+        }
+
+        let vertical = TerminalLayout.vertical(
+            in: region,
+            [
+                .fixed(3),
+                .flex(1),
+                .fixed(1),
+            ]
+        )
+
+        guard vertical.count == 3 else {
+            return
+        }
+
+        renderHeader(
+            into: &frame,
+            in: vertical[0]
+        )
+        renderBody(
+            into: &frame,
+            in: vertical[1]
+        )
+        renderFooter(
+            into: &frame,
+            in: vertical[2]
+        )
+
+        if focus.current == .inspector {
+            renderInspector(
+                into: &frame,
+                in: vertical[1]
+            )
+        }
+    }
+}
+
+private extension AgenticHostConsoleControl {
+    mutating func handleRuns(
+        _ key: TerminalKey
+    ) -> AgenticHostConsoleEvent? {
+        if key.isHorizontalNext {
+            focus.replace(
+                .timeline
+            )
+            return nil
+        }
+
+        guard let event = runs.handle(
+            key
+        ) else {
+            return nil
+        }
+
+        switch event {
+        case .currentChanged(let runID):
+            rebuildSteps(
+                requestedStepID: nil
+            )
+            return .runSelectionChanged(
+                runID
+            )
+
+        case .accepted:
+            focus.replace(
+                .timeline
+            )
+            return nil
+
+        case .cancelRequested:
+            return .exitRequested
+        }
+    }
+
+    mutating func handleTimeline(
+        _ key: TerminalKey
+    ) -> AgenticHostConsoleEvent? {
+        if key.isHorizontalPrevious {
+            focus.replace(
+                .runs
+            )
+            return nil
+        }
+
+        guard let event = steps.handle(
+            key
+        ) else {
+            return nil
+        }
+
+        switch event {
+        case .currentChanged(let stepID):
+            guard let runID = currentRunID else {
+                return nil
+            }
+
+            return .stepSelectionChanged(
+                runID: runID,
+                stepID: stepID
+            )
+
+        case .accepted(let stepID):
+            guard let runID = currentRunID else {
+                return nil
+            }
+
+            inspectedStepID = stepID
+            inspectorDocument.moveToStart()
+            focus.push(
+                .inspector
+            )
+
+            return .stepInspectionOpened(
+                runID: runID,
+                stepID: stepID
+            )
+
+        case .cancelRequested:
+            focus.replace(
+                .runs
+            )
+            return nil
+        }
+    }
+
+    mutating func handleInspector(
+        _ key: TerminalKey
+    ) -> AgenticHostConsoleEvent? {
+        if key == .escape {
+            inspectedStepID = nil
+            _ = focus.pop()
+            return .stepInspectionClosed
+        }
+
+        let motion: TerminalMotion?
+
+        switch key {
+        case .up,
+             .char("k"):
+            motion = .up
+
+        case .down,
+             .char("j"):
+            motion = .down
+
+        case .pageUp:
+            motion = .pageUp
+
+        case .pageDown:
+            motion = .pageDown
+
+        case .home:
+            motion = .documentStart
+
+        case .end:
+            motion = .documentEnd
+
+        default:
+            motion = nil
+        }
+
+        if let motion {
+            _ = inspectorDocument.handle(
+                .motion(
+                    motion
+                )
+            )
+        }
+
+        return nil
+    }
+
+    mutating func rebuildSteps(
+        requestedStepID: String?
+    ) {
+        let run = currentRun
+        let preferred = Self.preferredStepID(
+            in: run,
+            requested: requestedStepID
+        )
+
+        steps.updateItems(
+            run?.steps ?? [],
+            preservingCurrent: false
+        )
+
+        if let preferred {
+            _ = steps.select(
+                id: preferred
+            )
+        }
+    }
+
+    func renderHeader(
+        into frame: inout TerminalFrame,
+        in region: TerminalRegion
+    ) {
+        var lines = [
+            TerminalStyle.bold.apply(
+                snapshot.title
+            ),
+        ]
+
+        if let context = snapshot.context,
+           !context.isEmpty {
+            lines.append(
+                TerminalStyle.dim.apply(
+                    context
+                )
+            )
+        }
+
+        frame.write(
+            lines,
+            in: region
+        )
+    }
+
+    mutating func renderBody(
+        into frame: inout TerminalFrame,
+        in region: TerminalRegion
+    ) {
+        let runColumns = min(
+            30,
+            max(
+                18,
+                region.columns / 3
+            )
+        )
+        let horizontal = TerminalLayout.horizontal(
+            in: region,
+            [
+                .fixed(runColumns),
+                .flex(1),
+            ],
+            spacing: 3
+        )
+
+        guard horizontal.count == 2 else {
+            return
+        }
+
+        renderRuns(
+            into: &frame,
+            in: horizontal[0]
+        )
+        renderTimeline(
+            into: &frame,
+            in: horizontal[1]
+        )
+    }
+
+    mutating func renderRuns(
+        into frame: inout TerminalFrame,
+        in region: TerminalRegion
+    ) {
+        let vertical = TerminalLayout.vertical(
+            in: region,
+            [
+                .fixed(2),
+                .flex(1),
+            ]
+        )
+
+        guard vertical.count == 2 else {
+            return
+        }
+
+        frame.write(
+            TerminalStyle.bold.apply(
+                "runs"
+            ),
+            in: vertical[0]
+        )
+
+        let lines = runs.rows().map {
+            row in
+
+            runLine(
+                row
+            )
+        }
+
+        runsDocument.update(
+            lines: lines,
+            visibleRows: vertical[1].rows
+        )
+
+        if let currentIndex = runs.currentIndex {
+            runsDocument.reveal(
+                row: currentIndex,
+                margin: min(
+                    1,
+                    max(
+                        0,
+                        vertical[1].rows - 1
+                    )
+                )
+            )
+        }
+
+        runsDocument.render(
+            into: &frame,
+            in: vertical[1]
+        )
+    }
+
+    mutating func renderTimeline(
+        into frame: inout TerminalFrame,
+        in region: TerminalRegion
+    ) {
+        let vertical = TerminalLayout.vertical(
+            in: region,
+            [
+                .fixed(3),
+                .flex(1),
+            ]
+        )
+
+        guard vertical.count == 2 else {
+            return
+        }
+
+        guard let run = currentRun else {
+            frame.write(
+                [
+                    TerminalStyle.bold.apply(
+                        "ToolPlan"
+                    ),
+                    TerminalStyle.dim.apply(
+                        "no runs"
+                    ),
+                ],
+                in: vertical[0]
+            )
+            return
+        }
+
+        var heading = [
+            TerminalStyle.bold.apply(
+                run.title
+            ),
+            runStateStyle(
+                run.state
+            ).apply(
+                run.state.displayTitle
+            ),
+        ]
+
+        if let summary = run.summary,
+           !summary.isEmpty {
+            heading.append(
+                TerminalStyle.dim.apply(
+                    summary
+                )
+            )
+        }
+
+        frame.write(
+            heading,
+            in: vertical[0]
+        )
+
+        let timeline = TerminalTimeline(
+            items: run.steps.map {
+                TerminalTimelineItem(
+                    id: $0.id,
+                    title: $0.title,
+                    detail: $0.detail,
+                    state: $0.state.terminalState
+                )
+            }
+        )
+        let layout = timeline.layout(
+            width: vertical[1].columns,
+            selectedID: currentStepID
+        )
+
+        timelineDocument.update(
+            lines: layout.lines,
+            visibleRows: vertical[1].rows
+        )
+
+        if let currentStepID,
+           let rows = layout.itemRows[
+            currentStepID
+           ] {
+            timelineDocument.reveal(
+                row: rows.lowerBound,
+                margin: min(
+                    1,
+                    max(
+                        0,
+                        vertical[1].rows - 1
+                    )
+                )
+            )
+        }
+
+        timelineDocument.render(
+            into: &frame,
+            in: vertical[1]
+        )
+    }
+
+    func renderFooter(
+        into frame: inout TerminalFrame,
+        in region: TerminalRegion
+    ) {
+        let text: String
+
+        if focus.current == .inspector {
+            text = "j/k scroll  esc back  ctrl-c quit"
+        } else {
+            text = "j/k select  h/← runs  l/→ plan  enter inspect  esc back  ctrl-c quit"
+        }
+
+        frame.write(
+            TerminalStyle.dim.apply(
+                text
+            ),
+            in: region
+        )
+    }
+
+    mutating func renderInspector(
+        into frame: inout TerminalFrame,
+        in region: TerminalRegion
+    ) {
+        guard let run = currentRun,
+              let inspectedStepID,
+              let step = run.steps.first(
+                where: {
+                    $0.id == inspectedStepID
+                }
+              ) else {
+            return
+        }
+
+        let columns = min(
+            max(
+                24,
+                region.columns / 2
+            ),
+            max(
+                0,
+                region.columns - 4
+            )
+        )
+        let overlay = TerminalOverlay(
+            placement: .trailing(
+                columns: columns
+            ),
+            outerInsets: TerminalInsets(
+                vertical: 0,
+                horizontal: 1
+            ),
+            contentInsets: TerminalInsets(
+                vertical: 1,
+                horizontal: 2
+            )
+        )
+        let content = overlay.render(
+            into: &frame,
+            in: region,
+            title: step.title
+        )
+        let lines = inspectorLines(
+            run: run,
+            step: step
+        )
+
+        inspectorDocument.update(
+            lines: lines,
+            visibleRows: content.rows
+        )
+        inspectorDocument.render(
+            into: &frame,
+            in: content
+        )
+    }
+
+    func runLine(
+        _ row: TerminalListControlRow<
+            AgenticHostConsoleRunPresentation,
+            String
+        >
+    ) -> String {
+        let text = row.item.state.marker
+            + " "
+            + row.item.title
+
+        if row.isCurrent {
+            return focus.current == .runs
+                ? TerminalStyle(
+                    .inverse
+                ).apply(
+                    text
+                )
+                : TerminalStyle.bold.apply(
+                    text
+                )
+        }
+
+        return runStateStyle(
+            row.item.state
+        ).apply(
+            text
+        )
+    }
+
+    func inspectorLines(
+        run: AgenticHostConsoleRunPresentation,
+        step: AgenticHostConsoleStepPresentation
+    ) -> [String] {
+        var fields = [
+            AgenticHostConsoleField(
+                "run",
+                run.title
+            ),
+            AgenticHostConsoleField(
+                "state",
+                step.state.displayTitle
+            ),
+            AgenticHostConsoleField(
+                "step id",
+                step.id
+            ),
+        ]
+
+        if let detail = step.detail,
+           !detail.isEmpty {
+            fields.append(
+                AgenticHostConsoleField(
+                    "target",
+                    detail
+                )
+            )
+        }
+
+        fields.append(
+            contentsOf: step.fields
+        )
+
+        let labelWidth = fields
+            .map {
+                $0.label.count
+            }
+            .max() ?? 0
+
+        return fields.map {
+            field in
+
+            let padding = String(
+                repeating: " ",
+                count: max(
+                    1,
+                    labelWidth - field.label.count + 2
+                )
+            )
+
+            return TerminalStyle.dim.apply(
+                field.label
+            )
+                + padding
+                + field.value
+        }
+    }
+
+    func runStateStyle(
+        _ state: AgenticHostConsoleRunState
+    ) -> TerminalStyle {
+        switch state {
+        case .active:
+            return .bold
+
+        case .awaitingApproval:
+            return TerminalStyle(
+                .bold,
+                .yellow
+            )
+
+        case .onHold,
+             .completed:
+            return .dim
+
+        case .failed:
+            return TerminalStyle(
+                .bold,
+                .red
+            )
+        }
+    }
+
+    static func preferredRunID(
+        in snapshot: AgenticHostConsoleSnapshot,
+        requested: String?
+    ) -> String? {
+        if let requested,
+           snapshot.runs.contains(
+            where: {
+                $0.id == requested
+            }
+           ) {
+            return requested
+        }
+
+        return snapshot.runs.first(
+            where: {
+                switch $0.state {
+                case .active,
+                     .awaitingApproval,
+                     .onHold:
+                    return true
+
+                case .completed,
+                     .failed:
+                    return false
+                }
+            }
+        )?.id
+            ?? snapshot.runs.first?.id
+    }
+
+    static func preferredStepID(
+        in run: AgenticHostConsoleRunPresentation?,
+        requested: String?
+    ) -> String? {
+        guard let run else {
+            return nil
+        }
+
+        if let requested,
+           run.steps.contains(
+            where: {
+                $0.id == requested
+            }
+           ) {
+            return requested
+        }
+
+        return run.steps.first(
+            where: {
+                $0.state == .active
+            }
+        )?.id
+            ?? run.steps.first(
+                where: {
+                    $0.state == .failed
+                }
+            )?.id
+            ?? run.steps.first?.id
+    }
+}
+
+private extension AgenticHostConsoleRunState {
+    var marker: String {
+        switch self {
+        case .active:
+            return "◉"
+
+        case .awaitingApproval:
+            return "◇"
+
+        case .onHold:
+            return "‖"
+
+        case .completed:
+            return "●"
+
+        case .failed:
+            return "×"
+        }
+    }
+
+    var displayTitle: String {
+        switch self {
+        case .active:
+            return "active"
+
+        case .awaitingApproval:
+            return "awaiting approval"
+
+        case .onHold:
+            return "on hold"
+
+        case .completed:
+            return "completed"
+
+        case .failed:
+            return "failed"
+        }
+    }
+}
+
+private extension AgenticHostConsoleStepState {
+    var terminalState: TerminalTimelineItemState {
+        switch self {
+        case .pending:
+            return .pending
+
+        case .active:
+            return .active
+
+        case .completed:
+            return .completed
+
+        case .failed:
+            return .failed
+
+        case .skipped:
+            return .skipped
+        }
+    }
+
+    var displayTitle: String {
+        rawValue
+    }
+}
