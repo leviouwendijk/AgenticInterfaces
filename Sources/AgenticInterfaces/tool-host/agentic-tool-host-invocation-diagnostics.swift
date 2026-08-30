@@ -46,14 +46,13 @@ extension AgenticToolHostInvocationContract {
                 )
             }
 
-            if object["root"] != nil {
-                return JSONDiagnostics(
-                    planCallIssues(
-                        in: value,
-                        path: JSONCodingPath(),
-                        contract: contract,
-                        capabilities: capabilities
-                    )
+            if isPlanEnvelope(object) {
+                return planDiagnostics(
+                    value,
+                    object: object,
+                    plan: forms[2],
+                    contract: contract,
+                    capabilities: capabilities
                 )
             }
 
@@ -94,12 +93,10 @@ private extension AgenticToolHostInvocationContract {
             return structural
         }
 
-        guard capabilities.contains(
-            where: {
-                $0.isModelFacing
-                    && $0.definition.name == name
-            }
-        ) else {
+        guard capability(
+            named: name,
+            in: capabilities
+        ) != nil else {
             return JSONDiagnostics(
                 structural.issues
                     + [
@@ -116,7 +113,7 @@ private extension AgenticToolHostInvocationContract {
             )
         }
 
-        guard let branch = branch(
+        guard let branch = objectBranch(
             named: name,
             in: direct
         ) else {
@@ -154,7 +151,7 @@ private extension AgenticToolHostInvocationContract {
             index,
             value
         ) in values.enumerated() {
-            let item = callDiagnostics(
+            let diagnostics = callDiagnostics(
                 value,
                 contract: contract,
                 capabilities: capabilities
@@ -162,7 +159,7 @@ private extension AgenticToolHostInvocationContract {
 
             issues.append(
                 contentsOf: prefixed(
-                    item.issues,
+                    diagnostics.issues,
                     by: [
                         .index(index),
                     ]
@@ -195,12 +192,10 @@ private extension AgenticToolHostInvocationContract {
             return structural
         }
 
-        guard capabilities.contains(
-            where: {
-                $0.isModelFacing
-                    && $0.definition.name == name
-            }
-        ) else {
+        guard capability(
+            named: name,
+            in: capabilities
+        ) != nil else {
             return JSONDiagnostics(
                 structural.issues
                     + [
@@ -217,16 +212,14 @@ private extension AgenticToolHostInvocationContract {
             )
         }
 
-        guard let union = contract.definitions["AgentToolCall"],
-              let branch = branch(
-                named: name,
-                in: union
-              )
-        else {
+        guard let schema = callSchema(
+            named: name,
+            contract: contract
+        ) else {
             return structural
         }
 
-        return branch
+        return schema
             .defining(
                 contract.definitions
             )
@@ -235,20 +228,159 @@ private extension AgenticToolHostInvocationContract {
             )
     }
 
-    static func planCallIssues(
+    static func planDiagnostics(
+        _ value: JSONValue,
+        object: [String: JSONValue],
+        plan: JSONSchema,
+        contract: JSONSchema,
+        capabilities: [AgentToolCapability]
+    ) -> JSONDiagnostics {
+        let structural = plan
+            .defining(
+                contract.definitions
+            )
+            .diagnostics(
+                value
+            )
+
+        var issues = structural.issues.filter {
+            !isUnionFailure(
+                $0
+            )
+        }
+
+        if let root = object["root"] {
+            issues.append(
+                contentsOf: planNodeIssues(
+                    in: root,
+                    path: JSONCodingPath(
+                        [
+                            .key("root"),
+                        ]
+                    ),
+                    contract: contract,
+                    capabilities: capabilities
+                )
+            )
+        }
+
+        return JSONDiagnostics(
+            issues
+        )
+    }
+
+    static func planNodeIssues(
         in value: JSONValue,
         path: JSONCodingPath,
         contract: JSONSchema,
         capabilities: [AgentToolCapability]
     ) -> [JSONIssue] {
         guard case .object(let object) = value else {
-            return []
+            return [
+                JSONIssue(
+                    kind: .typeMismatch,
+                    path: path,
+                    reason: "Expected an AgentToolPlan node object."
+                ),
+            ]
+        }
+
+        guard let kindValue = object["kind"] else {
+            return [
+                JSONIssue(
+                    kind: .missing,
+                    path: appending(
+                        .key("kind"),
+                        to: path
+                    ),
+                    reason: "Missing required plan-node kind."
+                ),
+            ]
+                + nestedPlanIssues(
+                    in: object,
+                    kind: nil,
+                    path: path,
+                    contract: contract,
+                    capabilities: capabilities
+                )
+        }
+
+        guard case .string(let kind) = kindValue else {
+            return [
+                JSONIssue(
+                    kind: .typeMismatch,
+                    path: appending(
+                        .key("kind"),
+                        to: path
+                    ),
+                    reason: "Expected plan-node kind 'call', 'sequence', or 'batch'."
+                ),
+            ]
+                + nestedPlanIssues(
+                    in: object,
+                    kind: nil,
+                    path: path,
+                    contract: contract,
+                    capabilities: capabilities
+                )
+        }
+
+        guard [
+            "call",
+            "sequence",
+            "batch",
+        ].contains(kind) else {
+            return [
+                JSONIssue(
+                    kind: .invalidValue,
+                    path: appending(
+                        .key("kind"),
+                        to: path
+                    ),
+                    reason: "Unknown AgentToolPlan node kind '\(kind)'."
+                ),
+            ]
+                + nestedPlanIssues(
+                    in: object,
+                    kind: nil,
+                    path: path,
+                    contract: contract,
+                    capabilities: capabilities
+                )
         }
 
         var issues: [JSONIssue] = []
 
-        if let call = object["call"] {
-            let callDiagnostics = callDiagnostics(
+        if let schema = planNodeBranch(
+            kind: kind,
+            object: object,
+            contract: contract,
+            capabilities: capabilities
+        ) {
+            let structural = schema
+                .defining(
+                    contract.definitions
+                )
+                .diagnostics(
+                    value
+                )
+
+            issues.append(
+                contentsOf: prefixed(
+                    structural.issues.filter {
+                        !isUnionFailure(
+                            $0
+                        )
+                    },
+                    by: path.components
+                )
+            )
+        }
+
+        if kind == "call",
+           let call = object["call"]
+        {
+            let diagnostics = callDiagnostics(
                 call,
                 contract: contract,
                 capabilities: capabilities
@@ -256,7 +388,7 @@ private extension AgenticToolHostInvocationContract {
 
             issues.append(
                 contentsOf: prefixed(
-                    callDiagnostics.issues,
+                    diagnostics.issues,
                     by: path.components
                         + [
                             .key("call"),
@@ -265,63 +397,159 @@ private extension AgenticToolHostInvocationContract {
             )
         }
 
-        for key in [
-            "root",
-            "children",
-            "onSuccess",
-            "onFailure",
-            "onDenied",
-        ] {
-            guard let nested = object[key] else {
+        issues.append(
+            contentsOf: nestedPlanIssues(
+                in: object,
+                kind: kind,
+                path: path,
+                contract: contract,
+                capabilities: capabilities
+            )
+        )
+
+        return issues
+    }
+
+    static func nestedPlanIssues(
+        in object: [String: JSONValue],
+        kind: String?,
+        path: JSONCodingPath,
+        contract: JSONSchema,
+        capabilities: [AgentToolCapability]
+    ) -> [JSONIssue] {
+        let keys: [String]
+
+        switch kind {
+        case "call":
+            keys = [
+                "onSuccess",
+                "onFailure",
+                "onDenied",
+            ]
+
+        case "sequence",
+             "batch":
+            keys = [
+                "children",
+            ]
+
+        default:
+            keys = [
+                "children",
+                "onSuccess",
+                "onFailure",
+                "onDenied",
+            ]
+        }
+
+        var issues: [JSONIssue] = []
+
+        for key in keys {
+            guard case .array(let values) = object[key] else {
                 continue
             }
 
-            switch nested {
-            case .object:
+            for (
+                index,
+                child
+            ) in values.enumerated() {
                 issues.append(
-                    contentsOf: planCallIssues(
-                        in: nested,
+                    contentsOf: planNodeIssues(
+                        in: child,
                         path: JSONCodingPath(
                             path.components
                                 + [
                                     .key(key),
+                                    .index(index),
                                 ]
                         ),
                         contract: contract,
                         capabilities: capabilities
                     )
                 )
-
-            case .array(let values):
-                for (
-                    index,
-                    child
-                ) in values.enumerated() {
-                    issues.append(
-                        contentsOf: planCallIssues(
-                            in: child,
-                            path: JSONCodingPath(
-                                path.components
-                                    + [
-                                        .key(key),
-                                        .index(index),
-                                    ]
-                            ),
-                            contract: contract,
-                            capabilities: capabilities
-                        )
-                    )
-                }
-
-            default:
-                break
             }
         }
 
         return issues
     }
 
-    static func branch(
+    static func planNodeBranch(
+        kind: String,
+        object: [String: JSONValue],
+        contract: JSONSchema,
+        capabilities: [AgentToolCapability]
+    ) -> JSONSchema? {
+        guard let node = contract.definitions[
+            "AgentToolPlanNode"
+        ],
+              case .oneOf(let variants) = node.form
+        else {
+            return nil
+        }
+
+        if kind == "sequence"
+            || kind == "batch"
+        {
+            return variants.first {
+                discriminator(
+                    "kind",
+                    in: $0
+                ) == kind
+            }
+        }
+
+        guard kind == "call" else {
+            return nil
+        }
+
+        let callVariants = variants.filter {
+            discriminator(
+                "kind",
+                in: $0
+            ) == "call"
+        }
+
+        if case .object(let call) = object["call"],
+           case .string(let name) = call["name"],
+           let capability = capability(
+            named: name,
+            in: capabilities
+           )
+        {
+            return callVariants.first {
+                hasProperty(
+                    "execution",
+                    in: $0
+                ) == capability.supportsWorkspaceTargeting
+            }
+        }
+
+        let carriesExecution = object["execution"] != nil
+
+        return callVariants.first {
+            hasProperty(
+                "execution",
+                in: $0
+            ) == carriesExecution
+        }
+            ?? callVariants.first
+    }
+
+    static func callSchema(
+        named name: String,
+        contract: JSONSchema
+    ) -> JSONSchema? {
+        contract.definitions.values.first {
+            schema in
+
+            discriminator(
+                "name",
+                in: schema
+            ) == name
+        }
+    }
+
+    static func objectBranch(
         named name: String,
         in schema: JSONSchema
     ) -> JSONSchema? {
@@ -330,21 +558,64 @@ private extension AgenticToolHostInvocationContract {
         }
 
         return branches.first {
-            branch in
-
-            guard case .object(let properties, _) = branch.form,
-                  let property = properties.first(
-                    where: {
-                        $0.name == "name"
-                    }
-                  ),
-                  case .constant(.string(let expected)) = property.schema.form
-            else {
-                return false
-            }
-
-            return expected == name
+            discriminator(
+                "name",
+                in: $0
+            ) == name
         }
+    }
+
+    static func discriminator(
+        _ name: String,
+        in schema: JSONSchema
+    ) -> String? {
+        guard case .object(let properties, _) = schema.form,
+              let property = properties.first(
+                where: {
+                    $0.name == name
+                }
+              ),
+              case .constant(.string(let value)) = property.schema.form
+        else {
+            return nil
+        }
+
+        return value
+    }
+
+    static func hasProperty(
+        _ name: String,
+        in schema: JSONSchema
+    ) -> Bool {
+        guard case .object(let properties, _) = schema.form else {
+            return false
+        }
+
+        return properties.contains {
+            $0.name == name
+        }
+    }
+
+    static func capability(
+        named name: String,
+        in capabilities: [AgentToolCapability]
+    ) -> AgentToolCapability? {
+        capabilities.first {
+            $0.isModelFacing
+                && $0.definition.name == name
+        }
+    }
+
+    static func isPlanEnvelope(
+        _ object: [String: JSONValue]
+    ) -> Bool {
+        if object["root"] != nil {
+            return true
+        }
+
+        return object["id"] != nil
+            && object["name"] == nil
+            && object["input"] == nil
     }
 
     static func isPlanNode(
@@ -355,7 +626,30 @@ private extension AgenticToolHostInvocationContract {
             && (
                 object["children"] != nil
                     || object["call"] != nil
+                    || object["onSuccess"] != nil
+                    || object["onFailure"] != nil
+                    || object["onDenied"] != nil
             )
+    }
+
+    static func isUnionFailure(
+        _ issue: JSONIssue
+    ) -> Bool {
+        issue.reason.hasPrefix(
+            "Expected exactly one oneOf branch to match;"
+        )
+    }
+
+    static func appending(
+        _ component: JSONCodingPath.Component,
+        to path: JSONCodingPath
+    ) -> JSONCodingPath {
+        JSONCodingPath(
+            path.components
+                + [
+                    component,
+                ]
+        )
     }
 
     static func prefixed(

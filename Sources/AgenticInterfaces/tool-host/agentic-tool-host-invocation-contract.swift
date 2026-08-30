@@ -643,6 +643,14 @@ private extension AgenticToolHostInvocationContract {
                 "#/$defs/AgentToolPlanNode"
             )
         )
+        let emptyRecursiveArray = JSONSchema.array(
+            description:
+                "This plan-node array must be empty for the selected node kind.",
+            items: .reference(
+                "#/$defs/AgentToolPlanNode"
+            ),
+            maxItems: 0
+        )
 
         let sequence = specializeObject(
             shape,
@@ -667,11 +675,17 @@ private extension AgenticToolHostInvocationContract {
                 )
 
             case "call",
-                 "execution",
-                 "onSuccess",
+                 "execution":
+                nil
+
+            case "onSuccess",
                  "onFailure",
                  "onDenied":
-                nil
+                replacing(
+                    property,
+                    schema: emptyRecursiveArray,
+                    isRequired: true
+                )
 
             default:
                 property
@@ -701,11 +715,17 @@ private extension AgenticToolHostInvocationContract {
                 )
 
             case "call",
-                 "execution",
-                 "onSuccess",
+                 "execution":
+                nil
+
+            case "onSuccess",
                  "onFailure",
                  "onDenied":
-                nil
+                replacing(
+                    property,
+                    schema: emptyRecursiveArray,
+                    isRequired: true
+                )
 
             default:
                 property
@@ -754,7 +774,16 @@ private extension AgenticToolHostInvocationContract {
         allowsExecution: Bool,
         recursiveArray: JSONSchema
     ) -> JSONSchema {
-        specializeObject(
+        let emptyRecursiveArray = JSONSchema.array(
+            description:
+                "Call plan nodes cannot contain ordinary children.",
+            items: .reference(
+                "#/$defs/AgentToolPlanNode"
+            ),
+            maxItems: 0
+        )
+
+        return specializeObject(
             shape,
             description:
                 allowsExecution
@@ -791,7 +820,11 @@ private extension AgenticToolHostInvocationContract {
                     : nil
 
             case "children":
-                nil
+                replacing(
+                    property,
+                    schema: emptyRecursiveArray,
+                    isRequired: true
+                )
 
             case "onSuccess",
                  "onFailure",
