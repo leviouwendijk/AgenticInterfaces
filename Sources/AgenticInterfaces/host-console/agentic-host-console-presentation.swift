@@ -112,6 +112,7 @@ public enum AgenticHostConsoleAction:
     case approve
     case deny
     case skip
+    case continueRun = "continue_run"
     case stopRun = "stop_run"
     case retry
     case createFixBranch = "create_fix_branch"
@@ -126,6 +127,9 @@ public enum AgenticHostConsoleAction:
 
         case .skip:
             return "Skip"
+
+        case .continueRun:
+            return "Continue ToolPlan"
 
         case .stopRun:
             return "Stop"
@@ -148,6 +152,9 @@ public enum AgenticHostConsoleAction:
 
         case .skip:
             return "Skip the suspended step and continue when the runtime permits it."
+
+        case .continueRun:
+            return "Continue the remaining ToolPlan after the resolved step."
 
         case .stopRun:
             return "Stop this run."

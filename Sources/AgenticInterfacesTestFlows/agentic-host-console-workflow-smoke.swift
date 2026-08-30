@@ -15,9 +15,18 @@ enum AgenticHostConsoleWorkflowSmoke {
         case unexpectedWrappedInterruption
         case unexpectedWrappedActionSummary
         case unexpectedNestedDocumentPresentation
+        case unexpectedContinueAction
     }
 
     static func run() throws {
+        guard AgenticHostConsoleAction.continueRun.rawValue == "continue_run",
+              AgenticHostConsoleAction.continueRun.title == "Continue ToolPlan",
+              AgenticHostConsoleAction.continueRun.summary
+                == "Continue the remaining ToolPlan after the resolved step."
+        else {
+            throw Failure.unexpectedContinueAction
+        }
+
         var console = AgenticHostConsoleWorkflowControl(
             snapshot: AgenticHostConsoleWorkflowFixture.make()
         )

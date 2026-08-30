@@ -740,6 +740,7 @@ private extension AgenticHostConsoleWorkflowControl {
         switch row.item {
         case .approve,
              .retry,
+             .continueRun,
              .createFixBranch:
             return TerminalStyle.bold.apply(
                 text
