@@ -289,7 +289,6 @@ private extension AgenticHostConsoleWorkflowControl {
         }
 
         if key == .char("a"),
-           console.focus.current != .runs,
            let interruption = matchingInterruption() {
             openInterruption(
                 interruption
@@ -301,8 +300,7 @@ private extension AgenticHostConsoleWorkflowControl {
             )
         }
 
-        if console.focus.current != .runs,
-           let kind = documentKind(
+        if let kind = documentKind(
             for: key
            ),
            let document = matchingDocument(
@@ -469,28 +467,50 @@ private extension AgenticHostConsoleWorkflowControl {
     }
 
     func matchingInterruption() -> AgenticHostConsoleInterruptionPresentation? {
-        guard let currentRunID,
-              let currentStepID else {
+        guard let currentRunID else {
             return nil
+        }
+
+        if let currentStepID,
+           let exact = console.snapshot.interruptions.first(where: {
+            $0.runID == currentRunID
+                && $0.stepID == currentStepID
+           }) {
+            return exact
         }
 
         return console.snapshot.interruptions.first {
             $0.runID == currentRunID
-                && $0.stepID == currentStepID
         }
     }
 
     func matchingDocument(
         kind: AgenticHostConsoleDocumentKind
     ) -> AgenticHostConsoleDocumentPresentation? {
-        guard let currentRunID,
-              let currentStepID else {
+        guard let currentRunID else {
+            return nil
+        }
+
+        if let currentStepID,
+           let exact = console.snapshot.documents.first(where: {
+            $0.runID == currentRunID
+                && $0.stepID == currentStepID
+                && $0.kind == kind
+           }) {
+            return exact
+        }
+
+        guard let interruptedStepID = console.snapshot.interruptions.first(
+            where: {
+                $0.runID == currentRunID
+            }
+        )?.stepID else {
             return nil
         }
 
         return console.snapshot.documents.first {
             $0.runID == currentRunID
-                && $0.stepID == currentStepID
+                && $0.stepID == interruptedStepID
                 && $0.kind == kind
         }
     }

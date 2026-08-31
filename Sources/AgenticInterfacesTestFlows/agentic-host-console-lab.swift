@@ -4,13 +4,24 @@ import Terminal
 @main
 enum AgenticInterfacesTestFlows {
     static func main() throws {
-        let command = CommandLine.arguments.dropFirst().first
+        let command = CommandLine.arguments
+            .dropFirst()
+            .first {
+                !$0.hasPrefix("-")
+            }
 
         switch command {
         case "host-console":
             try AgenticHostConsoleLab.run()
 
         case "host-console-foundation":
+            try AgenticHostConsoleFoundationSmoke.run()
+            try AgenticHostConsoleWorkflowSmoke.run()
+            print(
+                "agentic host console foundation smoke passed"
+            )
+
+        case nil:
             try AgenticHostConsoleFoundationSmoke.run()
             try AgenticHostConsoleWorkflowSmoke.run()
             print(

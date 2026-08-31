@@ -176,6 +176,7 @@ enum AgenticHostConsoleWorkflowSmoke {
         }
 
         try runExecutionControlProbe()
+        try AgenticHostConsoleApprovalReviewSmoke.run()
     }
 
     private static func runExecutionControlProbe() throws {
