@@ -5,6 +5,7 @@ public enum AgenticHostConsoleWorkflowFocus:
     Hashable
 {
     case base
+    case runControls
     case actions
     case document
 }
@@ -26,6 +27,16 @@ public enum AgenticHostConsoleWorkflowEvent:
         runID: String,
         stepID: String,
         action: AgenticHostConsoleAction
+    )
+    case runControlsOpened(
+        runID: String
+    )
+    case runControlsClosed(
+        runID: String
+    )
+    case runControlRequested(
+        runID: String,
+        control: AgenticHostConsoleRunControl
     )
     case documentOpened(
         documentID: String,
@@ -55,7 +66,12 @@ public struct AgenticHostConsoleWorkflowControl:
         AgenticHostConsoleAction,
         String
     >
+    private var runControls: TerminalListControl<
+        AgenticHostConsoleRunControl,
+        String
+    >
     private var document: TerminalScrollableDocument
+    private var openedRunControlRunID: String?
     private var openedInterruptionID: String?
     private var openedDocumentID: String?
 
@@ -78,7 +94,14 @@ public struct AgenticHostConsoleWorkflowControl:
                 $0.rawValue
             }
         )
+        self.runControls = TerminalListControl(
+            items: [],
+            id: {
+                $0.rawValue
+            }
+        )
         self.document = TerminalScrollableDocument()
+        self.openedRunControlRunID = nil
         self.openedInterruptionID = nil
         self.openedDocumentID = nil
     }
@@ -93,6 +116,10 @@ public struct AgenticHostConsoleWorkflowControl:
 
     public var currentAction: AgenticHostConsoleAction? {
         actions.currentItem
+    }
+
+    public var currentRunControl: AgenticHostConsoleRunControl? {
+        runControls.currentItem
     }
 
     public var currentInterruption: AgenticHostConsoleInterruptionPresentation? {
@@ -129,6 +156,29 @@ public struct AgenticHostConsoleWorkflowControl:
         console.update(
             snapshot
         )
+
+        if let openedRunControlRunID {
+            guard let run = snapshot.runs.first(
+                where: {
+                    $0.id == openedRunControlRunID
+                }
+            ), !run.state.executionControls.isEmpty else {
+                self.openedRunControlRunID = nil
+                runControls.updateItems(
+                    [],
+                    preservingCurrent: false
+                )
+                focus.reset(
+                    to: .base
+                )
+                return
+            }
+
+            runControls.updateItems(
+                run.state.executionControls,
+                preservingCurrent: true
+            )
+        }
 
         if let openedInterruptionID,
            !snapshot.interruptions.contains(
@@ -168,6 +218,11 @@ public struct AgenticHostConsoleWorkflowControl:
                 key
             )
 
+        case .runControls:
+            return handleRunControls(
+                key
+            )
+
         case .actions:
             return handleActions(
                 key
@@ -188,6 +243,13 @@ public struct AgenticHostConsoleWorkflowControl:
             into: &frame,
             in: region
         )
+
+        if openedRunControlRunID != nil {
+            renderRunControls(
+                into: &frame,
+                in: region
+            )
+        }
 
         if openedInterruptionID != nil {
             renderInterruption(
@@ -214,6 +276,18 @@ private extension AgenticHostConsoleWorkflowControl {
     mutating func handleBase(
         _ key: TerminalKey
     ) -> AgenticHostConsoleWorkflowEvent? {
+        if key == .char("x"),
+           let run = console.currentRun,
+           !run.state.executionControls.isEmpty {
+            openRunControls(
+                run
+            )
+
+            return .runControlsOpened(
+                runID: run.id
+            )
+        }
+
         if key == .char("a"),
            console.focus.current != .runs,
            let interruption = matchingInterruption() {
@@ -253,6 +327,47 @@ private extension AgenticHostConsoleWorkflowControl {
         return .base(
             event
         )
+    }
+
+    mutating func handleRunControls(
+        _ key: TerminalKey
+    ) -> AgenticHostConsoleWorkflowEvent? {
+        if key == .escape {
+            return closeRunControls()
+        }
+
+        guard let event = runControls.handle(
+            key
+        ) else {
+            return nil
+        }
+
+        switch event {
+        case .currentChanged:
+            return nil
+
+        case .accepted(let rawValue):
+            guard let control = AgenticHostConsoleRunControl(
+                rawValue: rawValue
+            ), let runID = openedRunControlRunID else {
+                return nil
+            }
+
+            self.openedRunControlRunID = nil
+            runControls.updateItems(
+                [],
+                preservingCurrent: false
+            )
+            _ = focus.pop()
+
+            return .runControlRequested(
+                runID: runID,
+                control: control
+            )
+
+        case .cancelRequested:
+            return closeRunControls()
+        }
     }
 
     mutating func handleActions(
@@ -401,6 +516,36 @@ private extension AgenticHostConsoleWorkflowControl {
         }
     }
 
+    mutating func openRunControls(
+        _ run: AgenticHostConsoleRunPresentation
+    ) {
+        openedRunControlRunID = run.id
+        runControls.updateItems(
+            run.state.executionControls,
+            preservingCurrent: false
+        )
+        focus.push(
+            .runControls
+        )
+    }
+
+    mutating func closeRunControls() -> AgenticHostConsoleWorkflowEvent? {
+        guard let openedRunControlRunID else {
+            return nil
+        }
+
+        self.openedRunControlRunID = nil
+        runControls.updateItems(
+            [],
+            preservingCurrent: false
+        )
+        _ = focus.pop()
+
+        return .runControlsClosed(
+            runID: openedRunControlRunID
+        )
+    }
+
     mutating func openInterruption(
         _ interruption: AgenticHostConsoleInterruptionPresentation
     ) {
@@ -456,14 +601,151 @@ private extension AgenticHostConsoleWorkflowControl {
     }
 
     mutating func closeAllWorkflowSurfaces() {
+        openedRunControlRunID = nil
         openedInterruptionID = nil
         openedDocumentID = nil
+        runControls.updateItems(
+            [],
+            preservingCurrent: false
+        )
         actions.updateItems(
             [],
             preservingCurrent: false
         )
         focus.reset(
             to: .base
+        )
+    }
+
+    mutating func renderRunControls(
+        into frame: inout TerminalFrame,
+        in region: TerminalRegion
+    ) {
+        guard let openedRunControlRunID,
+              let run = console.snapshot.runs.first(
+                where: {
+                    $0.id == openedRunControlRunID
+                }
+              ) else {
+            return
+        }
+
+        let columns = min(
+            max(
+                36,
+                region.columns / 2
+            ),
+            max(
+                1,
+                region.columns - 4
+            )
+        )
+        let contentInsets = TerminalInsets(
+            vertical: 1,
+            horizontal: 2
+        )
+        let contentColumns = max(
+            1,
+            columns
+                - 2
+                - contentInsets.leading
+                - contentInsets.trailing
+        )
+        let runSummaryLines = run.summary.map {
+            wrappedProseLines(
+                $0,
+                columns: contentColumns,
+                style: .dim
+            )
+        } ?? []
+        let controlRows = runControls.rows()
+        let maximumControlSummaryRows = run.state.executionControls
+            .map {
+                wrappedProseLines(
+                    $0.summary,
+                    columns: contentColumns
+                ).count
+            }
+            .max() ?? 0
+        let controlSummaryLines = currentRunControl.map {
+            wrappedProseLines(
+                $0.summary,
+                columns: contentColumns,
+                style: .dim
+            )
+        } ?? []
+
+        var desiredContentRows =
+            1
+            + runSummaryLines.count
+            + 1
+            + controlRows.count
+
+        if currentRunControl != nil {
+            desiredContentRows += 1 + maximumControlSummaryRows
+        }
+
+        let rows = min(
+            max(
+                10,
+                desiredContentRows
+                    + 2
+                    + contentInsets.top
+                    + contentInsets.bottom
+            ),
+            max(
+                1,
+                region.rows - 4
+            )
+        )
+        let overlay = TerminalOverlay(
+            placement: .centered(
+                columns: columns,
+                rows: rows
+            ),
+            outerInsets: TerminalInsets(
+                vertical: 1,
+                horizontal: 2
+            ),
+            contentInsets: contentInsets
+        )
+        let content = overlay.render(
+            into: &frame,
+            in: region,
+            title: "Run control",
+            zIndex: .overlay
+        )
+
+        var lines = [
+            TerminalStyle.bold.apply(
+                run.title
+            ),
+        ]
+
+        if !runSummaryLines.isEmpty {
+            lines.append(
+                contentsOf: runSummaryLines
+            )
+        }
+
+        lines.append("")
+        lines.append(
+            contentsOf: controlRows.map(
+                runControlLine
+            )
+        )
+
+        if currentRunControl != nil {
+            lines.append("")
+            lines.append(
+                contentsOf: controlSummaryLines
+            )
+        }
+
+        frame.write(
+            lines,
+            in: content,
+            zIndex: .overlay
         )
     }
 
@@ -675,6 +957,9 @@ private extension AgenticHostConsoleWorkflowControl {
         let text: String
 
         switch focus.current {
+        case .runControls:
+            text = "j/k select  enter choose  esc back  ctrl-c quit"
+
         case .actions:
             text = "j/k select  enter choose  d details  f diff  o stdout  e stderr  esc back  ctrl-c quit"
 
@@ -685,7 +970,7 @@ private extension AgenticHostConsoleWorkflowControl {
             if console.focus.current == .inspector {
                 text = "j/k scroll  d details  f diff  o stdout  e stderr  esc back  ctrl-c quit"
             } else {
-                text = "j/k select  h/← runs  l/→ plan  enter inspect  a actions  d/f/o/e docs  ctrl-c quit"
+                text = "j/k select  h/← runs  l/→ plan  enter inspect  x run  a actions  d/f/o/e docs  ctrl-c quit"
             }
         }
 
@@ -718,6 +1003,26 @@ private extension AgenticHostConsoleWorkflowControl {
         return style.apply(
             lines: lines
         )
+    }
+
+    func runControlLine(
+        _ row: TerminalListControlRow<
+            AgenticHostConsoleRunControl,
+            String
+        >
+    ) -> String {
+        let text = (row.isCurrent ? "> " : "  ")
+            + row.item.title
+
+        if row.isCurrent {
+            return TerminalStyle(
+                .inverse
+            ).apply(
+                text
+            )
+        }
+
+        return text
     }
 
     func actionLine(

@@ -4,7 +4,10 @@ public enum AgenticHostConsoleRunState:
     Codable,
     Hashable
 {
+    case ready
     case active
+    case pause_pending
+    case paused
     case awaitingApproval
     case onHold
     case completed

@@ -119,6 +119,7 @@ public struct AgenticHostConsoleControl:
     ) {
         let previousRunID = currentRunID
         let previousStepID = currentStepID
+        let wasFollowingActiveStep = currentStep?.state == .active
         let preferredRunID = Self.preferredRunID(
             in: snapshot,
             requested: previousRunID
@@ -137,12 +138,25 @@ public struct AgenticHostConsoleControl:
         }
 
         let preservesStep = previousRunID == currentRunID
+        let activeStepID = currentRun?.steps.first(
+            where: {
+                $0.state == .active
+            }
+        )?.id
+        let requestedStepID: String?
 
-        rebuildSteps(
-            requestedStepID:
-                preservesStep
+        if preservesStep,
+           wasFollowingActiveStep,
+           let activeStepID {
+            requestedStepID = activeStepID
+        } else {
+            requestedStepID = preservesStep
                 ? previousStepID
                 : nil
+        }
+
+        rebuildSteps(
+            requestedStepID: requestedStepID
         )
 
         if let inspectedStepID,
@@ -763,8 +777,17 @@ private extension AgenticHostConsoleControl {
         _ state: AgenticHostConsoleRunState
     ) -> TerminalStyle {
         switch state {
+        case .ready:
+            return .dim
+
         case .active:
             return .bold
+
+        case .pause_pending:
+            return .bold
+
+        case .paused:
+            return .dim
 
         case .awaitingApproval:
             return TerminalStyle(
@@ -772,9 +795,13 @@ private extension AgenticHostConsoleControl {
                 .yellow
             )
 
-        case .onHold,
-             .completed:
+        case .onHold:
             return .dim
+
+        case .completed:
+            return TerminalStyle(
+                .green
+            )
 
         case .failed:
             return TerminalStyle(
@@ -800,7 +827,10 @@ private extension AgenticHostConsoleControl {
         return snapshot.runs.first(
             where: {
                 switch $0.state {
-                case .active,
+                case .ready,
+                     .active,
+                     .pause_pending,
+                     .paused,
                      .awaitingApproval,
                      .onHold:
                     return true
@@ -848,8 +878,17 @@ private extension AgenticHostConsoleControl {
 private extension AgenticHostConsoleRunState {
     var marker: String {
         switch self {
+        case .ready:
+            return "▷"
+
         case .active:
             return "◉"
+
+        case .pause_pending:
+            return "◌"
+
+        case .paused:
+            return "○"
 
         case .awaitingApproval:
             return "◇"
@@ -858,7 +897,7 @@ private extension AgenticHostConsoleRunState {
             return "‖"
 
         case .completed:
-            return "●"
+            return "✓"
 
         case .failed:
             return "×"
@@ -867,8 +906,17 @@ private extension AgenticHostConsoleRunState {
 
     var displayTitle: String {
         switch self {
+        case .ready:
+            return "ready"
+
         case .active:
             return "active"
+
+        case .pause_pending:
+            return "pause pending"
+
+        case .paused:
+            return "paused"
 
         case .awaitingApproval:
             return "awaiting approval"

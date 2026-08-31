@@ -16,6 +16,11 @@ enum AgenticHostConsoleWorkflowSmoke {
         case unexpectedWrappedActionSummary
         case unexpectedNestedDocumentPresentation
         case unexpectedContinueAction
+        case unexpectedRunControlOpen
+        case unexpectedRunControlClose
+        case unexpectedRunControlRequest
+        case unexpectedRunControlPresentation
+        case unexpectedUnavailableRunControl
     }
 
     static func run() throws {
@@ -168,6 +173,132 @@ enum AgenticHostConsoleWorkflowSmoke {
         guard console.focus.current == .base,
               console.console.focus.current == .timeline else {
             throw Failure.unexpectedRecoveryReturn
+        }
+
+        try runExecutionControlProbe()
+    }
+
+    private static func runExecutionControlProbe() throws {
+        var paused = AgenticHostConsoleWorkflowControl(
+            snapshot: AgenticHostConsoleSnapshot(
+                runs: [
+                    AgenticHostConsoleRunPresentation(
+                        id: "paused-run",
+                        title: "Paused ToolPlan",
+                        summary: "Stopped at a safe ToolPlan boundary.",
+                        state: .paused
+                    ),
+                ]
+            )
+        )
+
+        let opened = paused.handle(
+            .char("x")
+        )
+
+        guard paused.focus.current == .runControls,
+              paused.currentRunControl == .execute_run,
+              opened == .runControlsOpened(
+                runID: "paused-run"
+              ) else {
+            throw Failure.unexpectedRunControlOpen
+        }
+
+        let presentation = renderedText(
+            &paused,
+            columns: 64
+        )
+
+        guard presentation.contains(
+            "Run control"
+        ), presentation.contains(
+            "Execute Run"
+        ), presentation.contains(
+            "Execute Step and Wait"
+        ) else {
+            throw Failure.unexpectedRunControlPresentation
+        }
+
+        let closed = paused.handle(
+            .escape
+        )
+
+        guard paused.focus.current == .base,
+              closed == .runControlsClosed(
+                runID: "paused-run"
+              ) else {
+            throw Failure.unexpectedRunControlClose
+        }
+
+        _ = paused.handle(
+            .char("x")
+        )
+        _ = paused.handle(
+            .down
+        )
+
+        let stepped = paused.handle(
+            .enter
+        )
+
+        guard paused.focus.current == .base,
+              stepped == .runControlRequested(
+                runID: "paused-run",
+                control: .execute_step_and_wait
+              ) else {
+            throw Failure.unexpectedRunControlRequest
+        }
+
+        var active = AgenticHostConsoleWorkflowControl(
+            snapshot: AgenticHostConsoleSnapshot(
+                runs: [
+                    AgenticHostConsoleRunPresentation(
+                        id: "active-run",
+                        title: "Active ToolPlan",
+                        state: .active
+                    ),
+                ]
+            )
+        )
+
+        _ = active.handle(
+            .char("x")
+        )
+
+        guard active.focus.current == .runControls,
+              active.currentRunControl == .pause else {
+            throw Failure.unexpectedRunControlOpen
+        }
+
+        let pause = active.handle(
+            .enter
+        )
+
+        guard active.focus.current == .base,
+              pause == .runControlRequested(
+                runID: "active-run",
+                control: .pause
+              ) else {
+            throw Failure.unexpectedRunControlRequest
+        }
+
+        var pending = AgenticHostConsoleWorkflowControl(
+            snapshot: AgenticHostConsoleSnapshot(
+                runs: [
+                    AgenticHostConsoleRunPresentation(
+                        id: "pending-run",
+                        title: "Pause pending ToolPlan",
+                        state: .pause_pending
+                    ),
+                ]
+            )
+        )
+
+        guard pending.handle(
+            .char("x")
+        ) == nil,
+              pending.focus.current == .base else {
+            throw Failure.unexpectedUnavailableRunControl
         }
     }
 
