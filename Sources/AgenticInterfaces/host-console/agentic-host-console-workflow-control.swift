@@ -529,6 +529,33 @@ private extension AgenticHostConsoleWorkflowControl {
             return closeDocument()
         }
 
+        if let currentDocument,
+           let siblingKind = siblingDocumentKind(
+            from: currentDocument.kind,
+            key: key
+           ) {
+            if let sibling = matchingDocument(
+                runID: currentDocument.runID,
+                stepID: currentDocument.stepID,
+                kind: siblingKind
+            ) {
+                switchDocument(
+                    sibling
+                )
+
+                return .documentOpened(
+                    documentID: sibling.id,
+                    kind: sibling.kind
+                )
+            }
+
+            return .documentRequested(
+                runID: currentDocument.runID,
+                stepID: currentDocument.stepID,
+                kind: siblingKind
+            )
+        }
+
         if key == .char("c"),
            let currentDocument {
             return .copyRequested(
@@ -677,6 +704,58 @@ private extension AgenticHostConsoleWorkflowControl {
         }
     }
 
+    func matchingDocument(
+        runID: String,
+        stepID: String,
+        kind: AgenticHostConsoleDocumentKind
+    ) -> AgenticHostConsoleDocumentPresentation? {
+        console.snapshot.documents.first {
+            $0.runID == runID
+                && $0.stepID == stepID
+                && $0.kind == kind
+        }
+    }
+
+    func siblingDocumentKind(
+        from kind: AgenticHostConsoleDocumentKind,
+        key: TerminalKey
+    ) -> AgenticHostConsoleDocumentKind? {
+        switch key {
+        case .char("h"):
+            switch kind {
+            case .details:
+                return nil
+
+            case .diff:
+                return .details
+
+            case .stdout:
+                return .diff
+
+            case .stderr:
+                return .stdout
+            }
+
+        case .char("l"):
+            switch kind {
+            case .details:
+                return .diff
+
+            case .diff:
+                return .stdout
+
+            case .stdout:
+                return .stderr
+
+            case .stderr:
+                return nil
+            }
+
+        default:
+            return nil
+        }
+    }
+
     func documentKind(
         for key: TerminalKey
     ) -> AgenticHostConsoleDocumentKind? {
@@ -758,11 +837,19 @@ private extension AgenticHostConsoleWorkflowControl {
         )
     }
 
-    mutating func openDocument(
+    mutating func switchDocument(
         _ document: AgenticHostConsoleDocumentPresentation
     ) {
         openedDocumentID = document.id
         self.document.moveToStart()
+    }
+
+    mutating func openDocument(
+        _ document: AgenticHostConsoleDocumentPresentation
+    ) {
+        switchDocument(
+            document
+        )
         focus.push(
             .document
         )
@@ -1224,7 +1311,7 @@ private extension AgenticHostConsoleWorkflowControl {
             text = "j/k select  enter choose  d details  f diff  o stdout  e stderr  esc back  ctrl-c quit"
 
         case .document:
-            text = "j/k scroll  pgup/pgdn  home/end  c copy  esc back  ctrl-c quit"
+            text = "h/l view  j/k scroll  pgup/pgdn  home/end  c copy  esc back  ctrl-c quit"
 
         case .diagnostic:
             text = "j/k scroll  pgup/pgdn  home/end  c copy  esc back  ctrl-c quit"
