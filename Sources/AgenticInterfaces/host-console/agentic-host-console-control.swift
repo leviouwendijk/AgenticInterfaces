@@ -897,29 +897,10 @@ private extension AgenticHostConsoleControl {
             return
         }
 
-        let columns = min(
-            max(
-                24,
-                region.columns / 2
-            ),
-            max(
-                0,
-                region.columns - 4
+        let overlay =
+            AgenticHostConsoleInspectionSurface.overlay(
+                in: region
             )
-        )
-        let overlay = TerminalOverlay(
-            placement: .trailing(
-                columns: columns
-            ),
-            outerInsets: TerminalInsets(
-                vertical: 0,
-                horizontal: 1
-            ),
-            contentInsets: TerminalInsets(
-                vertical: 1,
-                horizontal: 2
-            )
-        )
         let content = overlay.render(
             into: &frame,
             in: region,
@@ -927,7 +908,8 @@ private extension AgenticHostConsoleControl {
         )
         let lines = inspectorLines(
             run: run,
-            step: step
+            step: step,
+            columns: content.columns
         )
 
         inspectorDocument.update(
@@ -1056,7 +1038,8 @@ private extension AgenticHostConsoleControl {
 
     func inspectorLines(
         run: AgenticHostConsoleRunPresentation,
-        step: AgenticHostConsoleStepPresentation
+        step: AgenticHostConsoleStepPresentation,
+        columns: Int
     ) -> [String] {
         var fields = [
             AgenticHostConsoleField(
@@ -1087,29 +1070,10 @@ private extension AgenticHostConsoleControl {
             contentsOf: step.fields
         )
 
-        let labelWidth = fields
-            .map {
-                $0.label.count
-            }
-            .max() ?? 0
-
-        return fields.map {
-            field in
-
-            let padding = String(
-                repeating: " ",
-                count: max(
-                    1,
-                    labelWidth - field.label.count + 2
-                )
-            )
-
-            return TerminalStyle.dim.apply(
-                field.label
-            )
-                + padding
-                + field.value
-        }
+        return AgenticHostConsoleInspectionSurface.fieldLines(
+            fields,
+            columns: columns
+        )
     }
 
     func runStateStyle(

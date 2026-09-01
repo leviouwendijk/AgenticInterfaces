@@ -1321,29 +1321,10 @@ private extension AgenticHostConsoleWorkflowControl {
             return
         }
 
-        let columns = min(
-            max(
-                40,
-                region.columns * 2 / 3
-            ),
-            max(
-                1,
-                region.columns - 4
+        let overlay =
+            AgenticHostConsoleInspectionSurface.overlay(
+                in: region
             )
-        )
-        let overlay = TerminalOverlay(
-            placement: .trailing(
-                columns: columns
-            ),
-            outerInsets: TerminalInsets(
-                vertical: 1,
-                horizontal: 1
-            ),
-            contentInsets: TerminalInsets(
-                vertical: 1,
-                horizontal: 2
-            )
-        )
         let documentLayer = TerminalZIndex(
             200
         )
@@ -1392,29 +1373,10 @@ private extension AgenticHostConsoleWorkflowControl {
             return
         }
 
-        let columns = min(
-            max(
-                40,
-                region.columns * 2 / 3
-            ),
-            max(
-                1,
-                region.columns - 4
+        let overlay =
+            AgenticHostConsoleInspectionSurface.overlay(
+                in: region
             )
-        )
-        let overlay = TerminalOverlay(
-            placement: .trailing(
-                columns: columns
-            ),
-            outerInsets: TerminalInsets(
-                vertical: 1,
-                horizontal: 1
-            ),
-            contentInsets: TerminalInsets(
-                vertical: 1,
-                horizontal: 2
-            )
-        )
         let runInspectorLayer = TerminalZIndex(
             220
         )
@@ -1489,29 +1451,10 @@ private extension AgenticHostConsoleWorkflowControl {
             return
         }
 
-        let columns = min(
-            max(
-                40,
-                region.columns * 2 / 3
-            ),
-            max(
-                1,
-                region.columns - 4
+        let overlay =
+            AgenticHostConsoleInspectionSurface.overlay(
+                in: region
             )
-        )
-        let overlay = TerminalOverlay(
-            placement: .trailing(
-                columns: columns
-            ),
-            outerInsets: TerminalInsets(
-                vertical: 1,
-                horizontal: 1
-            ),
-            contentInsets: TerminalInsets(
-                vertical: 1,
-                horizontal: 2
-            )
-        )
         let diagnosticLayer = TerminalZIndex(
             210
         )

@@ -176,6 +176,7 @@ enum AgenticHostConsoleWorkflowSmoke {
         }
 
         try runExecutionControlProbe()
+        try AgenticHostConsoleInspectionSurfaceSmoke.run()
         try AgenticHostConsoleApprovalReviewSmoke.run()
         try AgenticHostConsoleStatusSmoke.run()
         try AgenticHostConsoleDocumentNavigationSmoke.run()
