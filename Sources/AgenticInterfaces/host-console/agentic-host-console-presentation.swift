@@ -260,6 +260,49 @@ public struct AgenticHostConsoleDocumentPresentation:
     }
 }
 
+public enum AgenticHostConsoleStatusKind:
+    String,
+    Sendable,
+    Codable,
+    Hashable
+{
+    case info
+    case warning
+    case error
+}
+
+public struct AgenticHostConsoleStatusPresentation:
+    Sendable,
+    Codable,
+    Hashable
+{
+    public var id: String
+    public var runID: String?
+    public var stepID: String?
+    public var kind: AgenticHostConsoleStatusKind
+    public var title: String
+    public var summary: String
+    public var body: String
+
+    public init(
+        id: String,
+        runID: String? = nil,
+        stepID: String? = nil,
+        kind: AgenticHostConsoleStatusKind,
+        title: String,
+        summary: String,
+        body: String
+    ) {
+        self.id = id
+        self.runID = runID
+        self.stepID = stepID
+        self.kind = kind
+        self.title = title
+        self.summary = summary
+        self.body = body
+    }
+}
+
 public struct AgenticHostConsoleSnapshot:
     Sendable,
     Codable,
@@ -270,18 +313,21 @@ public struct AgenticHostConsoleSnapshot:
     public var runs: [AgenticHostConsoleRunPresentation]
     public var interruptions: [AgenticHostConsoleInterruptionPresentation]
     public var documents: [AgenticHostConsoleDocumentPresentation]
+    public var statuses: [AgenticHostConsoleStatusPresentation]
 
     public init(
         title: String = "agentic host",
         context: String? = nil,
         runs: [AgenticHostConsoleRunPresentation] = [],
         interruptions: [AgenticHostConsoleInterruptionPresentation] = [],
-        documents: [AgenticHostConsoleDocumentPresentation] = []
+        documents: [AgenticHostConsoleDocumentPresentation] = [],
+        statuses: [AgenticHostConsoleStatusPresentation] = []
     ) {
         self.title = title
         self.context = context
         self.runs = runs
         self.interruptions = interruptions
         self.documents = documents
+        self.statuses = statuses
     }
 }

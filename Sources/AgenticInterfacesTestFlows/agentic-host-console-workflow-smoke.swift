@@ -177,6 +177,7 @@ enum AgenticHostConsoleWorkflowSmoke {
 
         try runExecutionControlProbe()
         try AgenticHostConsoleApprovalReviewSmoke.run()
+        try AgenticHostConsoleStatusSmoke.run()
     }
 
     private static func runExecutionControlProbe() throws {
@@ -297,7 +298,9 @@ enum AgenticHostConsoleWorkflowSmoke {
 
         guard pending.handle(
             .char("x")
-        ) == nil,
+        ) == .feedbackRequested(
+            message: "No run controls available."
+        ),
               pending.focus.current == .base else {
             throw Failure.unexpectedUnavailableRunControl
         }

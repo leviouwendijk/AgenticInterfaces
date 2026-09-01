@@ -6,6 +6,7 @@ public enum AgenticHostConsoleFocus:
 {
     case runs
     case timeline
+    case status
     case inspector
 }
 
@@ -24,6 +25,9 @@ public enum AgenticHostConsoleEvent:
         stepID: String
     )
     case stepInspectionClosed
+    case statusInspectionOpened(
+        statusID: String
+    )
 }
 
 public struct AgenticHostConsoleControl:
@@ -40,8 +44,13 @@ public struct AgenticHostConsoleControl:
         AgenticHostConsoleStepPresentation,
         String
     >
+    private var statuses: TerminalListControl<
+        AgenticHostConsoleStatusPresentation,
+        String
+    >
     private var runsDocument: TerminalScrollableDocument
     private var timelineDocument: TerminalScrollableDocument
+    private var statusDocument: TerminalScrollableDocument
     private var inspectorDocument: TerminalScrollableDocument
     private var inspectedStepID: String?
 
@@ -80,8 +89,15 @@ public struct AgenticHostConsoleControl:
                 $0.id
             }
         )
+        self.statuses = TerminalListControl(
+            items: snapshot.statuses,
+            id: {
+                $0.id
+            }
+        )
         self.runsDocument = TerminalScrollableDocument()
         self.timelineDocument = TerminalScrollableDocument()
+        self.statusDocument = TerminalScrollableDocument()
         self.inspectorDocument = TerminalScrollableDocument()
         self.inspectedStepID = nil
     }
@@ -112,6 +128,14 @@ public struct AgenticHostConsoleControl:
         return currentRun?.steps.first {
             $0.id == currentStepID
         }
+    }
+
+    public var currentStatusID: String? {
+        statuses.currentID
+    }
+
+    public var currentStatus: AgenticHostConsoleStatusPresentation? {
+        statuses.currentItem
     }
 
     public mutating func update(
@@ -158,6 +182,17 @@ public struct AgenticHostConsoleControl:
         rebuildSteps(
             requestedStepID: requestedStepID
         )
+        statuses.updateItems(
+            snapshot.statuses,
+            preservingCurrent: true
+        )
+
+        if snapshot.statuses.isEmpty,
+           focus.current == .status {
+            focus.replace(
+                .timeline
+            )
+        }
 
         if let inspectedStepID,
            currentRun?.steps.contains(
@@ -180,6 +215,12 @@ public struct AgenticHostConsoleControl:
             return .exitRequested
         }
 
+        if key == .tab,
+           focus.current != .inspector {
+            cycleBaseFocus()
+            return nil
+        }
+
         switch focus.current {
         case .runs:
             return handleRuns(
@@ -188,6 +229,11 @@ public struct AgenticHostConsoleControl:
 
         case .timeline:
             return handleTimeline(
+                key
+            )
+
+        case .status:
+            return handleStatus(
                 key
             )
 
@@ -288,6 +334,14 @@ private extension AgenticHostConsoleControl {
             return nil
         }
 
+        if key.isHorizontalNext,
+           !snapshot.statuses.isEmpty {
+            focus.replace(
+                .status
+            )
+            return nil
+        }
+
         guard let event = steps.handle(
             key
         ) else {
@@ -324,6 +378,39 @@ private extension AgenticHostConsoleControl {
         case .cancelRequested:
             focus.replace(
                 .runs
+            )
+            return nil
+        }
+    }
+
+    mutating func handleStatus(
+        _ key: TerminalKey
+    ) -> AgenticHostConsoleEvent? {
+        if key.isHorizontalPrevious {
+            focus.replace(
+                .timeline
+            )
+            return nil
+        }
+
+        guard let event = statuses.handle(
+            key
+        ) else {
+            return nil
+        }
+
+        switch event {
+        case .currentChanged:
+            return nil
+
+        case .accepted(let statusID):
+            return .statusInspectionOpened(
+                statusID: statusID
+            )
+
+        case .cancelRequested:
+            focus.replace(
+                .timeline
             )
             return nil
         }
@@ -430,7 +517,40 @@ private extension AgenticHostConsoleControl {
             30,
             max(
                 18,
-                region.columns / 3
+                region.columns / 4
+            )
+        )
+
+        if snapshot.statuses.isEmpty {
+            let horizontal = TerminalLayout.horizontal(
+                in: region,
+                [
+                    .fixed(runColumns),
+                    .flex(1),
+                ],
+                spacing: 3
+            )
+
+            guard horizontal.count == 2 else {
+                return
+            }
+
+            renderRuns(
+                into: &frame,
+                in: horizontal[0]
+            )
+            renderTimeline(
+                into: &frame,
+                in: horizontal[1]
+            )
+            return
+        }
+
+        let statusColumns = min(
+            34,
+            max(
+                22,
+                region.columns / 4
             )
         )
         let horizontal = TerminalLayout.horizontal(
@@ -438,11 +558,12 @@ private extension AgenticHostConsoleControl {
             [
                 .fixed(runColumns),
                 .flex(1),
+                .fixed(statusColumns),
             ],
             spacing: 3
         )
 
-        guard horizontal.count == 2 else {
+        guard horizontal.count == 3 else {
             return
         }
 
@@ -453,6 +574,10 @@ private extension AgenticHostConsoleControl {
         renderTimeline(
             into: &frame,
             in: horizontal[1]
+        )
+        renderStatus(
+            into: &frame,
+            in: horizontal[2]
         )
     }
 
@@ -609,6 +734,57 @@ private extension AgenticHostConsoleControl {
         )
     }
 
+    mutating func renderStatus(
+        into frame: inout TerminalFrame,
+        in region: TerminalRegion
+    ) {
+        let vertical = TerminalLayout.vertical(
+            in: region,
+            [
+                .fixed(2),
+                .flex(1),
+            ]
+        )
+
+        guard vertical.count == 2 else {
+            return
+        }
+
+        frame.write(
+            TerminalStyle.bold.apply(
+                "Status"
+            ),
+            in: vertical[0]
+        )
+
+        let lines = statuses.rows().map(
+            statusLine
+        )
+
+        statusDocument.update(
+            lines: lines,
+            visibleRows: vertical[1].rows
+        )
+
+        if let currentIndex = statuses.currentIndex {
+            statusDocument.reveal(
+                row: currentIndex,
+                margin: min(
+                    1,
+                    max(
+                        0,
+                        vertical[1].rows - 1
+                    )
+                )
+            )
+        }
+
+        statusDocument.render(
+            into: &frame,
+            in: vertical[1]
+        )
+    }
+
     func renderFooter(
         into frame: inout TerminalFrame,
         in region: TerminalRegion
@@ -618,7 +794,7 @@ private extension AgenticHostConsoleControl {
         if focus.current == .inspector {
             text = "j/k scroll  esc back  ctrl-c quit"
         } else {
-            text = "j/k select  h/← runs  l/→ plan  enter inspect  esc back  ctrl-c quit"
+            text = "tab focus  j/k select  h/← previous  l/→ next  enter inspect  esc back  ctrl-c quit"
         }
 
         frame.write(
@@ -713,6 +889,91 @@ private extension AgenticHostConsoleControl {
         ).apply(
             text
         )
+    }
+
+    func statusLine(
+        _ row: TerminalListControlRow<
+            AgenticHostConsoleStatusPresentation,
+            String
+        >
+    ) -> String {
+        let marker: String
+
+        switch row.item.kind {
+        case .info:
+            marker = "·"
+
+        case .warning:
+            marker = "!"
+
+        case .error:
+            marker = "×"
+        }
+
+        let text = marker
+            + " "
+            + row.item.title
+            + (row.item.summary.isEmpty
+                ? ""
+                : " · " + row.item.summary)
+
+        if row.isCurrent {
+            return focus.current == .status
+                ? TerminalStyle(
+                    .inverse
+                ).apply(
+                    text
+                )
+                : TerminalStyle.bold.apply(
+                    text
+                )
+        }
+
+        switch row.item.kind {
+        case .info:
+            return TerminalStyle.dim.apply(
+                text
+            )
+
+        case .warning:
+            return TerminalStyle(
+                .yellow
+            ).apply(
+                text
+            )
+
+        case .error:
+            return TerminalStyle(
+                .bold,
+                .red
+            ).apply(
+                text
+            )
+        }
+    }
+
+    mutating func cycleBaseFocus() {
+        switch focus.current {
+        case .runs:
+            focus.replace(
+                .timeline
+            )
+
+        case .timeline:
+            focus.replace(
+                snapshot.statuses.isEmpty
+                    ? .runs
+                    : .status
+            )
+
+        case .status:
+            focus.replace(
+                .runs
+            )
+
+        case .inspector:
+            break
+        }
     }
 
     func inspectorLines(

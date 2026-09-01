@@ -8,6 +8,7 @@ public enum AgenticHostConsoleWorkflowFocus:
     case runControls
     case actions
     case document
+    case diagnostic
 }
 
 public enum AgenticHostConsoleWorkflowEvent:
@@ -51,6 +52,19 @@ public enum AgenticHostConsoleWorkflowEvent:
         documentID: String,
         kind: AgenticHostConsoleDocumentKind
     )
+    case statusOpened(
+        statusID: String
+    )
+    case statusClosed(
+        statusID: String
+    )
+    case feedbackRequested(
+        message: String
+    )
+    case copyRequested(
+        text: String,
+        title: String
+    )
 
     public var requestsExit: Bool {
         if case .base(.exitRequested) = self {
@@ -76,9 +90,11 @@ public struct AgenticHostConsoleWorkflowControl:
         String
     >
     private var document: TerminalScrollableDocument
+    private var diagnostic: TerminalScrollableDocument
     private var openedRunControlRunID: String?
     private var openedInterruptionID: String?
     private var openedDocumentID: String?
+    private var openedStatusID: String?
 
     public init(
         snapshot: AgenticHostConsoleSnapshot,
@@ -106,9 +122,11 @@ public struct AgenticHostConsoleWorkflowControl:
             }
         )
         self.document = TerminalScrollableDocument()
+        self.diagnostic = TerminalScrollableDocument()
         self.openedRunControlRunID = nil
         self.openedInterruptionID = nil
         self.openedDocumentID = nil
+        self.openedStatusID = nil
     }
 
     public var currentRunID: String? {
@@ -152,6 +170,16 @@ public struct AgenticHostConsoleWorkflowControl:
 
         return console.snapshot.documents.first {
             $0.id == openedDocumentID
+        }
+    }
+
+    public var currentStatus: AgenticHostConsoleStatusPresentation? {
+        guard let openedStatusID else {
+            return console.currentStatus
+        }
+
+        return console.snapshot.statuses.first {
+            $0.id == openedStatusID
         }
     }
 
@@ -206,6 +234,18 @@ public struct AgenticHostConsoleWorkflowControl:
                 to: .base
             )
         }
+
+        if let openedStatusID,
+           !snapshot.statuses.contains(
+            where: {
+                $0.id == openedStatusID
+            }
+           ) {
+            self.openedStatusID = nil
+            focus.reset(
+                to: .base
+            )
+        }
     }
 
     public mutating func handle(
@@ -235,6 +275,11 @@ public struct AgenticHostConsoleWorkflowControl:
 
         case .document:
             return handleDocument(
+                key
+            )
+
+        case .diagnostic:
+            return handleDiagnostic(
                 key
             )
         }
@@ -270,6 +315,13 @@ public struct AgenticHostConsoleWorkflowControl:
             )
         }
 
+        if openedStatusID != nil {
+            renderDiagnostic(
+                into: &frame,
+                in: region
+            )
+        }
+
         renderFooter(
             into: &frame,
             in: region
@@ -281,9 +333,14 @@ private extension AgenticHostConsoleWorkflowControl {
     mutating func handleBase(
         _ key: TerminalKey
     ) -> AgenticHostConsoleWorkflowEvent? {
-        if key == .char("x"),
-           let run = console.currentRun,
-           !run.state.executionControls.isEmpty {
+        if key == .char("x") {
+            guard let run = console.currentRun,
+                  !run.state.executionControls.isEmpty else {
+                return .feedbackRequested(
+                    message: "No run controls available."
+                )
+            }
+
             openRunControls(
                 run
             )
@@ -293,8 +350,13 @@ private extension AgenticHostConsoleWorkflowControl {
             )
         }
 
-        if key == .char("a"),
-           let interruption = matchingInterruption() {
+        if key == .char("a") {
+            guard let interruption = matchingInterruption() else {
+                return .feedbackRequested(
+                    message: "No actions available."
+                )
+            }
+
             openInterruption(
                 interruption
             )
@@ -329,12 +391,36 @@ private extension AgenticHostConsoleWorkflowControl {
                     kind: kind
                 )
             }
+
+            return .feedbackRequested(
+                message: "No document available for the current selection."
+            )
         }
 
         guard let event = console.handle(
             key
         ) else {
             return nil
+        }
+
+        if case .statusInspectionOpened(let statusID) = event {
+            guard let status = console.snapshot.statuses.first(
+                where: {
+                    $0.id == statusID
+                }
+            ) else {
+                return .feedbackRequested(
+                    message: "Status is no longer available."
+                )
+            }
+
+            openDiagnostic(
+                status
+            )
+
+            return .statusOpened(
+                statusID: status.id
+            )
         }
 
         return .base(
@@ -443,6 +529,14 @@ private extension AgenticHostConsoleWorkflowControl {
             return closeDocument()
         }
 
+        if key == .char("c"),
+           let currentDocument {
+            return .copyRequested(
+                text: currentDocument.body,
+                title: currentDocument.title
+            )
+        }
+
         let motion: TerminalMotion?
 
         switch key {
@@ -472,6 +566,59 @@ private extension AgenticHostConsoleWorkflowControl {
 
         if let motion {
             _ = document.handle(
+                .motion(
+                    motion
+                )
+            )
+        }
+
+        return nil
+    }
+
+    mutating func handleDiagnostic(
+        _ key: TerminalKey
+    ) -> AgenticHostConsoleWorkflowEvent? {
+        if key == .escape {
+            return closeDiagnostic()
+        }
+
+        if key == .char("c"),
+           let currentStatus {
+            return .copyRequested(
+                text: currentStatus.body,
+                title: currentStatus.title
+            )
+        }
+
+        let motion: TerminalMotion?
+
+        switch key {
+        case .up,
+             .char("k"):
+            motion = .up
+
+        case .down,
+             .char("j"):
+            motion = .down
+
+        case .pageUp:
+            motion = .pageUp
+
+        case .pageDown:
+            motion = .pageDown
+
+        case .home:
+            motion = .documentStart
+
+        case .end:
+            motion = .documentEnd
+
+        default:
+            motion = nil
+        }
+
+        if let motion {
+            _ = diagnostic.handle(
                 .motion(
                     motion
                 )
@@ -635,10 +782,34 @@ private extension AgenticHostConsoleWorkflowControl {
         )
     }
 
+    mutating func openDiagnostic(
+        _ status: AgenticHostConsoleStatusPresentation
+    ) {
+        openedStatusID = status.id
+        diagnostic.moveToStart()
+        focus.push(
+            .diagnostic
+        )
+    }
+
+    mutating func closeDiagnostic() -> AgenticHostConsoleWorkflowEvent? {
+        guard let openedStatusID else {
+            return nil
+        }
+
+        self.openedStatusID = nil
+        _ = focus.pop()
+
+        return .statusClosed(
+            statusID: openedStatusID
+        )
+    }
+
     mutating func closeAllWorkflowSurfaces() {
         openedRunControlRunID = nil
         openedInterruptionID = nil
         openedDocumentID = nil
+        openedStatusID = nil
         runControls.updateItems(
             [],
             preservingCurrent: false
@@ -975,6 +1146,60 @@ private extension AgenticHostConsoleWorkflowControl {
         )
     }
 
+    mutating func renderDiagnostic(
+        into frame: inout TerminalFrame,
+        in region: TerminalRegion
+    ) {
+        guard let currentStatus else {
+            return
+        }
+
+        let columns = min(
+            max(
+                40,
+                region.columns * 2 / 3
+            ),
+            max(
+                1,
+                region.columns - 4
+            )
+        )
+        let overlay = TerminalOverlay(
+            placement: .trailing(
+                columns: columns
+            ),
+            outerInsets: TerminalInsets(
+                vertical: 1,
+                horizontal: 1
+            ),
+            contentInsets: TerminalInsets(
+                vertical: 1,
+                horizontal: 2
+            )
+        )
+        let diagnosticLayer = TerminalZIndex(
+            210
+        )
+        let content = overlay.render(
+            into: &frame,
+            in: region,
+            title: currentStatus.title,
+            zIndex: diagnosticLayer
+        )
+
+        diagnostic.update(
+            text: currentStatus.body,
+            columns: content.columns,
+            visibleRows: content.rows,
+            wrapping: .word
+        )
+        diagnostic.render(
+            into: &frame,
+            in: content,
+            zIndex: diagnosticLayer
+        )
+    }
+
     func renderFooter(
         into frame: inout TerminalFrame,
         in region: TerminalRegion
@@ -999,13 +1224,16 @@ private extension AgenticHostConsoleWorkflowControl {
             text = "j/k select  enter choose  d details  f diff  o stdout  e stderr  esc back  ctrl-c quit"
 
         case .document:
-            text = "j/k scroll  pgup/pgdn  home/end  esc back  ctrl-c quit"
+            text = "j/k scroll  pgup/pgdn  home/end  c copy  esc back  ctrl-c quit"
+
+        case .diagnostic:
+            text = "j/k scroll  pgup/pgdn  home/end  c copy  esc back  ctrl-c quit"
 
         case .base:
             if console.focus.current == .inspector {
                 text = "j/k scroll  d details  f diff  o stdout  e stderr  esc back  ctrl-c quit"
             } else {
-                text = "j/k select  h/← runs  l/→ plan  enter inspect  x run  a actions  d/f/o/e docs  ctrl-c quit"
+                text = "tab focus  j/k select  h/← previous  l/→ next  enter inspect  x run  a actions  d/f/o/e docs  ctrl-c quit"
             }
         }
 
