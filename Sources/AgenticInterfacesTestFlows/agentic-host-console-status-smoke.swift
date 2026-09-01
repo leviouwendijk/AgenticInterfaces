@@ -95,7 +95,7 @@ enum AgenticHostConsoleStatusSmoke {
         }
 
         guard workflow.handle(
-            .escape
+            .char("q")
         ) == .statusClosed(
             statusID: "status-1"
         ),

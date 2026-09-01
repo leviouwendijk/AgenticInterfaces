@@ -8,6 +8,7 @@ public enum AgenticHostConsoleWorkflowFocus:
     case runControls
     case actions
     case document
+    case runInspector
     case diagnostic
 }
 
@@ -65,6 +66,18 @@ public enum AgenticHostConsoleWorkflowEvent:
         text: String,
         title: String
     )
+    case runInspectionOpened(
+        runID: String
+    )
+    case runInspectionClosed(
+        runID: String
+    )
+    case runInputCopyRequested(
+        runID: String
+    )
+    case runOutputCopyRequested(
+        runID: String
+    )
 
     public var requestsExit: Bool {
         if case .base(.exitRequested) = self {
@@ -90,10 +103,12 @@ public struct AgenticHostConsoleWorkflowControl:
         String
     >
     private var document: TerminalScrollableDocument
+    private var runInspector: TerminalScrollableDocument
     private var diagnostic: TerminalScrollableDocument
     private var openedRunControlRunID: String?
     private var openedInterruptionID: String?
     private var openedDocumentID: String?
+    private var openedRunInspectorRunID: String?
     private var openedStatusID: String?
 
     public init(
@@ -122,10 +137,12 @@ public struct AgenticHostConsoleWorkflowControl:
             }
         )
         self.document = TerminalScrollableDocument()
+        self.runInspector = TerminalScrollableDocument()
         self.diagnostic = TerminalScrollableDocument()
         self.openedRunControlRunID = nil
         self.openedInterruptionID = nil
         self.openedDocumentID = nil
+        self.openedRunInspectorRunID = nil
         self.openedStatusID = nil
     }
 
@@ -246,6 +263,18 @@ public struct AgenticHostConsoleWorkflowControl:
                 to: .base
             )
         }
+
+        if let openedRunInspectorRunID,
+           !snapshot.runs.contains(
+            where: {
+                $0.id == openedRunInspectorRunID
+            }
+           ) {
+            self.openedRunInspectorRunID = nil
+            focus.reset(
+                to: .base
+            )
+        }
     }
 
     public mutating func handle(
@@ -275,6 +304,11 @@ public struct AgenticHostConsoleWorkflowControl:
 
         case .document:
             return handleDocument(
+                key
+            )
+
+        case .runInspector:
+            return handleRunInspector(
                 key
             )
 
@@ -310,6 +344,13 @@ public struct AgenticHostConsoleWorkflowControl:
 
         if openedDocumentID != nil {
             renderDocument(
+                into: &frame,
+                in: region
+            )
+        }
+
+        if openedRunInspectorRunID != nil {
+            renderRunInspector(
                 into: &frame,
                 in: region
             )
@@ -403,6 +444,26 @@ private extension AgenticHostConsoleWorkflowControl {
             return nil
         }
 
+        if case .runInspectionOpened(let runID) = event {
+            guard let run = console.snapshot.runs.first(
+                where: {
+                    $0.id == runID
+                }
+            ) else {
+                return .feedbackRequested(
+                    message: "Run is no longer available."
+                )
+            }
+
+            openRunInspector(
+                run
+            )
+
+            return .runInspectionOpened(
+                runID: run.id
+            )
+        }
+
         if case .statusInspectionOpened(let statusID) = event {
             guard let status = console.snapshot.statuses.first(
                 where: {
@@ -431,7 +492,7 @@ private extension AgenticHostConsoleWorkflowControl {
     mutating func handleRunControls(
         _ key: TerminalKey
     ) -> AgenticHostConsoleWorkflowEvent? {
-        if key == .escape {
+        if key == .escape || key == .char("q") {
             return closeRunControls()
         }
 
@@ -472,7 +533,7 @@ private extension AgenticHostConsoleWorkflowControl {
     mutating func handleActions(
         _ key: TerminalKey
     ) -> AgenticHostConsoleWorkflowEvent? {
-        if key == .escape {
+        if key == .escape || key == .char("q") {
             return closeInterruption()
         }
 
@@ -525,7 +586,7 @@ private extension AgenticHostConsoleWorkflowControl {
     mutating func handleDocument(
         _ key: TerminalKey
     ) -> AgenticHostConsoleWorkflowEvent? {
-        if key == .escape {
+        if key == .escape || key == .char("q") {
             return closeDocument()
         }
 
@@ -602,10 +663,71 @@ private extension AgenticHostConsoleWorkflowControl {
         return nil
     }
 
+    mutating func handleRunInspector(
+        _ key: TerminalKey
+    ) -> AgenticHostConsoleWorkflowEvent? {
+        if key == .escape || key == .char("q") {
+            return closeRunInspector()
+        }
+
+        guard let openedRunInspectorRunID else {
+            return nil
+        }
+
+        if key == .char("i") {
+            return .runInputCopyRequested(
+                runID: openedRunInspectorRunID
+            )
+        }
+
+        if key == .char("o") {
+            return .runOutputCopyRequested(
+                runID: openedRunInspectorRunID
+            )
+        }
+
+        let motion: TerminalMotion?
+
+        switch key {
+        case .up,
+             .char("k"):
+            motion = .up
+
+        case .down,
+             .char("j"):
+            motion = .down
+
+        case .pageUp:
+            motion = .pageUp
+
+        case .pageDown:
+            motion = .pageDown
+
+        case .home:
+            motion = .documentStart
+
+        case .end:
+            motion = .documentEnd
+
+        default:
+            motion = nil
+        }
+
+        if let motion {
+            _ = runInspector.handle(
+                .motion(
+                    motion
+                )
+            )
+        }
+
+        return nil
+    }
+
     mutating func handleDiagnostic(
         _ key: TerminalKey
     ) -> AgenticHostConsoleWorkflowEvent? {
-        if key == .escape {
+        if key == .escape || key == .char("q") {
             return closeDiagnostic()
         }
 
@@ -869,6 +991,29 @@ private extension AgenticHostConsoleWorkflowControl {
         )
     }
 
+    mutating func openRunInspector(
+        _ run: AgenticHostConsoleRunPresentation
+    ) {
+        openedRunInspectorRunID = run.id
+        runInspector.moveToStart()
+        focus.push(
+            .runInspector
+        )
+    }
+
+    mutating func closeRunInspector() -> AgenticHostConsoleWorkflowEvent? {
+        guard let openedRunInspectorRunID else {
+            return nil
+        }
+
+        self.openedRunInspectorRunID = nil
+        _ = focus.pop()
+
+        return .runInspectionClosed(
+            runID: openedRunInspectorRunID
+        )
+    }
+
     mutating func openDiagnostic(
         _ status: AgenticHostConsoleStatusPresentation
     ) {
@@ -896,6 +1041,7 @@ private extension AgenticHostConsoleWorkflowControl {
         openedRunControlRunID = nil
         openedInterruptionID = nil
         openedDocumentID = nil
+        openedRunInspectorRunID = nil
         openedStatusID = nil
         runControls.updateItems(
             [],
@@ -1233,6 +1379,108 @@ private extension AgenticHostConsoleWorkflowControl {
         )
     }
 
+    mutating func renderRunInspector(
+        into frame: inout TerminalFrame,
+        in region: TerminalRegion
+    ) {
+        guard let openedRunInspectorRunID,
+              let run = console.snapshot.runs.first(
+                where: {
+                    $0.id == openedRunInspectorRunID
+                }
+              ) else {
+            return
+        }
+
+        let columns = min(
+            max(
+                40,
+                region.columns * 2 / 3
+            ),
+            max(
+                1,
+                region.columns - 4
+            )
+        )
+        let overlay = TerminalOverlay(
+            placement: .trailing(
+                columns: columns
+            ),
+            outerInsets: TerminalInsets(
+                vertical: 1,
+                horizontal: 1
+            ),
+            contentInsets: TerminalInsets(
+                vertical: 1,
+                horizontal: 2
+            )
+        )
+        let runInspectorLayer = TerminalZIndex(
+            220
+        )
+        let content = overlay.render(
+            into: &frame,
+            in: region,
+            title: "Run · \(run.title)",
+            zIndex: runInspectorLayer
+        )
+
+        var lines = [
+            "run        \(run.id)",
+            "state      \(run.state.rawValue)",
+        ]
+
+        if let summary = run.summary,
+           !summary.isEmpty {
+            lines.append(
+                "summary    \(summary)"
+            )
+        }
+
+        lines.append(
+            ""
+        )
+        lines.append(
+            "Authored steps"
+        )
+
+        if run.steps.isEmpty {
+            lines.append(
+                "No authored steps."
+            )
+        } else {
+            for (
+                index,
+                step
+            ) in run.steps.enumerated() {
+                lines.append(
+                    "\(index + 1). \(step.title)  [\(step.state.rawValue)]"
+                )
+
+                if let detail = step.detail,
+                   !detail.isEmpty {
+                    lines.append(
+                        "   \(detail)"
+                    )
+                }
+            }
+        }
+
+        runInspector.update(
+            text: lines.joined(
+                separator: "\n"
+            ),
+            columns: content.columns,
+            visibleRows: content.rows,
+            wrapping: .word
+        )
+        runInspector.render(
+            into: &frame,
+            in: content,
+            zIndex: runInspectorLayer
+        )
+    }
+
     mutating func renderDiagnostic(
         into frame: inout TerminalFrame,
         in region: TerminalRegion
@@ -1305,20 +1553,23 @@ private extension AgenticHostConsoleWorkflowControl {
 
         switch focus.current {
         case .runControls:
-            text = "j/k select  enter choose  esc back  ctrl-c quit"
+            text = "j/k select  enter choose  q back  ctrl-c quit"
 
         case .actions:
-            text = "j/k select  enter choose  d details  f diff  o stdout  e stderr  esc back  ctrl-c quit"
+            text = "j/k select  enter choose  d details  f diff  o stdout  e stderr  q back  ctrl-c quit"
 
         case .document:
-            text = "h/l view  j/k scroll  pgup/pgdn  home/end  c copy  esc back  ctrl-c quit"
+            text = "h/l view  j/k scroll  pgup/pgdn  home/end  c copy  q back  ctrl-c quit"
+
+        case .runInspector:
+            text = "j/k scroll  pgup/pgdn  home/end  i input  o output  q back  ctrl-c quit"
 
         case .diagnostic:
-            text = "j/k scroll  pgup/pgdn  home/end  c copy  esc back  ctrl-c quit"
+            text = "j/k scroll  pgup/pgdn  home/end  c copy  q back  ctrl-c quit"
 
         case .base:
             if console.focus.current == .inspector {
-                text = "j/k scroll  d details  f diff  o stdout  e stderr  esc back  ctrl-c quit"
+                text = "j/k scroll  d details  f diff  o stdout  e stderr  q back  ctrl-c quit"
             } else {
                 text = "tab focus  j/k select  h/← previous  l/→ next  enter inspect  x run  a actions  d/f/o/e docs  ctrl-c quit"
             }

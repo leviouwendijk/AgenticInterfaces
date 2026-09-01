@@ -25,6 +25,9 @@ public enum AgenticHostConsoleEvent:
         stepID: String
     )
     case stepInspectionClosed
+    case runInspectionOpened(
+        runID: String
+    )
     case statusInspectionOpened(
         statusID: String
     )
@@ -53,6 +56,7 @@ public struct AgenticHostConsoleControl:
     private var statusDocument: TerminalScrollableDocument
     private var inspectorDocument: TerminalScrollableDocument
     private var inspectedStepID: String?
+    private var isRunHeaderSelected: Bool
 
     public init(
         snapshot: AgenticHostConsoleSnapshot,
@@ -100,14 +104,21 @@ public struct AgenticHostConsoleControl:
         self.statusDocument = TerminalScrollableDocument()
         self.inspectorDocument = TerminalScrollableDocument()
         self.inspectedStepID = nil
+        self.isRunHeaderSelected = false
     }
 
     public var currentRunID: String? {
         runs.currentID
     }
 
+    public var runHeaderSelected: Bool {
+        isRunHeaderSelected
+    }
+
     public var currentStepID: String? {
-        steps.currentID
+        isRunHeaderSelected
+            ? nil
+            : steps.currentID
     }
 
     public var currentRun: AgenticHostConsoleRunPresentation? {
@@ -182,6 +193,11 @@ public struct AgenticHostConsoleControl:
         rebuildSteps(
             requestedStepID: requestedStepID
         )
+
+        if previousRunID != currentRunID {
+            isRunHeaderSelected = false
+        }
+
         statuses.updateItems(
             snapshot.statuses,
             preservingCurrent: true
@@ -309,6 +325,8 @@ private extension AgenticHostConsoleControl {
             rebuildSteps(
                 requestedStepID: nil
             )
+            isRunHeaderSelected = false
+
             return .runSelectionChanged(
                 runID
             )
@@ -342,6 +360,46 @@ private extension AgenticHostConsoleControl {
             return nil
         }
 
+        if isRunHeaderSelected {
+            switch key {
+            case .down,
+                 .char("j"):
+                guard let runID = currentRunID,
+                      let stepID = steps.currentID else {
+                    return nil
+                }
+
+                isRunHeaderSelected = false
+
+                return .stepSelectionChanged(
+                    runID: runID,
+                    stepID: stepID
+                )
+
+            case .enter:
+                guard let runID = currentRunID else {
+                    return nil
+                }
+
+                return .runInspectionOpened(
+                    runID: runID
+                )
+
+            case .up,
+                 .char("k"):
+                return nil
+
+            default:
+                return nil
+            }
+        }
+
+        if (key == .up || key == .char("k")),
+           steps.currentIndex == 0 {
+            isRunHeaderSelected = true
+            return nil
+        }
+
         guard let event = steps.handle(
             key
         ) else {
@@ -350,6 +408,8 @@ private extension AgenticHostConsoleControl {
 
         switch event {
         case .currentChanged(let stepID):
+            isRunHeaderSelected = false
+
             guard let runID = currentRunID else {
                 return nil
             }
@@ -360,6 +420,8 @@ private extension AgenticHostConsoleControl {
             )
 
         case .accepted(let stepID):
+            isRunHeaderSelected = false
+
             guard let runID = currentRunID else {
                 return nil
             }
@@ -419,7 +481,7 @@ private extension AgenticHostConsoleControl {
     mutating func handleInspector(
         _ key: TerminalKey
     ) -> AgenticHostConsoleEvent? {
-        if key == .escape {
+        if key == .escape || key == .char("q") {
             inspectedStepID = nil
             _ = focus.pop()
             return .stepInspectionClosed
@@ -667,10 +729,23 @@ private extension AgenticHostConsoleControl {
             return
         }
 
-        var heading = [
-            TerminalStyle.bold.apply(
+        let runTitle: String
+
+        if focus.current == .timeline,
+           isRunHeaderSelected {
+            runTitle = TerminalStyle(
+                .inverse
+            ).apply(
                 run.title
-            ),
+            )
+        } else {
+            runTitle = TerminalStyle.bold.apply(
+                run.title
+            )
+        }
+
+        var heading = [
+            runTitle,
             runStateStyle(
                 run.state
             ).apply(
@@ -704,7 +779,9 @@ private extension AgenticHostConsoleControl {
         )
         let layout = timeline.layout(
             width: vertical[1].columns,
-            selectedID: currentStepID
+            selectedID: isRunHeaderSelected
+                ? nil
+                : currentStepID
         )
 
         timelineDocument.update(
@@ -712,7 +789,8 @@ private extension AgenticHostConsoleControl {
             visibleRows: vertical[1].rows
         )
 
-        if let currentStepID,
+        if !isRunHeaderSelected,
+           let currentStepID,
            let rows = layout.itemRows[
             currentStepID
            ] {
@@ -792,9 +870,9 @@ private extension AgenticHostConsoleControl {
         let text: String
 
         if focus.current == .inspector {
-            text = "j/k scroll  esc back  ctrl-c quit"
+            text = "j/k scroll  q back  ctrl-c quit"
         } else {
-            text = "tab focus  j/k select  h/← previous  l/→ next  enter inspect  esc back  ctrl-c quit"
+            text = "tab focus  j/k select  h/← previous  l/→ next  enter inspect  ctrl-c quit"
         }
 
         frame.write(

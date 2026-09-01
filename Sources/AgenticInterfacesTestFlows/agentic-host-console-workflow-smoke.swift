@@ -53,7 +53,7 @@ enum AgenticHostConsoleWorkflowSmoke {
         }
 
         _ = console.handle(
-            .escape
+            .char("q")
         )
 
         guard console.focus.current == .base,
@@ -159,7 +159,7 @@ enum AgenticHostConsoleWorkflowSmoke {
         }
 
         _ = console.handle(
-            .escape
+            .char("q")
         )
 
         guard console.focus.current == .actions else {
@@ -167,7 +167,7 @@ enum AgenticHostConsoleWorkflowSmoke {
         }
 
         _ = console.handle(
-            .escape
+            .char("q")
         )
 
         guard console.focus.current == .base,
@@ -179,6 +179,8 @@ enum AgenticHostConsoleWorkflowSmoke {
         try AgenticHostConsoleApprovalReviewSmoke.run()
         try AgenticHostConsoleStatusSmoke.run()
         try AgenticHostConsoleDocumentNavigationSmoke.run()
+        try AgenticHostConsoleRunHeaderSmoke.run()
+        try AgenticHostConsoleRunInspectionSmoke.run()
     }
 
     private static func runExecutionControlProbe() throws {
@@ -223,7 +225,7 @@ enum AgenticHostConsoleWorkflowSmoke {
         }
 
         let closed = paused.handle(
-            .escape
+            .char("q")
         )
 
         guard paused.focus.current == .base,
