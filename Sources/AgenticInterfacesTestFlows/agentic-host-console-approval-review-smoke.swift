@@ -14,6 +14,7 @@ enum AgenticHostConsoleApprovalReviewSmoke {
     static func run() throws {
         try runActionProbe()
         try runDiffProbe()
+        try runMissingDocumentRequestProbe()
     }
 
     private static func runActionProbe() throws {
@@ -36,6 +37,32 @@ enum AgenticHostConsoleApprovalReviewSmoke {
                 kind: .approval
               ) else {
             throw Failure.unexpectedActionShortcut
+        }
+    }
+
+    private static func runMissingDocumentRequestProbe() throws {
+        var snapshot = fixture()
+        snapshot.documents = []
+
+        var console = AgenticHostConsoleWorkflowControl(
+            snapshot: snapshot
+        )
+
+        try moveToRunsWithDrift(
+            &console
+        )
+
+        let event = console.handle(
+            .char("f")
+        )
+
+        guard event == .documentRequested(
+            runID: "approval-run",
+            stepID: "reviewed-step",
+            kind: .diff
+        ),
+              console.focus.current == .base else {
+            throw Failure.unexpectedDiffShortcut
         }
     }
 

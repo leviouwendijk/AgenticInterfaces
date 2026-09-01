@@ -38,6 +38,11 @@ public enum AgenticHostConsoleWorkflowEvent:
         runID: String,
         control: AgenticHostConsoleRunControl
     )
+    case documentRequested(
+        runID: String,
+        stepID: String,
+        kind: AgenticHostConsoleDocumentKind
+    )
     case documentOpened(
         documentID: String,
         kind: AgenticHostConsoleDocumentKind
@@ -302,18 +307,28 @@ private extension AgenticHostConsoleWorkflowControl {
 
         if let kind = documentKind(
             for: key
-           ),
-           let document = matchingDocument(
-            kind: kind
-           ) {
-            openDocument(
-                document
-            )
+        ) {
+            if let document = matchingDocument(
+                kind: kind
+            ) {
+                openDocument(
+                    document
+                )
 
-            return .documentOpened(
-                documentID: document.id,
-                kind: document.kind
-            )
+                return .documentOpened(
+                    documentID: document.id,
+                    kind: document.kind
+                )
+            }
+
+            if let currentRunID,
+               let currentStepID {
+                return .documentRequested(
+                    runID: currentRunID,
+                    stepID: currentStepID,
+                    kind: kind
+                )
+            }
         }
 
         guard let event = console.handle(
