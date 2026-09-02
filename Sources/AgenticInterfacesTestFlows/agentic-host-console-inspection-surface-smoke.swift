@@ -67,6 +67,45 @@ enum AgenticHostConsoleInspectionSurfaceSmoke {
         else {
             throw Failure.unexpectedFieldWrapping
         }
+
+        let pathological =
+            AgenticHostConsoleInspectionSurface.fieldLines(
+                [
+                    AgenticHostConsoleField(
+                        "run",
+                        "conversation-interface-foundation"
+                    ),
+                    AgenticHostConsoleField(
+                        "state",
+                        "completed"
+                    ),
+                    AgenticHostConsoleField(
+                        "this-is-an-intentionally-pathological-field-label-that-must-not-starve-values",
+                        "bounded label width"
+                    ),
+                ],
+                columns: 80
+            )
+
+        guard pathological.allSatisfy({
+                TerminalDisplay.width(
+                    of: $0
+                ) <= 80
+              }),
+              pathological.contains(where: {
+                $0.contains(
+                    "conversation-interface-foundation"
+                )
+              }),
+              pathological.contains(where: {
+                $0.contains(
+                    "completed"
+                )
+              }),
+              pathological.count < 10
+        else {
+            throw Failure.unexpectedFieldWrapping
+        }
     }
 
     private static func runInspectorIntegrationProbe() throws {

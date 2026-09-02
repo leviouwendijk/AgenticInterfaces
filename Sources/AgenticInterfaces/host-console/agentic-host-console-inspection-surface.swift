@@ -35,21 +35,35 @@ package enum AgenticHostConsoleInspectionSurface {
                 )
             }
             .max() ?? 0
-        let labelWidth = min(
-            naturalLabelWidth,
+        let spacing = "  "
+        let spacingWidth = TerminalDisplay.width(
+            of: spacing
+        )
+        let minimumValueWidth = min(
+            24,
             max(
-                0,
-                columns - 3
+                1,
+                columns / 2
             )
         )
-        let spacing = "  "
+        let maximumLabelWidth = min(
+            24,
+            max(
+                0,
+                columns
+                    - spacingWidth
+                    - minimumValueWidth
+            )
+        )
+        let labelWidth = min(
+            naturalLabelWidth,
+            maximumLabelWidth
+        )
         let valueColumns = max(
             1,
             columns
                 - labelWidth
-                - TerminalDisplay.width(
-                    of: spacing
-                )
+                - spacingWidth
         )
 
         return fields.flatMap { field in

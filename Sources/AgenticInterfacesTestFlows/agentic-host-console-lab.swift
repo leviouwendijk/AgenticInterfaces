@@ -14,9 +14,13 @@ enum AgenticInterfacesTestFlows {
         case "host-console":
             try AgenticHostConsoleLab.run()
 
+        case "conversation":
+            try AgenticConversationLab.run()
+
         case "host-console-foundation":
             try AgenticHostConsoleFoundationSmoke.run()
             try AgenticHostConsoleWorkflowSmoke.run()
+            try AgenticConversationSmoke.run()
             print(
                 "agentic host console foundation smoke passed"
             )
@@ -24,6 +28,7 @@ enum AgenticInterfacesTestFlows {
         case nil:
             try AgenticHostConsoleFoundationSmoke.run()
             try AgenticHostConsoleWorkflowSmoke.run()
+            try AgenticConversationSmoke.run()
             print(
                 "agentic host console foundation smoke passed"
             )
@@ -33,6 +38,7 @@ enum AgenticInterfacesTestFlows {
                 """
                 usage:
                   swift run aginttest host-console
+                  swift run aginttest conversation
                   swift run aginttest host-console-foundation
                 """
             )
