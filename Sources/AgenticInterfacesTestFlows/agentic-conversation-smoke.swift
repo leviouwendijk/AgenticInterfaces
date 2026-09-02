@@ -6,6 +6,8 @@ enum AgenticConversationSmoke {
         case composerConsumedQ
         case pastedContentChanged
         case submissionChanged
+        case transcriptionDraftChanged
+        case transcribedContentChanged
         case modelSelectionChanged
         case skillSelectionChanged
         case attachmentDidNotOpen
@@ -24,7 +26,9 @@ enum AgenticConversationSmoke {
         let pasted = "alpha\nbeta\n"
         let pinned = control.handle(.paste(pasted))
         guard case .contentPinned(let content)? = pinned,
+              content.kind == .pasted,
               content.body == pasted,
+              control.pinnedContents.first?.kind == .pasted,
               control.pinnedContents.first?.body == pasted
         else {
             throw Failure.pastedContentChanged
@@ -33,13 +37,51 @@ enum AgenticConversationSmoke {
         let submitted = control.handle(.enter)
         guard case .submissionRequested(let submission)? = submitted,
               submission.body == "q",
+              submission.origin == .typed,
               submission.contents.map(\.body) == [pasted],
+              submission.contents.map(\.kind) == [.pasted],
               submission.modelProfileID.rawValue == "apple-default",
               submission.skillIDs.isEmpty,
               control.draftText.isEmpty,
               control.pinnedContents.isEmpty
         else {
             throw Failure.submissionChanged
+        }
+
+        _ = control.applyTranscription(
+            .init(
+                text: "spoken draft",
+                localeIdentifier: "en-US"
+            )
+        )
+        guard control.draftText == "spoken draft" else {
+            throw Failure.transcriptionDraftChanged
+        }
+
+        let transcribedPinned = control.applyTranscription(
+            .init(
+                text: "spoken context",
+                localeIdentifier: "en-US"
+            ),
+            disposition: .pinned
+        )
+        guard case .contentPinned(let transcribedContent)? = transcribedPinned,
+              transcribedContent.kind == .transcribed,
+              transcribedContent.body == "spoken context"
+        else {
+            throw Failure.transcribedContentChanged
+        }
+
+        let voiceSubmitted = control.handle(.enter)
+        guard case .submissionRequested(let voiceSubmission)? = voiceSubmitted,
+              voiceSubmission.body == "spoken draft",
+              voiceSubmission.origin == .transcribed,
+              voiceSubmission.contents.map(\.kind) == [.transcribed],
+              voiceSubmission.contents.map(\.body) == ["spoken context"],
+              control.draftText.isEmpty,
+              control.pinnedContents.isEmpty
+        else {
+            throw Failure.transcribedContentChanged
         }
 
         _ = control.handle(.escape)

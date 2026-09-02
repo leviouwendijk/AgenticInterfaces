@@ -30,6 +30,7 @@ public struct AgenticConversationControl: Sendable {
     public private(set) var focus: TerminalFocusStack<AgenticConversationFocus>
 
     private var composer: TerminalTextInputControl
+    private var draftOrigin: AgenticConversationInputOrigin
     private var transcript: TerminalScrollableDocument
     private var attachmentDocument: TerminalScrollableDocument
     private var selectedMessageID: String?
@@ -49,6 +50,7 @@ public struct AgenticConversationControl: Sendable {
             prompt: "> ",
             placeholder: "type a message..."
         )
+        self.draftOrigin = .typed
         self.transcript = TerminalScrollableDocument(followEnd: true)
         self.attachmentDocument = TerminalScrollableDocument()
         self.selectedMessageID = snapshot.messages.last?.id
@@ -117,12 +119,49 @@ public struct AgenticConversationControl: Sendable {
         hostConsole?.update(snapshot.hostConsole)
     }
 
+    public mutating func applyTranscription(
+        _ transcription: AgenticConversationTranscription,
+        disposition: AgenticConversationTranscriptionDisposition = .draft
+    ) -> AgenticConversationEvent? {
+        let text = TerminalTextBuffer(
+            text: transcription.text
+        ).text
+
+        guard !text.isEmpty else {
+            return nil
+        }
+
+        switch disposition {
+        case .draft:
+            composer.replace(
+                with: text
+            )
+            draftOrigin = .transcribed
+            focus.reset(
+                to: .composer
+            )
+            return nil
+
+        case .pinned:
+            return pin(
+                text,
+                kind: .transcribed,
+                detail: transcription.localeIdentifier
+            )
+        }
+    }
+
     public mutating func handle(
         _ event: TerminalInputEvent
     ) -> AgenticConversationEvent? {
         switch event {
         case .paste(let text):
-            return focus.current == .composer ? pin(text) : nil
+            return focus.current == .composer
+                ? pin(
+                    text,
+                    kind: .pasted
+                )
+                : nil
         case .key(let key):
             return handle(key)
         }
@@ -178,7 +217,11 @@ public struct AgenticConversationControl: Sendable {
 }
 
 private extension AgenticConversationControl {
-    mutating func pin(_ source: String) -> AgenticConversationEvent? {
+    mutating func pin(
+        _ source: String,
+        kind: AgenticConversationContentKind,
+        detail: String? = nil
+    ) -> AgenticConversationEvent? {
         let source = TerminalTextBuffer(text: source).text
         guard !source.isEmpty else {
             return nil
@@ -188,10 +231,29 @@ private extension AgenticConversationControl {
             $0 + ($1 == "\n" ? 1 : 0)
         }
         let lineLabel = lineCount == 1 ? "line" : "lines"
+        let titlePrefix: String
+        let summaryPrefix: String
+
+        switch kind {
+        case .pasted:
+            titlePrefix = "Pasted"
+            summaryPrefix = "paste"
+
+        case .transcribed:
+            titlePrefix = "Transcribed"
+            summaryPrefix = if let detail,
+                               !detail.isEmpty {
+                "transcribed · \(detail)"
+            } else {
+                "transcribed"
+            }
+        }
+
         let content = AgenticConversationContentPresentation(
             id: "pending-content-\(nextContentOrdinal)",
-            title: "Pasted content \(nextContentOrdinal)",
-            summary: "paste · \(lineCount) \(lineLabel)",
+            kind: kind,
+            title: "\(titlePrefix) content \(nextContentOrdinal)",
+            summary: "\(summaryPrefix) · \(lineCount) \(lineLabel)",
             body: source
         )
         nextContentOrdinal += 1
@@ -222,11 +284,13 @@ private extension AgenticConversationControl {
 
         let submission = AgenticConversationSubmission(
             body: body,
+            origin: draftOrigin,
             contents: pendingContents,
             modelProfileID: snapshot.selectedModelProfileID,
             skillIDs: snapshot.selectedSkillIDs
         )
         composer.clear()
+        draftOrigin = .typed
         pendingContents.removeAll(keepingCapacity: true)
         return .submissionRequested(submission)
     }

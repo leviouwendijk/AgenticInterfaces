@@ -1,13 +1,53 @@
 import Agentic
 
+public enum AgenticConversationContentKind: String, Sendable, Hashable {
+    case pasted = "pasted_content"
+    case transcribed = "transcribed_content"
+}
+
+public enum AgenticConversationInputOrigin: String, Sendable, Hashable {
+    case typed
+    case transcribed
+}
+
+public enum AgenticConversationTranscriptionDisposition:
+    String,
+    Sendable,
+    Hashable
+{
+    case draft
+    case pinned
+}
+
+public struct AgenticConversationTranscription: Sendable, Hashable {
+    public var text: String
+    public var localeIdentifier: String?
+
+    public init(
+        text: String,
+        localeIdentifier: String? = nil
+    ) {
+        self.text = text
+        self.localeIdentifier = localeIdentifier
+    }
+}
+
 public struct AgenticConversationContentPresentation: Sendable, Hashable {
     public var id: String
+    public var kind: AgenticConversationContentKind
     public var title: String
     public var summary: String
     public var body: String
 
-    public init(id: String, title: String, summary: String, body: String) {
+    public init(
+        id: String,
+        kind: AgenticConversationContentKind = .pasted,
+        title: String,
+        summary: String,
+        body: String
+    ) {
         self.id = id
+        self.kind = kind
         self.title = title
         self.summary = summary
         self.body = body
@@ -108,17 +148,20 @@ public struct AgenticConversationSkillPresentation: Sendable, Hashable {
 
 public struct AgenticConversationSubmission: Sendable, Hashable {
     public var body: String
+    public var origin: AgenticConversationInputOrigin
     public var contents: [AgenticConversationContentPresentation]
     public var modelProfileID: AgentModelProfileIdentifier
     public var skillIDs: [AgentSkillIdentifier]
 
     public init(
         body: String,
+        origin: AgenticConversationInputOrigin = .typed,
         contents: [AgenticConversationContentPresentation],
         modelProfileID: AgentModelProfileIdentifier,
         skillIDs: [AgentSkillIdentifier]
     ) {
         self.body = body
+        self.origin = origin
         self.contents = contents
         self.modelProfileID = modelProfileID
         self.skillIDs = skillIDs
