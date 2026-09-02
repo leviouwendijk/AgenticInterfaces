@@ -8,6 +8,10 @@ enum AgenticConversationSmoke {
         case submissionChanged
         case transcriptionDraftChanged
         case transcribedContentChanged
+        case voiceAvailabilityChanged
+        case voiceStartChanged
+        case voiceStopChanged
+        case voiceCancelChanged
         case modelSelectionChanged
         case skillSelectionChanged
         case attachmentDidNotOpen
@@ -82,6 +86,55 @@ enum AgenticConversationSmoke {
               control.pinnedContents.isEmpty
         else {
             throw Failure.transcribedContentChanged
+        }
+
+        var unconfiguredControl = AgenticConversationControl(
+            snapshot: fixture()
+        )
+        guard unconfiguredControl.handle(
+            .control("V")
+        ) == .feedbackRequested(
+            "Voice input unavailable — no transcription provider configured."
+        ) else {
+            throw Failure.voiceAvailabilityChanged
+        }
+
+        var availableSnapshot = fixture()
+        availableSnapshot.voiceAvailability = .available
+
+        var availableControl = AgenticConversationControl(
+            snapshot: availableSnapshot
+        )
+        guard availableControl.handle(
+            .control("V")
+        ) == .voiceStartRequested else {
+            throw Failure.voiceStartChanged
+        }
+
+        availableSnapshot.voiceState = .recording
+
+        var recordingControl = AgenticConversationControl(
+            snapshot: availableSnapshot
+        )
+        _ = recordingControl.handle(
+            .char("q")
+        )
+        guard recordingControl.draftText == "q" else {
+            throw Failure.composerConsumedQ
+        }
+
+        guard recordingControl.handle(
+            .control("V")
+        ) == .voiceStopRequested else {
+            throw Failure.voiceStopChanged
+        }
+
+        guard recordingControl.handle(
+            .escape
+        ) == .voiceCancelRequested,
+              recordingControl.draftText == "q"
+        else {
+            throw Failure.voiceCancelChanged
         }
 
         _ = control.handle(.escape)

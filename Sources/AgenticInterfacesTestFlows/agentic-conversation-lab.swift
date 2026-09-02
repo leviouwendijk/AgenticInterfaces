@@ -94,7 +94,10 @@ enum AgenticConversationLab {
                         ? "full tool manifest selected"
                         : "skill tool set selected"
                     control.update(snapshot)
-                case .contentPinned,
+                case .voiceStartRequested,
+                     .voiceStopRequested,
+                     .voiceCancelRequested,
+                     .contentPinned,
                      .attachmentOpened,
                      .attachmentClosed,
                      .runOpened,

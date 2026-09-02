@@ -13,6 +13,9 @@ public enum AgenticConversationFocus: Sendable, Hashable {
 
 public enum AgenticConversationEvent: Sendable, Hashable {
     case exitRequested
+    case voiceStartRequested
+    case voiceStopRequested
+    case voiceCancelRequested
     case contentPinned(AgenticConversationContentPresentation)
     case submissionRequested(AgenticConversationSubmission)
     case modelSelectionChanged(AgentModelProfileIdentifier)
@@ -170,6 +173,26 @@ public struct AgenticConversationControl: Sendable {
     public mutating func handle(_ key: TerminalKey) -> AgenticConversationEvent? {
         if key == .control("C") {
             return .exitRequested
+        }
+
+        if key == .escape,
+           snapshot.voiceState == .recording
+        {
+            return .voiceCancelRequested
+        }
+
+        if key == .control("V") {
+            switch focus.current {
+            case .composer,
+                 .transcript:
+                return voiceAction()
+
+            case .attachment,
+                 .models,
+                 .skills,
+                 .run:
+                break
+            }
         }
 
         switch focus.current {
@@ -737,8 +760,10 @@ private extension AgenticConversationControl {
         switch focus.current {
         case .composer:
             return "enter send  paste pin  tab transcript  esc transcript  ctrl-c quit"
+                + voiceFooter
         case .transcript:
             return "j/k message  enter attachments  m model  s skills  tab composer  q quit"
+                + voiceFooter
         case .attachment:
             return "h/l sibling  j/k scroll  enter run  q back"
         case .models:
@@ -747,6 +772,61 @@ private extension AgenticConversationControl {
             return "j/k choose  space toggle  enter apply  q back"
         case .run:
             return "q conversation"
+        }
+    }
+}
+
+
+private extension AgenticConversationControl {
+    mutating func voiceAction() -> AgenticConversationEvent? {
+        switch snapshot.voiceState {
+        case .recording:
+            return .voiceStopRequested
+
+        case .transcribing:
+            return .feedbackRequested(
+                "Voice input is transcribing."
+            )
+
+        case .idle,
+             .failed(_):
+            switch snapshot.voiceAvailability {
+            case .available:
+                return .voiceStartRequested
+
+            case .unconfigured:
+                return .feedbackRequested(
+                    "Voice input unavailable — no transcription provider configured."
+                )
+
+            case .unavailable(let reason):
+                return .feedbackRequested(
+                    "Voice input unavailable — \(reason)"
+                )
+            }
+        }
+    }
+
+    var voiceFooter: String {
+        switch snapshot.voiceState {
+        case .recording:
+            return "  ctrl-v stop  esc cancel"
+
+        case .transcribing:
+            return "  transcribing..."
+
+        case .failed(_):
+            return "  ctrl-v retry"
+
+        case .idle:
+            switch snapshot.voiceAvailability {
+            case .available:
+                return "  ctrl-v mic"
+
+            case .unconfigured,
+                 .unavailable(_):
+                return "  ctrl-v mic unavailable"
+            }
         }
     }
 }
