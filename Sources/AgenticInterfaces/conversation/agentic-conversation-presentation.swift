@@ -174,6 +174,7 @@ public struct AgenticConversationSnapshot: Sendable, Hashable {
     public var activity: String?
     public var voiceAvailability: AgenticConversationVoice.Availability
     public var voiceState: AgenticConversationVoice.State
+    public var voiceStatus: AgenticConversationVoice.Status?
     public var messages: [AgenticConversationMessagePresentation]
     public var models: [AgenticConversationModelPresentation]
     public var selectedModelProfileID: AgentModelProfileIdentifier
@@ -187,6 +188,7 @@ public struct AgenticConversationSnapshot: Sendable, Hashable {
         activity: String? = nil,
         voiceAvailability: AgenticConversationVoice.Availability = .unconfigured,
         voiceState: AgenticConversationVoice.State = .idle,
+        voiceStatus: AgenticConversationVoice.Status? = nil,
         messages: [AgenticConversationMessagePresentation] = [],
         models: [AgenticConversationModelPresentation],
         selectedModelProfileID: AgentModelProfileIdentifier,
@@ -199,6 +201,7 @@ public struct AgenticConversationSnapshot: Sendable, Hashable {
         self.activity = activity
         self.voiceAvailability = voiceAvailability
         self.voiceState = voiceState
+        self.voiceStatus = voiceStatus
         self.messages = messages
         self.models = models
         self.selectedModelProfileID = selectedModelProfileID

@@ -4,6 +4,7 @@ import Terminal
 
 public enum AgenticConversationFocus: Sendable, Hashable {
     case composer
+    case voice
     case transcript
     case attachment
     case models
@@ -33,6 +34,7 @@ public struct AgenticConversationControl: Sendable {
     public private(set) var focus: TerminalFocusStack<AgenticConversationFocus>
 
     private var composer: TerminalTextInputControl
+    private var voiceMeter: TerminalLevelMeter
     private var draftOrigin: AgenticConversationInputOrigin
     private var transcript: TerminalScrollableDocument
     private var attachmentDocument: TerminalScrollableDocument
@@ -52,6 +54,9 @@ public struct AgenticConversationControl: Sendable {
         self.composer = TerminalTextInputControl(
             prompt: "> ",
             placeholder: "type a message..."
+        )
+        self.voiceMeter = TerminalLevelMeter(
+            capacity: 32
         )
         self.draftOrigin = .typed
         self.transcript = TerminalScrollableDocument(followEnd: true)
@@ -97,7 +102,22 @@ public struct AgenticConversationControl: Sendable {
 
     public mutating func update(_ snapshot: AgenticConversationSnapshot) {
         let previousMessageID = selectedMessageID
+        let previousVoiceState = self.snapshot.voiceState
         self.snapshot = snapshot
+
+        if snapshot.voiceState == .recording {
+            if previousVoiceState != .recording {
+                voiceMeter.reset()
+            }
+
+            if let level = snapshot.voiceStatus?.level {
+                voiceMeter.append(
+                    level
+                )
+            }
+        } else if previousVoiceState == .recording {
+            voiceMeter.reset()
+        }
         if let previousMessageID,
            snapshot.messages.contains(where: { $0.id == previousMessageID })
         {
@@ -178,12 +198,16 @@ public struct AgenticConversationControl: Sendable {
         if key == .escape,
            snapshot.voiceState == .recording
         {
+            focus.replace(
+                .composer
+            )
             return .voiceCancelRequested
         }
 
         if key == .control("V") {
             switch focus.current {
             case .composer,
+                 .voice,
                  .transcript:
                 return voiceAction()
 
@@ -198,6 +222,8 @@ public struct AgenticConversationControl: Sendable {
         switch focus.current {
         case .composer:
             return handleComposer(key)
+        case .voice:
+            return handleVoice(key)
         case .transcript:
             return handleTranscript(key)
         case .attachment:
@@ -226,6 +252,14 @@ public struct AgenticConversationControl: Sendable {
         }
 
         renderConversation(into: &frame, in: region)
+
+        if focus.current == .voice {
+            renderVoice(
+                into: &frame,
+                in: region
+            )
+        }
+
         switch focus.current {
         case .attachment:
             renderAttachment(into: &frame, in: region)
@@ -233,7 +267,7 @@ public struct AgenticConversationControl: Sendable {
             renderModels(into: &frame, in: region)
         case .skills:
             renderSkills(into: &frame, in: region)
-        case .composer, .transcript, .run:
+        case .composer, .voice, .transcript, .run:
             break
         }
     }
@@ -285,7 +319,12 @@ private extension AgenticConversationControl {
     }
 
     mutating func handleComposer(_ key: TerminalKey) -> AgenticConversationEvent? {
-        if key == .tab || key == .escape {
+        if key == .tab {
+            focus.replace(.voice)
+            return nil
+        }
+
+        if key == .escape {
             focus.replace(.transcript)
             return nil
         }
@@ -316,6 +355,33 @@ private extension AgenticConversationControl {
         draftOrigin = .typed
         pendingContents.removeAll(keepingCapacity: true)
         return .submissionRequested(submission)
+    }
+
+    mutating func handleVoice(_ key: TerminalKey) -> AgenticConversationEvent? {
+        if key == .tab {
+            focus.replace(.transcript)
+            return nil
+        }
+
+        if key == .escape {
+            if snapshot.voiceState == .recording {
+                focus.replace(.composer)
+                return .voiceCancelRequested
+            }
+
+            focus.replace(.composer)
+            return nil
+        }
+
+        let action = voiceActionControl
+
+        guard action.handle(
+            key
+        ) == .accepted else {
+            return nil
+        }
+
+        return voiceAction()
     }
 
     mutating func handleTranscript(_ key: TerminalKey) -> AgenticConversationEvent? {
@@ -579,16 +645,42 @@ private extension AgenticConversationControl {
                 columns: vertical[2].columns
             )
         )
-        composer.render(
-            into: &frame,
-            in: TerminalRegion(
-                top: vertical[2].top + 1,
-                leading: vertical[2].leading,
-                rows: 1,
-                columns: vertical[2].columns
-            ),
-            isFocused: focus.current == .composer
+        let composerRow = TerminalRegion(
+            top: vertical[2].top + 1,
+            leading: vertical[2].leading,
+            rows: 1,
+            columns: vertical[2].columns
         )
+        let composerLayout = TerminalLayout.horizontal(
+            in: composerRow,
+            [
+                .flex(1),
+                .fixed(4),
+            ],
+            spacing: 1
+        )
+
+        if composerLayout.count == 2 {
+            composer.render(
+                into: &frame,
+                in: composerLayout[0],
+                isFocused: focus.current == .composer
+            )
+            frame.write(
+                voiceActionControl.render(
+                    focused: focus.current == .voice,
+                    theme: .agentic
+                ),
+                in: composerLayout[1]
+            )
+        } else {
+            composer.render(
+                into: &frame,
+                in: composerRow,
+                isFocused: focus.current == .composer
+            )
+        }
+
         frame.write(TerminalStyle.dim.apply(footer), in: vertical[3])
     }
 
@@ -704,6 +796,84 @@ private extension AgenticConversationControl {
         )
     }
 
+    func renderVoice(
+        into frame: inout TerminalFrame,
+        in region: TerminalRegion
+    ) {
+        let content: [String]
+
+        switch snapshot.voiceState {
+        case .idle:
+            return
+
+        case .recording:
+            let elapsed = voiceElapsed
+            let meter = voiceMeter.render(
+                width: 28
+            )
+            content = [
+                "●  recording  \(elapsed)",
+                "",
+                meter.isEmpty
+                    ? "▁"
+                    : meter,
+                "",
+                TerminalStyle.dim.apply(
+                    "enter stop  esc cancel"
+                ),
+            ]
+
+        case .transcribing:
+            content = [
+                "transcribing...",
+                "",
+                TerminalStyle.dim.apply(
+                    "voice input is being converted to text"
+                ),
+            ]
+
+        case .failed(let message):
+            content = [
+                "voice input failed",
+                "",
+                message,
+                "",
+                TerminalStyle.dim.apply(
+                    "enter retry  esc close"
+                ),
+            ]
+        }
+
+        let overlay = TerminalOverlay(
+            placement: .centered(
+                columns: 48,
+                rows: max(
+                    8,
+                    content.count + 2
+                )
+            ),
+            outerInsets: TerminalInsets(
+                vertical: 1,
+                horizontal: 2
+            ),
+            contentInsets: TerminalInsets(
+                vertical: 1,
+                horizontal: 2
+            )
+        )
+        let region = overlay.render(
+            into: &frame,
+            in: region,
+            title: "voice"
+        )
+
+        frame.write(
+            content,
+            in: region,
+            zIndex: .overlay
+        )
+    }
+
     func renderModels(into frame: inout TerminalFrame, in region: TerminalRegion) {
         let overlay = TerminalOverlay(
             placement: .centered(
@@ -759,8 +929,10 @@ private extension AgenticConversationControl {
     var footer: String {
         switch focus.current {
         case .composer:
-            return "enter send  paste pin  tab transcript  esc transcript  ctrl-c quit"
+            return "enter send  paste pin  tab voice  esc transcript  ctrl-c quit"
                 + voiceFooter
+        case .voice:
+            return "enter voice  tab transcript  esc composer  ctrl-v voice"
         case .transcript:
             return "j/k message  enter attachments  m model  s skills  tab composer  q quit"
                 + voiceFooter
@@ -778,6 +950,29 @@ private extension AgenticConversationControl {
 
 
 private extension AgenticConversationControl {
+    var voiceActionControl: TerminalActionControl {
+        TerminalActionControl(
+            symbol: "●",
+            isEnabled: true,
+            isActive: snapshot.voiceState == .recording
+        )
+    }
+
+    var voiceElapsed: String {
+        let seconds = Int(
+            snapshot.voiceStatus?.elapsedSeconds
+                ?? 0
+        )
+        let minutes = seconds / 60
+        let remainder = seconds % 60
+
+        return String(
+            format: "%02d:%02d",
+            minutes,
+            remainder
+        )
+    }
+
     mutating func voiceAction() -> AgenticConversationEvent? {
         switch snapshot.voiceState {
         case .recording:
@@ -792,6 +987,9 @@ private extension AgenticConversationControl {
              .failed(_):
             switch snapshot.voiceAvailability {
             case .available:
+                focus.replace(
+                    .voice
+                )
                 return .voiceStartRequested
 
             case .unconfigured:

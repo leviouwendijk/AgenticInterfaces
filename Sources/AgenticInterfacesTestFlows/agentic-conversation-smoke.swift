@@ -12,6 +12,8 @@ enum AgenticConversationSmoke {
         case voiceStartChanged
         case voiceStopChanged
         case voiceCancelChanged
+        case voiceFocusChanged
+        case voiceStatusChanged
         case modelSelectionChanged
         case skillSelectionChanged
         case attachmentDidNotOpen
@@ -106,12 +108,52 @@ enum AgenticConversationSmoke {
             snapshot: availableSnapshot
         )
         guard availableControl.handle(
-            .control("V")
-        ) == .voiceStartRequested else {
-            throw Failure.voiceStartChanged
+            .tab
+        ) == nil,
+              availableControl.focus.current == .voice,
+              availableControl.handle(
+                .enter
+              ) == .voiceStartRequested
+        else {
+            throw Failure.voiceFocusChanged
         }
 
         availableSnapshot.voiceState = .recording
+        availableSnapshot.voiceStatus = .init(
+            elapsedSeconds: 7,
+            level: 0.75
+        )
+
+        availableControl.update(
+            availableSnapshot
+        )
+
+        var recordingFrame = TerminalFrame(
+            rows: 24,
+            columns: 80
+        )
+        availableControl.render(
+            into: &recordingFrame,
+            in: TerminalRegion(
+                rows: 24,
+                columns: 80
+            )
+        )
+        let recordingPresentation = stripANSI(
+            recordingFrame.resolved().spans
+                .map(\.content)
+                .joined(separator: "\n")
+        )
+
+        guard recordingPresentation.contains(
+            "recording  00:07"
+        ),
+              recordingPresentation.contains(
+                "●"
+              )
+        else {
+            throw Failure.voiceStatusChanged
+        }
 
         var recordingControl = AgenticConversationControl(
             snapshot: availableSnapshot
