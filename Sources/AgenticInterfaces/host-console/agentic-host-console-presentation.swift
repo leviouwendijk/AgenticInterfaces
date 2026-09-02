@@ -54,19 +54,22 @@ public struct AgenticHostConsoleStepPresentation:
     public var detail: String?
     public var state: AgenticHostConsoleStepState
     public var fields: [AgenticHostConsoleField]
+    public var groups: [String]
 
     public init(
         id: String,
         title: String,
         detail: String? = nil,
         state: AgenticHostConsoleStepState,
-        fields: [AgenticHostConsoleField] = []
+        fields: [AgenticHostConsoleField] = [],
+        groups: [String] = []
     ) {
         self.id = id
         self.title = title
         self.detail = detail
         self.state = state
         self.fields = fields
+        self.groups = groups
     }
 }
 

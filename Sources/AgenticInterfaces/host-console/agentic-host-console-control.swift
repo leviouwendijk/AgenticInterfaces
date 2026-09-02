@@ -773,7 +773,8 @@ private extension AgenticHostConsoleControl {
                     id: $0.id,
                     title: $0.title,
                     detail: $0.detail,
-                    state: $0.state.terminalState
+                    state: $0.state.terminalState,
+                    groups: $0.groups
                 )
             }
         )
