@@ -25,6 +25,8 @@ enum AgenticConversationSmoke {
     }
 
     static func run() throws {
+        try AgenticConversationPendingSmoke.run()
+
         var control = AgenticConversationControl(snapshot: fixture())
         _ = control.handle(.char("q"))
         guard control.draftText == "q" else {

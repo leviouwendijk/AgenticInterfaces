@@ -43,6 +43,8 @@ public struct AgenticConversationControl: Sendable {
     private var nextContentOrdinal: Int
     private var attachmentIndex: Int
     private var settings: AgenticConversationSettingsControl
+    private var pendingSubmission: AgenticConversationSubmission?
+    private var pendingSpinner: TerminalSpinnerControl
     private var openedRunID: String?
     private var hostConsole: AgenticHostConsoleWorkflowControl?
 
@@ -66,6 +68,10 @@ public struct AgenticConversationControl: Sendable {
         self.settings = AgenticConversationSettingsControl(
             snapshot: snapshot
         )
+        self.pendingSubmission = nil
+        self.pendingSpinner = TerminalSpinnerControl(
+            label: "invoking model"
+        )
         self.openedRunID = nil
         self.hostConsole = nil
     }
@@ -76,6 +82,33 @@ public struct AgenticConversationControl: Sendable {
 
     public var pinnedContents: [AgenticConversationContentPresentation] {
         pendingContents
+    }
+
+    public var isResponsePending: Bool {
+        pendingSubmission != nil
+    }
+
+    public mutating func beginPendingTurn(
+        _ submission: AgenticConversationSubmission
+    ) {
+        pendingSubmission = submission
+        pendingSpinner.reset()
+        transcript.moveToEnd()
+    }
+
+    @discardableResult
+    public mutating func advancePendingTurn() -> Bool {
+        guard pendingSubmission != nil else {
+            return false
+        }
+
+        _ = pendingSpinner.advance()
+        return true
+    }
+
+    public mutating func endPendingTurn() {
+        pendingSubmission = nil
+        pendingSpinner.reset()
     }
 
     public var currentMessage: AgenticConversationMessagePresentation? {
@@ -175,6 +208,7 @@ public struct AgenticConversationControl: Sendable {
         switch event {
         case .paste(let text):
             return focus.current == .composer
+                && pendingSubmission == nil
                 ? pin(
                     text,
                     kind: .pasted
@@ -197,6 +231,12 @@ public struct AgenticConversationControl: Sendable {
                 .composer
             )
             return .voiceCancelRequested
+        }
+
+        if key == .control("V"),
+           pendingSubmission != nil
+        {
+            return nil
         }
 
         if key == .control("V") {
@@ -321,6 +361,11 @@ private extension AgenticConversationControl {
             focus.replace(.transcript)
             return nil
         }
+
+        guard pendingSubmission == nil else {
+            return nil
+        }
+
         guard composer.handle(key) == .submitRequested else {
             return nil
         }
@@ -367,6 +412,10 @@ private extension AgenticConversationControl {
             return nil
         }
 
+        guard pendingSubmission == nil else {
+            return nil
+        }
+
         let action = voiceActionControl
 
         guard action.handle(
@@ -383,12 +432,18 @@ private extension AgenticConversationControl {
         case .tab, .escape:
             focus.replace(.composer)
         case .char("q"):
+            guard pendingSubmission == nil else {
+                return nil
+            }
             return .exitRequested
         case .char("j"), .down:
             moveMessage(by: 1)
         case .char("k"), .up:
             moveMessage(by: -1)
         case .char("m"):
+            guard pendingSubmission == nil else {
+                return nil
+            }
             guard !snapshot.models.isEmpty else {
                 return .feedbackRequested("No models available.")
             }
@@ -399,6 +454,9 @@ private extension AgenticConversationControl {
                 .settings
             )
         case .char("s"):
+            guard pendingSubmission == nil else {
+                return nil
+            }
             settings.openRoot(
                 snapshot
             )
@@ -636,6 +694,7 @@ private extension AgenticConversationControl {
                 into: &frame,
                 in: composerLayout[0],
                 isFocused: focus.current == .composer
+                    && pendingSubmission == nil
             )
             frame.write(
                 voiceActionControl.render(
@@ -649,6 +708,7 @@ private extension AgenticConversationControl {
                 into: &frame,
                 in: composerRow,
                 isFocused: focus.current == .composer
+                    && pendingSubmission == nil
             )
         }
 
@@ -685,6 +745,36 @@ private extension AgenticConversationControl {
                 )
             }
             rows[message.id] = start..<lines.count
+            lines.append("")
+        }
+
+        if let pendingSubmission {
+            lines.append(
+                TerminalStyle.bold.apply(
+                    AgentRole.user.rawValue
+                )
+            )
+            lines += TerminalTextWrap.lines(
+                pendingSubmission.body,
+                width: bodyWidth
+            ).map {
+                "  " + $0
+            }
+            lines += pendingSubmission.contents.map {
+                TerminalStyle.dim.apply(
+                    "  [" + $0.summary + "]"
+                )
+            }
+            lines.append("")
+
+            lines.append(
+                TerminalStyle.bold.apply(
+                    AgentRole.assistant.rawValue
+                )
+            )
+            lines.append(
+                "  " + pendingSpinner.render()
+            )
             lines.append("")
         }
 
@@ -846,6 +936,21 @@ private extension AgenticConversationControl {
     }
 
     var footer: String {
+        if pendingSubmission != nil {
+            switch focus.current {
+            case .composer:
+                return "response pending  tab voice  esc transcript  ctrl-c quit"
+            case .voice:
+                return "response pending  tab transcript  esc composer"
+            case .transcript:
+                return "j/k message  enter attachments  tab composer  response pending"
+            case .attachment,
+                 .settings,
+                 .run:
+                break
+            }
+        }
+
         switch focus.current {
         case .composer:
             return "enter send  paste pin  tab voice  esc transcript  ctrl-c quit"
@@ -870,7 +975,7 @@ private extension AgenticConversationControl {
     var voiceActionControl: TerminalActionControl {
         TerminalActionControl(
             symbol: "●",
-            isEnabled: true,
+            isEnabled: pendingSubmission == nil,
             isActive: snapshot.voiceState == .recording
         )
     }
