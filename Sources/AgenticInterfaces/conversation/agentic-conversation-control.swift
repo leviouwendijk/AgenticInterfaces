@@ -1,6 +1,8 @@
 import Agentic
 import Foundation
+import ParsersStructuredContent
 import Terminal
+import TerminalStructuredContent
 
 public enum AgenticConversationFocus: Sendable, Hashable {
     case composer
@@ -722,6 +724,7 @@ private extension AgenticConversationControl {
         let bodyWidth = max(1, width - 2)
         var lines: [String] = []
         var rows: [String: Range<Int>] = [:]
+        let structuredRenderer = TerminalStructuredContent.Renderer()
 
         for message in snapshot.messages {
             let start = lines.count
@@ -735,10 +738,24 @@ private extension AgenticConversationControl {
                     )
                     : TerminalStyle.bold.apply(label)
             )
-            lines += TerminalTextWrap.lines(
-                message.body,
-                width: bodyWidth
-            ).map { "  " + $0 }
+            if message.role == .assistant {
+                let structured = MarkdownStructuredContentParser.parse(
+                    message.body
+                )
+                lines += structuredRenderer.rows(
+                    structured,
+                    columns: bodyWidth
+                ).map {
+                    "  " + $0
+                }
+            } else {
+                lines += TerminalTextWrap.lines(
+                    message.body,
+                    width: bodyWidth
+                ).map {
+                    "  " + $0
+                }
+            }
             lines += message.attachments.map {
                 TerminalStyle.dim.apply(
                     "  [" + $0.summary(in: snapshot.hostConsole) + "]"

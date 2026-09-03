@@ -26,6 +26,7 @@ let package = Package(
         .package(url: "https://github.com/leviouwendijk/Guidelines.git", branch: "master"),
         .package(url: "https://github.com/leviouwendijk/Difference.git", branch: "master"),
         .package(url: "https://github.com/leviouwendijk/Terminal.git", branch: "master"),
+        .package(url: "https://github.com/leviouwendijk/Parsers.git", branch: "master"),
         .package(url: "https://github.com/leviouwendijk/Arguments.git", branch: "master"),
     ],
     targets: [
@@ -39,6 +40,8 @@ let package = Package(
                 .product(name: "SchemaMacros", package: "SchemaMacros"),
                 .product(name: "Guidelines", package: "Guidelines"),
                 .product(name: "Terminal", package: "Terminal"),
+                .product(name: "TerminalStructuredContent", package: "Terminal"),
+                .product(name: "ParsersStructuredContent", package: "Parsers"),
                 .product(name: "Difference", package: "Difference"),
                 .product(name: "Arguments", package: "Arguments"),
             ]

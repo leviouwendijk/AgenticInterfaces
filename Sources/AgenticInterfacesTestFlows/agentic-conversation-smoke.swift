@@ -2,6 +2,17 @@ import AgenticInterfaces
 import Terminal
 
 enum AgenticConversationSmoke {
+    static let assistantMarkdown = """
+    ## Inspection ready
+
+    I prepared a **run** for inspection.
+
+    - preserves the original Markdown
+    - renders structured content
+
+    `body` stays canonical.
+    """
+
     enum Failure: Error {
         case composerConsumedQ
         case pastedContentChanged
@@ -21,6 +32,8 @@ enum AgenticConversationSmoke {
         case attachmentDidNotOpen
         case runDidNotOpen
         case runDidNotClose
+        case assistantMarkdownSourceChanged
+        case assistantMarkdownPresentationMissing
         case presentationMissing
     }
 
@@ -322,6 +335,24 @@ enum AgenticConversationSmoke {
         let rendered = frame.resolved().spans
             .map(\.content)
             .joined(separator: "\n")
+
+        guard control.snapshot.messages.first(where: {
+            $0.id == "assistant-run"
+        })?.body == assistantMarkdown else {
+            throw Failure.assistantMarkdownSourceChanged
+        }
+
+        guard rendered.contains("Inspection ready"),
+              rendered.contains("preserves the original Markdown"),
+              rendered.contains("renders structured content"),
+              rendered.contains("body"),
+              !rendered.contains("## Inspection ready"),
+              !rendered.contains("**run**"),
+              !rendered.contains("`body`")
+        else {
+            throw Failure.assistantMarkdownPresentationMissing
+        }
+
         guard rendered.contains("agentic conversation"),
               rendered.contains("Mock model"),
               rendered.contains("all tools"),
@@ -344,7 +375,7 @@ enum AgenticConversationSmoke {
                 AgenticConversationMessagePresentation(
                     id: "assistant-run",
                     role: .assistant,
-                    body: "I prepared a run for inspection.",
+                    body: assistantMarkdown,
                     attachments: [.run(runID: "conversation-run")]
                 ),
             ],
