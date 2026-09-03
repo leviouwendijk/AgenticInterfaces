@@ -90,7 +90,8 @@ public struct AgenticToolHostInvocationParser:
             )
 
             if invocation.execution != nil,
-               !parsedCall.capability.supportsWorkspaceTargeting
+               parsedCall.capability.execution.workingLocation
+                    != .targetable
             {
                 throw AgenticToolHostJSONError.invalidInvocation(
                     JSONDiagnostics(

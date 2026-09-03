@@ -87,7 +87,7 @@ public enum AgenticCapabilityManifestRenderer {
                 "    risk: \(capability.definition.risk.rawValue)"
             )
             lines.append(
-                "    workspace_targeting: \(capability.supportsWorkspaceTargeting ? "supported" : "not_supported")"
+                "    working_location: \(capability.execution.workingLocation.rawValue)"
             )
             lines.append(
                 "    model_exposure: \(capability.isModelFacing ? "model_facing" : "host_only")"

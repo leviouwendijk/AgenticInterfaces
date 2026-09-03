@@ -520,7 +520,10 @@ private extension AgenticToolHostInvocationContract {
                 hasProperty(
                     "execution",
                     in: $0
-                ) == capability.supportsWorkspaceTargeting
+                ) == (
+                    capability.execution.workingLocation
+                        == .targetable
+                )
             }
         }
 

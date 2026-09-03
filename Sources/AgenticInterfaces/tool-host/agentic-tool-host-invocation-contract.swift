@@ -217,9 +217,10 @@ public struct AgenticToolHostPlanNode:
                 )
 
             if execution != nil,
-               !parsedCall
+               parsedCall
                     .capability
-                    .supportsWorkspaceTargeting
+                    .execution
+                    .workingLocation != .targetable
             {
                 throw AgenticToolHostError
                     .invalidInvocationPayload(
@@ -348,13 +349,13 @@ public enum AgenticToolHostInvocationContract {
         )
 
         let targetable =
-            modelCapabilities.filter(
-                \.supportsWorkspaceTargeting
-            )
+            modelCapabilities.filter {
+                $0.execution.workingLocation == .targetable
+            }
 
         let nonTargetable =
             modelCapabilities.filter {
-                !$0.supportsWorkspaceTargeting
+                $0.execution.workingLocation != .targetable
             }
 
         let plan = planSchema()
@@ -429,7 +430,7 @@ public enum AgenticToolHostInvocationContract {
 
         let execution: JSONValue?
 
-        if capability.supportsWorkspaceTargeting {
+        if capability.execution.workingLocation == .targetable {
             execution = AgenticToolHostExecution(
                 workspace: .init(
                     subpath: "DependentPackage"
@@ -560,7 +561,8 @@ private extension AgenticToolHostInvocationContract {
 
             case "execution":
                 guard capability
-                    .supportsWorkspaceTargeting
+                    .execution
+                    .workingLocation == .targetable
                 else {
                     return nil
                 }
@@ -888,9 +890,9 @@ private extension AgenticToolHostInvocationContract {
             capabilities
         )
 
-        return modelFacing.first(
-            where: \.supportsWorkspaceTargeting
-        ) ?? modelFacing.first
+        return modelFacing.first {
+            $0.execution.workingLocation == .targetable
+        } ?? modelFacing.first
     }
 
     static func exampleValue(
