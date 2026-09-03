@@ -7,8 +7,7 @@ public enum AgenticConversationFocus: Sendable, Hashable {
     case voice
     case transcript
     case attachment
-    case models
-    case skills
+    case settings
     case run
 }
 
@@ -20,6 +19,7 @@ public enum AgenticConversationEvent: Sendable, Hashable {
     case contentPinned(AgenticConversationContentPresentation)
     case submissionRequested(AgenticConversationSubmission)
     case modelSelectionChanged(AgentModelProfileIdentifier)
+    case toolExposureSelectionChanged(AgenticConversationToolExposure)
     case skillSelectionChanged([AgentSkillIdentifier])
     case attachmentOpened(messageID: String, attachmentID: String)
     case attachmentClosed(messageID: String)
@@ -42,9 +42,7 @@ public struct AgenticConversationControl: Sendable {
     private var pendingContents: [AgenticConversationContentPresentation]
     private var nextContentOrdinal: Int
     private var attachmentIndex: Int
-    private var selectedModelIndex: Int
-    private var selectedSkillIndex: Int
-    private var draftSkillIDs: [AgentSkillIdentifier]
+    private var settings: AgenticConversationSettingsControl
     private var openedRunID: String?
     private var hostConsole: AgenticHostConsoleWorkflowControl?
 
@@ -65,11 +63,9 @@ public struct AgenticConversationControl: Sendable {
         self.pendingContents = []
         self.nextContentOrdinal = 1
         self.attachmentIndex = 0
-        self.selectedModelIndex = snapshot.models.firstIndex {
-            $0.id == snapshot.selectedModelProfileID
-        } ?? 0
-        self.selectedSkillIndex = 0
-        self.draftSkillIDs = snapshot.selectedSkillIDs
+        self.settings = AgenticConversationSettingsControl(
+            snapshot: snapshot
+        )
         self.openedRunID = nil
         self.hostConsole = nil
     }
@@ -125,10 +121,9 @@ public struct AgenticConversationControl: Sendable {
         } else {
             selectedMessageID = snapshot.messages.last?.id
         }
-        selectedModelIndex = snapshot.models.firstIndex {
-            $0.id == snapshot.selectedModelProfileID
-        } ?? 0
-        draftSkillIDs = snapshot.selectedSkillIDs
+        settings.update(
+            snapshot
+        )
 
         guard let openedRunID else {
             return
@@ -212,8 +207,7 @@ public struct AgenticConversationControl: Sendable {
                 return voiceAction()
 
             case .attachment,
-                 .models,
-                 .skills,
+                 .settings,
                  .run:
                 break
             }
@@ -228,10 +222,8 @@ public struct AgenticConversationControl: Sendable {
             return handleTranscript(key)
         case .attachment:
             return handleAttachment(key)
-        case .models:
-            return handleModels(key)
-        case .skills:
-            return handleSkills(key)
+        case .settings:
+            return handleSettings(key)
         case .run:
             return handleRun(key)
         }
@@ -263,10 +255,11 @@ public struct AgenticConversationControl: Sendable {
         switch focus.current {
         case .attachment:
             renderAttachment(into: &frame, in: region)
-        case .models:
-            renderModels(into: &frame, in: region)
-        case .skills:
-            renderSkills(into: &frame, in: region)
+        case .settings:
+            settings.render(
+                into: &frame,
+                in: region
+            )
         case .composer, .voice, .transcript, .run:
             break
         }
@@ -349,7 +342,8 @@ private extension AgenticConversationControl {
             origin: draftOrigin,
             contents: pendingContents,
             modelProfileID: snapshot.selectedModelProfileID,
-            skillIDs: snapshot.selectedSkillIDs
+            skillIDs: snapshot.selectedSkillIDs,
+            toolExposure: snapshot.selectedToolExposure
         )
         composer.clear()
         draftOrigin = .typed
@@ -398,17 +392,19 @@ private extension AgenticConversationControl {
             guard !snapshot.models.isEmpty else {
                 return .feedbackRequested("No models available.")
             }
-            selectedModelIndex = snapshot.models.firstIndex {
-                $0.id == snapshot.selectedModelProfileID
-            } ?? 0
-            focus.push(.models)
+            settings.openModel(
+                snapshot
+            )
+            focus.push(
+                .settings
+            )
         case .char("s"):
-            guard !snapshot.skills.isEmpty else {
-                return .feedbackRequested("No skills available.")
-            }
-            selectedSkillIndex = 0
-            draftSkillIDs = snapshot.selectedSkillIDs
-            focus.push(.skills)
+            settings.openRoot(
+                snapshot
+            )
+            focus.push(
+                .settings
+            )
         case .enter:
             return openCurrentAttachment()
         default:
@@ -451,59 +447,24 @@ private extension AgenticConversationControl {
         return nil
     }
 
-    mutating func handleModels(_ key: TerminalKey) -> AgenticConversationEvent? {
-        switch key {
-        case .char("q"), .escape:
-            _ = focus.pop()
-        case .char("j"), .down:
-            selectedModelIndex = min(snapshot.models.count - 1, selectedModelIndex + 1)
-        case .char("k"), .up:
-            selectedModelIndex = max(0, selectedModelIndex - 1)
-        case .enter:
-            guard snapshot.models.indices.contains(selectedModelIndex) else {
-                return nil
-            }
-            let model = snapshot.models[selectedModelIndex]
-            guard model.isAvailable else {
-                return .feedbackRequested("Model '\(model.title)' is unavailable.")
-            }
-            snapshot.selectedModelProfileID = model.id
-            _ = focus.pop()
-            return .modelSelectionChanged(model.id)
-        default:
-            break
+    mutating func handleSettings(
+        _ key: TerminalKey
+    ) -> AgenticConversationEvent? {
+        guard let event = settings.handle(
+            key,
+            snapshot: &snapshot
+        ) else {
+            return nil
         }
-        return nil
-    }
 
-    mutating func handleSkills(_ key: TerminalKey) -> AgenticConversationEvent? {
-        switch key {
-        case .char("q"), .escape:
+        switch event {
+        case .closeRequested:
             _ = focus.pop()
-        case .char("j"), .down:
-            selectedSkillIndex = min(snapshot.skills.count - 1, selectedSkillIndex + 1)
-        case .char("k"), .up:
-            selectedSkillIndex = max(0, selectedSkillIndex - 1)
-        case .space:
-            guard snapshot.skills.indices.contains(selectedSkillIndex) else {
-                return nil
-            }
-            let id = snapshot.skills[selectedSkillIndex].id
-            if let index = draftSkillIDs.firstIndex(of: id) {
-                draftSkillIDs.remove(at: index)
-            } else {
-                draftSkillIDs.append(id)
-            }
-        case .enter:
-            snapshot.selectedSkillIDs = snapshot.skills.compactMap {
-                draftSkillIDs.contains($0.id) ? $0.id : nil
-            }
-            _ = focus.pop()
-            return .skillSelectionChanged(snapshot.selectedSkillIDs)
-        default:
-            break
+            return nil
+
+        case .conversation(let event):
+            return event
         }
-        return nil
     }
 
     mutating func handleRun(_ key: TerminalKey) -> AgenticConversationEvent? {
@@ -609,14 +570,24 @@ private extension AgenticConversationControl {
         let modelTitle = snapshot.models.first {
             $0.id == snapshot.selectedModelProfileID
         }?.title ?? snapshot.selectedModelProfileID.rawValue
-        let skillTitle = snapshot.selectedSkillIDs.isEmpty
-            ? "all tools"
-            : snapshot.selectedSkillIDs.map(\.rawValue).joined(separator: ", ")
+        let selectedSkills = snapshot.skills.filter {
+            snapshot.selectedSkillIDs.contains(
+                $0.id
+            )
+        }
+        let skillTitle: String
+        if selectedSkills.isEmpty {
+            skillTitle = "no skills"
+        } else if selectedSkills.count == 1 {
+            skillTitle = selectedSkills[0].title
+        } else {
+            skillTitle = "\(selectedSkills.count) skills"
+        }
         frame.write(
             [
                 TerminalStyle.bold.apply(snapshot.title),
                 TerminalStyle.dim.apply(
-                    "\(snapshot.workspace) · model \(modelTitle) · \(skillTitle)"
+                    "\(snapshot.workspace) · \(modelTitle) · \(snapshot.selectedToolExposure.title.lowercased()) · \(skillTitle)"
                 ),
                 snapshot.activity.map { TerminalStyle.dim.apply($0) } ?? "",
             ],
@@ -874,58 +845,6 @@ private extension AgenticConversationControl {
         )
     }
 
-    func renderModels(into frame: inout TerminalFrame, in region: TerminalRegion) {
-        let overlay = TerminalOverlay(
-            placement: .centered(
-                columns: 72,
-                rows: max(8, snapshot.models.count * 2 + 3)
-            ),
-            outerInsets: TerminalInsets(vertical: 1, horizontal: 2),
-            contentInsets: TerminalInsets(vertical: 1, horizontal: 2)
-        )
-        let content = overlay.render(into: &frame, in: region, title: "model")
-        var lines: [String] = []
-        for (index, model) in snapshot.models.enumerated() {
-            let cursor = index == selectedModelIndex ? "> " : "  "
-            let availability = model.isAvailable ? "" : " · unavailable"
-            lines.append(cursor + model.title + availability)
-            lines.append(TerminalStyle.dim.apply("    " + model.detail))
-        }
-        lines += ["", TerminalStyle.dim.apply("j/k choose  enter select  q back")]
-        frame.write(lines, in: content, zIndex: .overlay)
-    }
-
-    func renderSkills(into frame: inout TerminalFrame, in region: TerminalRegion) {
-        let overlay = TerminalOverlay(
-            placement: .centered(
-                columns: 76,
-                rows: max(9, snapshot.skills.count * 2 + 5)
-            ),
-            outerInsets: TerminalInsets(vertical: 1, horizontal: 2),
-            contentInsets: TerminalInsets(vertical: 1, horizontal: 2)
-        )
-        let content = overlay.render(into: &frame, in: region, title: "skills")
-        var lines = [
-            TerminalStyle.dim.apply(
-                draftSkillIDs.isEmpty
-                    ? "No skill selected; advertise the full tool manifest."
-                    : "Selected skills narrow the advertised tool set."
-            ),
-            "",
-        ]
-        for (index, skill) in snapshot.skills.enumerated() {
-            let cursor = index == selectedSkillIndex ? "> " : "  "
-            let mark = draftSkillIDs.contains(skill.id) ? "[x] " : "[ ] "
-            lines.append(cursor + mark + skill.title)
-            lines.append(TerminalStyle.dim.apply("      " + skill.summary))
-        }
-        lines += [
-            "",
-            TerminalStyle.dim.apply("j/k choose  space toggle  enter apply  q back"),
-        ]
-        frame.write(lines, in: content, zIndex: .overlay)
-    }
-
     var footer: String {
         switch focus.current {
         case .composer:
@@ -934,14 +853,12 @@ private extension AgenticConversationControl {
         case .voice:
             return "enter voice  tab transcript  esc composer  ctrl-v voice"
         case .transcript:
-            return "j/k message  enter attachments  m model  s skills  tab composer  q quit"
+            return "j/k message  enter attachments  m model  s settings  tab composer  q quit"
                 + voiceFooter
         case .attachment:
             return "h/l sibling  j/k scroll  enter run  q back"
-        case .models:
-            return "j/k choose  enter select  q back"
-        case .skills:
-            return "j/k choose  space toggle  enter apply  q back"
+        case .settings:
+            return "conversation settings"
         case .run:
             return "q conversation"
         }

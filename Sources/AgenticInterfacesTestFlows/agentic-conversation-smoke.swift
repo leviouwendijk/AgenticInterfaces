@@ -15,7 +15,9 @@ enum AgenticConversationSmoke {
         case voiceFocusChanged
         case voiceStatusChanged
         case modelSelectionChanged
+        case toolExposureSelectionChanged
         case skillSelectionChanged
+        case settingsPresentationMissing
         case attachmentDidNotOpen
         case runDidNotOpen
         case runDidNotClose
@@ -48,6 +50,7 @@ enum AgenticConversationSmoke {
               submission.contents.map(\.kind) == [.pasted],
               submission.modelProfileID.rawValue == "apple-default",
               submission.skillIDs.isEmpty,
+              submission.toolExposure == .discovery,
               control.draftText.isEmpty,
               control.pinnedContents.isEmpty
         else {
@@ -180,19 +183,115 @@ enum AgenticConversationSmoke {
         }
 
         _ = control.handle(.escape)
-        _ = control.handle(.char("m"))
-        _ = control.handle(.char("j"))
-        guard control.handle(.enter) == .modelSelectionChanged("mock-model") else {
-            throw Failure.modelSelectionChanged
+
+        var settingsControl = AgenticConversationControl(
+            snapshot: fixture()
+        )
+        _ = settingsControl.handle(
+            .escape
+        )
+        _ = settingsControl.handle(
+            .char("s")
+        )
+        var settingsFrame = TerminalFrame(
+            rows: 28,
+            columns: 100
+        )
+        settingsControl.render(
+            into: &settingsFrame,
+            in: TerminalRegion(
+                rows: 28,
+                columns: 100
+            )
+        )
+        let settingsPresentation = stripANSI(
+            settingsFrame.resolved().spans
+                .map(\.content)
+                .joined(
+                    separator: "\n"
+                )
+        )
+        guard settingsPresentation.contains(
+            "Conversation settings"
+        ),
+              settingsPresentation.contains(
+                "Model"
+              ),
+              settingsPresentation.contains(
+                "Tool exposure"
+              ),
+              settingsPresentation.contains(
+                "Skills"
+              )
+        else {
+            throw Failure.settingsPresentationMissing
         }
 
-        _ = control.handle(.char("s"))
-        _ = control.handle(.space)
-        guard control.handle(.enter) == .skillSelectionChanged([
+        _ = control.handle(
+            .char("m")
+        )
+        _ = control.handle(
+            .char("j")
+        )
+        guard control.handle(
+            .enter
+        ) == .modelSelectionChanged(
+            "mock-model"
+        ) else {
+            throw Failure.modelSelectionChanged
+        }
+        _ = control.handle(
+            .char("q")
+        )
+
+        _ = control.handle(
+            .char("s")
+        )
+        _ = control.handle(
+            .char("j")
+        )
+        _ = control.handle(
+            .enter
+        )
+        _ = control.handle(
+            .char("j")
+        )
+        guard control.handle(
+            .enter
+        ) == .toolExposureSelectionChanged(
+            .all
+        ) else {
+            throw Failure.toolExposureSelectionChanged
+        }
+        _ = control.handle(
+            .char("q")
+        )
+
+        _ = control.handle(
+            .char("s")
+        )
+        _ = control.handle(
+            .char("j")
+        )
+        _ = control.handle(
+            .char("j")
+        )
+        _ = control.handle(
+            .enter
+        )
+        guard control.handle(
+            .space
+        ) == .skillSelectionChanged([
             "swift-editing",
         ]) else {
             throw Failure.skillSelectionChanged
         }
+        _ = control.handle(
+            .char("q")
+        )
+        _ = control.handle(
+            .char("q")
+        )
 
         guard control.handle(.enter) == .attachmentOpened(
             messageID: "assistant-run",
@@ -223,7 +322,8 @@ enum AgenticConversationSmoke {
             .joined(separator: "\n")
         guard rendered.contains("agentic conversation"),
               rendered.contains("Mock model"),
-              rendered.contains("swift-editing"),
+              rendered.contains("all tools"),
+              rendered.contains("Swift editing"),
               rendered.contains("run · conversation-run")
         else {
             throw Failure.presentationMissing

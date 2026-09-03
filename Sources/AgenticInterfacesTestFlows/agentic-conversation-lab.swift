@@ -88,11 +88,13 @@ enum AgenticConversationLab {
                     snapshot.selectedModelProfileID = id
                     snapshot.activity = "model selected"
                     control.update(snapshot)
+                case .toolExposureSelectionChanged(let exposure):
+                    snapshot.selectedToolExposure = exposure
+                    snapshot.activity = "\(exposure.title.lowercased()) tool exposure selected"
+                    control.update(snapshot)
                 case .skillSelectionChanged(let ids):
                     snapshot.selectedSkillIDs = ids
-                    snapshot.activity = ids.isEmpty
-                        ? "full tool manifest selected"
-                        : "skill tool set selected"
+                    snapshot.activity = "skills selected"
                     control.update(snapshot)
                 case .voiceStartRequested,
                      .voiceStopRequested,
