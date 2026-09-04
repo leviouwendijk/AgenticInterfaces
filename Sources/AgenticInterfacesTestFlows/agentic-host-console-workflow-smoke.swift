@@ -1,4 +1,5 @@
 import AgenticInterfaces
+import Foundation
 import Terminal
 
 enum AgenticHostConsoleWorkflowSmoke {
@@ -7,6 +8,10 @@ enum AgenticHostConsoleWorkflowSmoke {
     {
         case unexpectedDocumentOpen
         case unexpectedDocumentReturn
+        case unexpectedStructuredDocumentPresentation
+        case unexpectedStructuredDocumentCopy
+        case unexpectedStructuredDocumentRoundTrip
+        case unexpectedLegacyDocumentDecode
         case unexpectedRecoverySelection
         case unexpectedRecoveryOpen
         case unexpectedRecoveryAction
@@ -32,8 +37,43 @@ enum AgenticHostConsoleWorkflowSmoke {
             throw Failure.unexpectedContinueAction
         }
 
+        let snapshot = AgenticHostConsoleWorkflowFixture.make()
+
+        guard let structuredDocument = snapshot.documents.first(
+            where: {
+                $0.id == "recovery-details"
+            }
+        ), structuredDocument.structuredBody != nil else {
+            throw Failure.unexpectedStructuredDocumentPresentation
+        }
+
+        let encodedDocument = try JSONEncoder().encode(
+            structuredDocument
+        )
+        let decodedDocument = try JSONDecoder().decode(
+            AgenticHostConsoleDocumentPresentation.self,
+            from: encodedDocument
+        )
+
+        guard decodedDocument == structuredDocument else {
+            throw Failure.unexpectedStructuredDocumentRoundTrip
+        }
+
+        let legacyData = Data(
+            #"{"id":"legacy","runID":"run","stepID":"step","kind":"details","title":"Details","body":"raw"}"#.utf8
+        )
+        let legacyDocument = try JSONDecoder().decode(
+            AgenticHostConsoleDocumentPresentation.self,
+            from: legacyData
+        )
+
+        guard legacyDocument.structuredBody == nil,
+              legacyDocument.body == "raw" else {
+            throw Failure.unexpectedLegacyDocumentDecode
+        }
+
         var console = AgenticHostConsoleWorkflowControl(
-            snapshot: AgenticHostConsoleWorkflowFixture.make()
+            snapshot: snapshot
         )
 
         _ = console.handle(
@@ -149,13 +189,37 @@ enum AgenticHostConsoleWorkflowSmoke {
             throw Failure.unexpectedRecoveryDetails
         }
 
-        guard renderedText(
+        let structuredPresentation = renderedText(
             &console,
             columns: 64
-        ).contains(
+        )
+
+        guard structuredPresentation.contains(
             "chosen."
         ) else {
             throw Failure.unexpectedNestedDocumentPresentation
+        }
+
+        guard structuredPresentation.contains(
+            "structured projection visible"
+        ), !structuredPresentation.contains(
+            "raw canonical failure detail"
+        ) else {
+            throw Failure.unexpectedStructuredDocumentPresentation
+        }
+
+        guard case .copyRequested(
+            let copiedText,
+            let copiedTitle
+        )? = console.handle(
+            .char("c")
+        ), copiedTitle == "Failure details",
+           copiedText.contains(
+            "raw canonical failure detail"
+           ), !copiedText.contains(
+            "structured projection visible"
+           ) else {
+            throw Failure.unexpectedStructuredDocumentCopy
         }
 
         _ = console.handle(

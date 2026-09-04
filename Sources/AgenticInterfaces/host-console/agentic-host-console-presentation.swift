@@ -1,3 +1,5 @@
+import DSL
+
 public enum AgenticHostConsoleRunState:
     String,
     Sendable,
@@ -244,7 +246,14 @@ public struct AgenticHostConsoleDocumentPresentation:
     public var stepID: String
     public var kind: AgenticHostConsoleDocumentKind
     public var title: String
+
+    /// Canonical raw document text used for copy/export and fallback rendering.
     public var body: String
+
+    /// Optional semantic presentation projected from the canonical source.
+    /// Renderers may interpret this at their actual viewport width without
+    /// replacing or mutating `body`.
+    public var structuredBody: StructuredContent?
 
     public init(
         id: String,
@@ -252,7 +261,8 @@ public struct AgenticHostConsoleDocumentPresentation:
         stepID: String,
         kind: AgenticHostConsoleDocumentKind,
         title: String? = nil,
-        body: String
+        body: String,
+        structuredBody: StructuredContent? = nil
     ) {
         self.id = id
         self.runID = runID
@@ -260,6 +270,7 @@ public struct AgenticHostConsoleDocumentPresentation:
         self.kind = kind
         self.title = title ?? kind.title
         self.body = body
+        self.structuredBody = structuredBody
     }
 }
 

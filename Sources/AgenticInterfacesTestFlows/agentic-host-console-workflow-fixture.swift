@@ -1,4 +1,5 @@
 import AgenticInterfaces
+import DSL
 
 enum AgenticHostConsoleWorkflowFixture {
     static func make() -> AgenticHostConsoleSnapshot {
@@ -56,7 +57,21 @@ enum AgenticHostConsoleWorkflowFixture {
                 stepID: "failed-mutate",
                 kind: .details,
                 title: "Failure details",
-                body: "tool        mutate_files\nstate       failed\ntarget      Sources/AgenticInterfaces\nerror       edit match not found\n\nThe parent run remains on hold until an explicit recovery action is chosen."
+                body: "tool        mutate_files\nstate       failed\ntarget      Sources/AgenticInterfaces\nerror       edit match not found\n\nThe parent run remains on hold until an explicit recovery action is chosen.\nraw canonical failure detail",
+                structuredBody: .group(
+                    role: "agentic.test.failure",
+                    title: [
+                        .text("Failure")
+                    ],
+                    content: .collection([
+                        .paragraph([
+                            .text("structured projection visible")
+                        ]),
+                        .paragraph([
+                            .text("The parent run remains on hold until an explicit recovery action is chosen.")
+                        ]),
+                    ])
+                )
             ),
             AgenticHostConsoleDocumentPresentation(
                 id: "recovery-stderr",

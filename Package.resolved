@@ -1,5 +1,5 @@
 {
-  "originHash" : "a73a76d176639c816728f89d8ff52e663fff43c90a8a489c44c3de81b425c7ab",
+  "originHash" : "58e51175e60a420b36ba33a173a095961a702a41c5720b5cb6f8f005ce61a9d8",
   "pins" : [
     {
       "identity" : "agentic",
@@ -7,7 +7,7 @@
       "location" : "https://github.com/leviouwendijk/Agentic.git",
       "state" : {
         "branch" : "master",
-        "revision" : "05992e285cd10e0304ce38d39ebd2bf9a7d482cb"
+        "revision" : "8b47dae6140dc551f63a2efb41ecdc8fa30f2abf"
       }
     },
     {
@@ -16,7 +16,7 @@
       "location" : "https://github.com/leviouwendijk/AgenticExecution.git",
       "state" : {
         "branch" : "master",
-        "revision" : "caa0ea64c8903a49f1bffc0770a1d2e10ad8ebc9"
+        "revision" : "867c4823c94838f05e7e460064cb9e38a378e8dc"
       }
     },
     {
@@ -61,7 +61,7 @@
       "location" : "https://github.com/leviouwendijk/DSL.git",
       "state" : {
         "branch" : "master",
-        "revision" : "9efff74e61ff3679fce19f3cbf6df09c3bc23691"
+        "revision" : "30ec6798f883b91f697d060bb001e0e4f7a09225"
       }
     },
     {

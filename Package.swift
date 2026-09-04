@@ -25,6 +25,7 @@ let package = Package(
         .package(url: "https://github.com/leviouwendijk/SchemaMacros.git", branch: "master"),
         .package(url: "https://github.com/leviouwendijk/Guidelines.git", branch: "master"),
         .package(url: "https://github.com/leviouwendijk/Difference.git", branch: "master"),
+        .package(url: "https://github.com/leviouwendijk/DSL.git", branch: "master"),
         .package(url: "https://github.com/leviouwendijk/Terminal.git", branch: "master"),
         .package(url: "https://github.com/leviouwendijk/Parsers.git", branch: "master"),
         .package(url: "https://github.com/leviouwendijk/Arguments.git", branch: "master"),
@@ -39,6 +40,7 @@ let package = Package(
                 .product(name: "Schema", package: "Schema"),
                 .product(name: "SchemaMacros", package: "SchemaMacros"),
                 .product(name: "Guidelines", package: "Guidelines"),
+                .product(name: "DSL", package: "DSL"),
                 .product(name: "Terminal", package: "Terminal"),
                 .product(name: "TerminalStructuredContent", package: "Terminal"),
                 .product(name: "ParsersStructuredContent", package: "Parsers"),
@@ -50,6 +52,7 @@ let package = Package(
             name: "AgenticInterfacesTestFlows",
             dependencies: [
                 "AgenticInterfaces",
+                .product(name: "DSL", package: "DSL"),
                 .product(name: "Terminal", package: "Terminal"),
             ]
         ),

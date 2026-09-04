@@ -1,4 +1,6 @@
+import DSL
 import Terminal
+import TerminalStructuredContent
 
 public enum AgenticHostConsoleWorkflowFocus:
     Sendable,
@@ -1335,24 +1337,36 @@ private extension AgenticHostConsoleWorkflowControl {
             zIndex: documentLayer
         )
 
-        let wrapping: TerminalDocumentWrapping
+        if let structuredBody = currentDocument.structuredBody {
+            document.update(
+                lines: TerminalStructuredContent.Renderer()
+                    .rows(
+                        structuredBody,
+                        columns: content.columns
+                    ),
+                visibleRows: content.rows
+            )
+        } else {
+            let wrapping: TerminalDocumentWrapping
 
-        switch currentDocument.kind {
-        case .details:
-            wrapping = .word
+            switch currentDocument.kind {
+            case .details:
+                wrapping = .word
 
-        case .diff,
-             .stdout,
-             .stderr:
-            wrapping = .display
+            case .diff,
+                 .stdout,
+                 .stderr:
+                wrapping = .display
+            }
+
+            document.update(
+                text: currentDocument.body,
+                columns: content.columns,
+                visibleRows: content.rows,
+                wrapping: wrapping
+            )
         }
 
-        document.update(
-            text: currentDocument.body,
-            columns: content.columns,
-            visibleRows: content.rows,
-            wrapping: wrapping
-        )
         document.render(
             into: &frame,
             in: content,
