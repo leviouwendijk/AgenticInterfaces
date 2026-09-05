@@ -88,6 +88,10 @@ enum AgenticConversationLab {
                     snapshot.selectedModelProfileID = id
                     snapshot.activity = "model selected"
                     control.update(snapshot)
+                case .responseDeliverySelectionChanged(let delivery):
+                    snapshot.selectedResponseDelivery = delivery
+                    snapshot.activity = "\(delivery.rawValue) response delivery selected"
+                    control.update(snapshot)
                 case .toolExposureSelectionChanged(let exposure):
                     snapshot.selectedToolExposure = exposure
                     snapshot.activity = "\(exposure.title.lowercased()) tool exposure selected"
