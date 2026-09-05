@@ -11,6 +11,7 @@ struct AgenticConversationSettingsControl: Sendable {
         case root
         case model
         case response
+        case autonomy
         case exposure
         case skills
     }
@@ -18,10 +19,12 @@ struct AgenticConversationSettingsControl: Sendable {
     private enum RowID: Sendable, Hashable {
         case model
         case response
+        case autonomy
         case exposure
         case skills
         case modelProfile(AgentModelProfileIdentifier)
         case responseDelivery(AgentModelResponseDelivery)
+        case autonomyMode(AutonomyMode)
         case discovery
         case allTools
         case skillSeeded
@@ -139,6 +142,15 @@ private extension AgenticConversationSettingsControl {
             )
             return nil
 
+        case .autonomy:
+            rootSelection = .autonomy
+            open(
+                .autonomy,
+                snapshot: snapshot,
+                currentID: .autonomyMode(snapshot.selectedAutonomyMode)
+            )
+            return nil
+
         case .exposure:
             rootSelection = .exposure
             open(
@@ -197,6 +209,9 @@ private extension AgenticConversationSettingsControl {
                 delivery,
                 snapshot: &snapshot
             )
+
+        case .autonomyMode(let mode):
+            return selectAutonomy(mode, snapshot: &snapshot)
 
         case .discovery:
             return selectExposure(.discovery, snapshot: &snapshot)
@@ -263,6 +278,15 @@ private extension AgenticConversationSettingsControl {
         return .conversation(
             .responseDeliverySelectionChanged(delivery)
         )
+    }
+
+    mutating func selectAutonomy(
+        _ mode: AutonomyMode,
+        snapshot: inout AgenticConversationSnapshot
+    ) -> AgenticConversationSettingsControlEvent {
+        snapshot.selectedAutonomyMode = mode
+        open(.root, snapshot: snapshot, currentID: rootSelection)
+        return .conversation(.autonomySelectionChanged(mode))
     }
 
     mutating func selectExposure(
@@ -352,6 +376,11 @@ private extension AgenticConversationSettingsControl {
             rows = responseDeliveryRows(snapshot)
             instructions = "j/k move  enter select  q back"
 
+        case .autonomy:
+            path = ["Autonomy"]
+            rows = autonomyRows(snapshot)
+            instructions = "j/k move  enter select  q back"
+
         case .exposure:
             path = ["Tool exposure"]
             rows = exposureRows(snapshot)
@@ -421,6 +450,13 @@ private extension AgenticConversationSettingsControl {
                     snapshot.selectedResponseDelivery,
                     snapshot: snapshot
                 )
+            ),
+            TerminalSettingsRow(
+                id: .autonomy,
+                title: "Autonomy",
+                value: autonomyTitle(snapshot.selectedAutonomyMode),
+                accessory: .disclosure,
+                detail: autonomyDetail(snapshot.selectedAutonomyMode)
             ),
             TerminalSettingsRow(
                 id: .exposure,
@@ -525,6 +561,86 @@ private extension AgenticConversationSettingsControl {
                     TerminalField("model support", "yes"),
                 ],
                 body: "Wait for the complete provider response before delivering it to the runtime."
+            )
+        }
+    }
+
+    private static func autonomyRows(
+        _ snapshot: AgenticConversationSnapshot
+    ) -> [TerminalSettingsRow<RowID>] {
+        AutonomyMode.allCases.map { mode in
+            TerminalSettingsRow(
+                id: .autonomyMode(mode),
+                title: autonomyTitle(mode),
+                accessory: .radio(
+                    selected: snapshot.selectedAutonomyMode == mode
+                ),
+                detail: autonomyDetail(mode)
+            )
+        }
+    }
+
+    private static func autonomyTitle(
+        _ mode: AutonomyMode
+    ) -> String {
+        switch mode {
+        case .suggest_only:
+            return "Suggest only"
+        case .auto_observe:
+            return "Auto observe"
+        case .auto_bounded_mutate:
+            return "Auto bounded mutate"
+        case .review_privileged:
+            return "Review privileged"
+        }
+    }
+
+    private static func autonomyDetail(
+        _ mode: AutonomyMode
+    ) -> TerminalSettingsDetail {
+        switch mode {
+        case .suggest_only:
+            return TerminalSettingsDetail(
+                title: autonomyTitle(mode),
+                fields: [
+                    TerminalField("observe", "review"),
+                    TerminalField("bounded mutation", "review"),
+                    TerminalField("privileged", "review"),
+                ],
+                body: "Require human review for every non-forbidden tool action. Forbidden actions remain denied."
+            )
+
+        case .auto_observe:
+            return TerminalSettingsDetail(
+                title: autonomyTitle(mode),
+                fields: [
+                    TerminalField("observe", "automatic"),
+                    TerminalField("bounded mutation", "review"),
+                    TerminalField("privileged", "review"),
+                ],
+                body: "Run observational actions automatically while bounded mutations and privileged actions remain review-gated."
+            )
+
+        case .auto_bounded_mutate:
+            return TerminalSettingsDetail(
+                title: autonomyTitle(mode),
+                fields: [
+                    TerminalField("observe", "automatic"),
+                    TerminalField("bounded mutation", "automatic"),
+                    TerminalField("privileged", "denied"),
+                ],
+                body: "Run observational and bounded mutation actions automatically. Privileged and forbidden actions are denied."
+            )
+
+        case .review_privileged:
+            return TerminalSettingsDetail(
+                title: autonomyTitle(mode),
+                fields: [
+                    TerminalField("observe", "automatic"),
+                    TerminalField("bounded mutation", "automatic"),
+                    TerminalField("privileged", "review"),
+                ],
+                body: "Run observational and bounded mutation actions automatically while privileged actions require human review. Forbidden actions remain denied."
             )
         }
     }

@@ -27,6 +27,7 @@ enum AgenticConversationSmoke {
         case voiceStatusChanged
         case modelSelectionChanged
         case responseDeliverySelectionChanged
+        case autonomySelectionChanged
         case streamingCapabilityGateChanged
         case toolExposureSelectionChanged
         case skillSelectionChanged
@@ -68,6 +69,7 @@ enum AgenticConversationSmoke {
               submission.skillIDs.isEmpty,
               submission.toolExposure == .discovery,
               submission.responseDelivery == .stream,
+              submission.autonomyMode == .auto_observe,
               control.draftText.isEmpty,
               control.pinnedContents.isEmpty
         else {
@@ -238,6 +240,9 @@ enum AgenticConversationSmoke {
                 "Response"
               ),
               settingsPresentation.contains(
+                "Autonomy"
+              ),
+              settingsPresentation.contains(
                 "Tool exposure"
               ),
               settingsPresentation.contains(
@@ -290,6 +295,23 @@ enum AgenticConversationSmoke {
             throw Failure.responseDeliverySelectionChanged
         }
 
+        var autonomyControl = AgenticConversationControl(
+            snapshot: fixture()
+        )
+        _ = autonomyControl.handle(.escape)
+        _ = autonomyControl.handle(.char("s"))
+        _ = autonomyControl.handle(.char("j"))
+        _ = autonomyControl.handle(.char("j"))
+        _ = autonomyControl.handle(.enter)
+        _ = autonomyControl.handle(.char("j"))
+        guard autonomyControl.handle(.enter) == .autonomySelectionChanged(
+            .auto_bounded_mutate
+        ),
+              autonomyControl.snapshot.selectedAutonomyMode == .auto_bounded_mutate
+        else {
+            throw Failure.autonomySelectionChanged
+        }
+
         var nonStreamingSnapshot = fixture()
         nonStreamingSnapshot.selectedModelProfileID = "buffered-model"
         nonStreamingSnapshot.selectedResponseDelivery = .buffered
@@ -330,6 +352,9 @@ enum AgenticConversationSmoke {
             .char("j")
         )
         _ = control.handle(
+            .char("j")
+        )
+        _ = control.handle(
             .enter
         )
         _ = control.handle(
@@ -348,6 +373,9 @@ enum AgenticConversationSmoke {
 
         _ = control.handle(
             .char("s")
+        )
+        _ = control.handle(
+            .char("j")
         )
         _ = control.handle(
             .char("j")

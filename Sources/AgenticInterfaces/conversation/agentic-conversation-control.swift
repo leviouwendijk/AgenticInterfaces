@@ -22,6 +22,7 @@ public enum AgenticConversationEvent: Sendable, Hashable {
     case submissionRequested(AgenticConversationSubmission)
     case modelSelectionChanged(AgentModelProfileIdentifier)
     case responseDeliverySelectionChanged(AgentModelResponseDelivery)
+    case autonomySelectionChanged(AutonomyMode)
     case toolExposureSelectionChanged(AgenticConversationToolExposure)
     case skillSelectionChanged([AgentSkillIdentifier])
     case attachmentOpened(messageID: String, attachmentID: String)
@@ -376,7 +377,8 @@ private extension AgenticConversationControl {
             modelProfileID: snapshot.selectedModelProfileID,
             skillIDs: snapshot.selectedSkillIDs,
             toolExposure: snapshot.selectedToolExposure,
-            responseDelivery: snapshot.selectedResponseDelivery
+            responseDelivery: snapshot.selectedResponseDelivery,
+            autonomyMode: snapshot.selectedAutonomyMode
         )
         composer.clear()
         draftOrigin = .typed

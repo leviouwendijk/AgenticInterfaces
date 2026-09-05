@@ -181,6 +181,7 @@ public struct AgenticConversationSubmission: Sendable, Hashable {
     public var skillIDs: [AgentSkillIdentifier]
     public var toolExposure: AgenticConversationToolExposure
     public var responseDelivery: AgentModelResponseDelivery
+    public var autonomyMode: AutonomyMode
 
     public init(
         body: String,
@@ -189,7 +190,8 @@ public struct AgenticConversationSubmission: Sendable, Hashable {
         modelProfileID: AgentModelProfileIdentifier,
         skillIDs: [AgentSkillIdentifier],
         toolExposure: AgenticConversationToolExposure = .discovery,
-        responseDelivery: AgentModelResponseDelivery = .stream
+        responseDelivery: AgentModelResponseDelivery = .stream,
+        autonomyMode: AutonomyMode = .auto_observe
     ) {
         self.body = body
         self.origin = origin
@@ -198,6 +200,7 @@ public struct AgenticConversationSubmission: Sendable, Hashable {
         self.skillIDs = skillIDs
         self.toolExposure = toolExposure
         self.responseDelivery = responseDelivery
+        self.autonomyMode = autonomyMode
     }
 }
 
@@ -212,6 +215,7 @@ public struct AgenticConversationSnapshot: Sendable, Hashable {
     public var models: [AgenticConversationModelPresentation]
     public var selectedModelProfileID: AgentModelProfileIdentifier
     public var selectedResponseDelivery: AgentModelResponseDelivery
+    public var selectedAutonomyMode: AutonomyMode
     public var skills: [AgenticConversationSkillPresentation]
     public var selectedSkillIDs: [AgentSkillIdentifier]
     public var selectedToolExposure: AgenticConversationToolExposure
@@ -228,6 +232,7 @@ public struct AgenticConversationSnapshot: Sendable, Hashable {
         models: [AgenticConversationModelPresentation],
         selectedModelProfileID: AgentModelProfileIdentifier,
         selectedResponseDelivery: AgentModelResponseDelivery = .stream,
+        selectedAutonomyMode: AutonomyMode = .auto_observe,
         skills: [AgenticConversationSkillPresentation] = [],
         selectedSkillIDs: [AgentSkillIdentifier] = [],
         selectedToolExposure: AgenticConversationToolExposure = .discovery,
@@ -243,6 +248,7 @@ public struct AgenticConversationSnapshot: Sendable, Hashable {
         self.models = models
         self.selectedModelProfileID = selectedModelProfileID
         self.selectedResponseDelivery = selectedResponseDelivery
+        self.selectedAutonomyMode = selectedAutonomyMode
         self.skills = skills
         self.selectedSkillIDs = selectedSkillIDs
         self.selectedToolExposure = selectedToolExposure

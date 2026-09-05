@@ -92,6 +92,10 @@ enum AgenticConversationLab {
                     snapshot.selectedResponseDelivery = delivery
                     snapshot.activity = "\(delivery.rawValue) response delivery selected"
                     control.update(snapshot)
+                case .autonomySelectionChanged(let mode):
+                    snapshot.selectedAutonomyMode = mode
+                    snapshot.activity = "\(mode.rawValue) autonomy selected"
+                    control.update(snapshot)
                 case .toolExposureSelectionChanged(let exposure):
                     snapshot.selectedToolExposure = exposure
                     snapshot.activity = "\(exposure.title.lowercased()) tool exposure selected"
