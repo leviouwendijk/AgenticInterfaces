@@ -113,6 +113,149 @@ public enum AgenticConversationAttachmentPresentation: Sendable, Hashable {
     }
 }
 
+public struct AgenticConversationRunCardPresentation:
+    Sendable,
+    Hashable
+{
+    public var title: String
+    public var body: String
+    public var hint: String
+
+    public init(
+        title: String,
+        body: String,
+        hint: String
+    ) {
+        self.title = title
+        self.body = body
+        self.hint = hint
+    }
+
+    public static func project(
+        run: AgenticHostConsoleRunPresentation,
+        hostConsole: AgenticHostConsoleSnapshot
+    ) -> Self {
+        let interruption = hostConsole.interruptions.first { interruption in
+            interruption.runID == run.id
+        }
+        let step =
+            interruption.flatMap { interruption in
+                run.steps.first { step in
+                    step.id == interruption.stepID
+                }
+            }
+            ?? run.steps.first { step in
+                step.state == .active
+            }
+            ?? run.steps.first { step in
+                step.state == .failed
+            }
+            ?? run.steps.first { step in
+                step.state == .pending
+            }
+            ?? run.steps.last
+
+        var body: [String] = []
+
+        if let step,
+           let index = run.steps.firstIndex(where: { candidate in
+               candidate.id == step.id
+           })
+        {
+            body.append(
+                "Stage \(index + 1) of \(run.steps.count) · \(step.title)"
+            )
+        }
+
+        let summary: String?
+        if let interruption {
+            summary = interruption.summary
+        } else {
+            summary = run.summary
+        }
+
+        if let summary,
+           !summary.isEmpty
+        {
+            body.append(
+                summary
+            )
+        }
+
+        if body.isEmpty {
+            body.append(
+                run.title
+            )
+        }
+
+        return Self(
+            title: title(
+                for: run.state
+            ),
+            body: body.joined(
+                separator: "\n"
+            ),
+            hint: hint(
+                for: run.state,
+                interruption: interruption
+            )
+        )
+    }
+
+    private static func title(
+        for state: AgenticHostConsoleRunState
+    ) -> String {
+        switch state {
+        case .ready:
+            return "Run · ready"
+
+        case .active:
+            return "Run · running"
+
+        case .pause_pending:
+            return "Run · pause pending"
+
+        case .paused:
+            return "Run · paused"
+
+        case .awaitingApproval:
+            return "Run · awaiting review"
+
+        case .onHold:
+            return "Run · recovery required"
+
+        case .completed:
+            return "Run · completed"
+
+        case .failed:
+            return "Run · failed"
+        }
+    }
+
+    private static func hint(
+        for state: AgenticHostConsoleRunState,
+        interruption: AgenticHostConsoleInterruptionPresentation?
+    ) -> String {
+        if interruption != nil {
+            return "Enter for actions"
+        }
+
+        switch state {
+        case .completed,
+             .failed:
+            return "Enter for run details"
+
+        case .ready,
+             .active,
+             .pause_pending,
+             .paused,
+             .awaitingApproval,
+             .onHold:
+            return "Enter to inspect"
+        }
+    }
+}
+
 public struct AgenticConversationMessagePresentation: Sendable, Hashable {
     public var id: String
     public var role: AgentRole

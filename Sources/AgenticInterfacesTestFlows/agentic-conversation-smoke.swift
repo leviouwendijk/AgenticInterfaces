@@ -36,11 +36,69 @@ enum AgenticConversationSmoke {
         case runDidNotClose
         case assistantMarkdownSourceChanged
         case assistantMarkdownPresentationMissing
+        case runCardProjectionChanged
         case presentationMissing
     }
 
     static func run() throws {
         try AgenticConversationPendingSmoke.run()
+
+        let cardRun = AgenticHostConsoleRunPresentation(
+            id: "card-run",
+            title: "Card fixture",
+            summary: "fallback run summary",
+            state: .awaitingApproval,
+            steps: [
+                AgenticHostConsoleStepPresentation(
+                    id: "card-inspect",
+                    title: "inspect_workspace",
+                    state: .completed
+                ),
+                AgenticHostConsoleStepPresentation(
+                    id: "card-mutate",
+                    title: "mutate_files",
+                    state: .pending
+                ),
+                AgenticHostConsoleStepPresentation(
+                    id: "card-parse",
+                    title: "swift_parse",
+                    state: .pending
+                ),
+            ]
+        )
+        let card = AgenticConversationRunCardPresentation.project(
+            run: cardRun,
+            hostConsole: AgenticHostConsoleSnapshot(
+                runs: [
+                    cardRun,
+                ],
+                interruptions: [
+                    AgenticHostConsoleInterruptionPresentation(
+                        id: "card-approval",
+                        runID: "card-run",
+                        stepID: "card-mutate",
+                        kind: .approval,
+                        title: "Approval",
+                        summary: "Human review required",
+                        actions: [
+                            .approve,
+                            .deny,
+                            .skip,
+                        ]
+                    ),
+                ]
+            )
+        )
+
+        guard card.title == "Run · awaiting review",
+              card.body == [
+                "Stage 2 of 3 · mutate_files",
+                "Human review required",
+              ].joined(separator: "\n"),
+              card.hint == "Enter for actions"
+        else {
+            throw Failure.runCardProjectionChanged
+        }
 
         var control = AgenticConversationControl(snapshot: fixture())
         _ = control.handle(.char("q"))
@@ -446,7 +504,10 @@ enum AgenticConversationSmoke {
               rendered.contains("Mock model"),
               rendered.contains("all tools"),
               rendered.contains("Swift editing"),
-              rendered.contains("run · conversation-run")
+              rendered.contains("Run · completed"),
+              rendered.contains("Stage 1 of 1 · inspect_workspace"),
+              rendered.contains("1 operation passed"),
+              rendered.contains("Enter for run details")
         else {
             throw Failure.presentationMissing
         }

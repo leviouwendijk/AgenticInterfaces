@@ -760,10 +760,55 @@ private extension AgenticConversationControl {
                     "  " + $0
                 }
             }
-            lines += message.attachments.map {
-                TerminalStyle.dim.apply(
-                    "  [" + $0.summary(in: snapshot.hostConsole) + "]"
-                )
+            for attachment in message.attachments {
+                switch attachment {
+                case .content(let content):
+                    lines.append(
+                        TerminalStyle.dim.apply(
+                            "  [" + content.summary + "]"
+                        )
+                    )
+
+                case .run(let runID):
+                    guard let run = snapshot.hostConsole.runs.first(
+                        where: { run in
+                            run.id == runID
+                        }
+                    ) else {
+                        lines.append(
+                            TerminalStyle.dim.apply(
+                                "  ["
+                                    + attachment.summary(
+                                        in: snapshot.hostConsole
+                                    )
+                                    + "]"
+                            )
+                        )
+                        continue
+                    }
+
+                    let presentation =
+                        AgenticConversationRunCardPresentation.project(
+                            run: run,
+                            hostConsole: snapshot.hostConsole
+                        )
+                    let block = TerminalInteractiveBlock(
+                        title: presentation.title,
+                        body: presentation.body,
+                        hint: presentation.hint,
+                        state: TerminalInteractiveBlock.resolvedState(
+                            isFocused: selected
+                        )
+                    )
+
+                    lines.append(
+                        contentsOf: block.render(
+                            width: bodyWidth
+                        ).map { line in
+                            "  " + line
+                        }
+                    )
+                }
             }
             rows[message.id] = start..<lines.count
             lines.append("")
