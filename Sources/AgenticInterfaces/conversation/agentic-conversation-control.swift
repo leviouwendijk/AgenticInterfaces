@@ -21,6 +21,7 @@ public enum AgenticConversationEvent: Sendable, Hashable {
     case contentPinned(AgenticConversationContentPresentation)
     case submissionRequested(AgenticConversationSubmission)
     case modelSelectionChanged(AgentModelProfileIdentifier)
+    case responseDeliverySelectionChanged(AgentModelResponseDelivery)
     case toolExposureSelectionChanged(AgenticConversationToolExposure)
     case skillSelectionChanged([AgentSkillIdentifier])
     case attachmentOpened(messageID: String, attachmentID: String)
@@ -46,7 +47,6 @@ public struct AgenticConversationControl: Sendable {
     private var attachmentIndex: Int
     private var settings: AgenticConversationSettingsControl
     private var pendingSubmission: AgenticConversationSubmission?
-    private var pendingSpinner: TerminalSpinnerControl
     private var openedRunID: String?
     private var hostConsole: AgenticHostConsoleWorkflowControl?
 
@@ -71,9 +71,6 @@ public struct AgenticConversationControl: Sendable {
             snapshot: snapshot
         )
         self.pendingSubmission = nil
-        self.pendingSpinner = TerminalSpinnerControl(
-            label: "invoking model"
-        )
         self.openedRunID = nil
         self.hostConsole = nil
     }
@@ -94,23 +91,11 @@ public struct AgenticConversationControl: Sendable {
         _ submission: AgenticConversationSubmission
     ) {
         pendingSubmission = submission
-        pendingSpinner.reset()
         transcript.moveToEnd()
-    }
-
-    @discardableResult
-    public mutating func advancePendingTurn() -> Bool {
-        guard pendingSubmission != nil else {
-            return false
-        }
-
-        _ = pendingSpinner.advance()
-        return true
     }
 
     public mutating func endPendingTurn() {
         pendingSubmission = nil
-        pendingSpinner.reset()
     }
 
     public var currentMessage: AgenticConversationMessagePresentation? {
@@ -390,7 +375,8 @@ private extension AgenticConversationControl {
             contents: pendingContents,
             modelProfileID: snapshot.selectedModelProfileID,
             skillIDs: snapshot.selectedSkillIDs,
-            toolExposure: snapshot.selectedToolExposure
+            toolExposure: snapshot.selectedToolExposure,
+            responseDelivery: snapshot.selectedResponseDelivery
         )
         composer.clear()
         draftOrigin = .typed
@@ -466,7 +452,7 @@ private extension AgenticConversationControl {
                 .settings
             )
         case .enter:
-            return openCurrentAttachment()
+            return openCurrentMessage()
         default:
             break
         }
@@ -555,6 +541,22 @@ private extension AgenticConversationControl {
         self.hostConsole = nil
         _ = focus.pop()
         return .runClosed(runID: runID)
+    }
+
+    mutating func openCurrentMessage() -> AgenticConversationEvent? {
+        guard let currentMessage else {
+            return .feedbackRequested("No message selected.")
+        }
+
+        if currentMessage.attachments.count == 1,
+           case .run(let runID) = currentMessage.attachments[0]
+        {
+            return openRun(
+                runID: runID
+            )
+        }
+
+        return openCurrentAttachment()
     }
 
     mutating func openCurrentAttachment() -> AgenticConversationEvent? {
@@ -765,36 +767,6 @@ private extension AgenticConversationControl {
             lines.append("")
         }
 
-        if let pendingSubmission {
-            lines.append(
-                TerminalStyle.bold.apply(
-                    AgentRole.user.rawValue
-                )
-            )
-            lines += TerminalTextWrap.lines(
-                pendingSubmission.body,
-                width: bodyWidth
-            ).map {
-                "  " + $0
-            }
-            lines += pendingSubmission.contents.map {
-                TerminalStyle.dim.apply(
-                    "  [" + $0.summary + "]"
-                )
-            }
-            lines.append("")
-
-            lines.append(
-                TerminalStyle.bold.apply(
-                    AgentRole.assistant.rawValue
-                )
-            )
-            lines.append(
-                "  " + pendingSpinner.render()
-            )
-            lines.append("")
-        }
-
         if lines.isEmpty {
             lines = [TerminalStyle.dim.apply("No messages yet.")]
         }
@@ -960,7 +932,7 @@ private extension AgenticConversationControl {
             case .voice:
                 return "response pending  tab transcript  esc composer"
             case .transcript:
-                return "j/k message  enter attachments  tab composer  response pending"
+                return "j/k message  enter inspect  tab composer  response pending"
             case .attachment,
                  .settings,
                  .run:
@@ -975,7 +947,7 @@ private extension AgenticConversationControl {
         case .voice:
             return "enter voice  tab transcript  esc composer  ctrl-v voice"
         case .transcript:
-            return "j/k message  enter attachments  m model  s settings  tab composer  q quit"
+            return "j/k message  enter inspect  m model  s settings  tab composer  q quit"
                 + voiceFooter
         case .attachment:
             return "h/l sibling  j/k scroll  enter run  q back"

@@ -10,15 +10,18 @@ struct AgenticConversationSettingsControl: Sendable {
     private enum Page: Sendable, Hashable {
         case root
         case model
+        case response
         case exposure
         case skills
     }
 
     private enum RowID: Sendable, Hashable {
         case model
+        case response
         case exposure
         case skills
         case modelProfile(AgentModelProfileIdentifier)
+        case responseDelivery(AgentModelResponseDelivery)
         case discovery
         case allTools
         case skillSeeded
@@ -125,6 +128,17 @@ private extension AgenticConversationSettingsControl {
             )
             return nil
 
+        case .response:
+            rootSelection = .response
+            open(
+                .response,
+                snapshot: snapshot,
+                currentID: .responseDelivery(
+                    snapshot.selectedResponseDelivery
+                )
+            )
+            return nil
+
         case .exposure:
             rootSelection = .exposure
             open(
@@ -160,8 +174,29 @@ private extension AgenticConversationSettingsControl {
             }
 
             snapshot.selectedModelProfileID = identifier
+
+            if !model.supportsStreaming {
+                snapshot.selectedResponseDelivery = .buffered
+            }
+
             open(.root, snapshot: snapshot, currentID: rootSelection)
             return .conversation(.modelSelectionChanged(identifier))
+
+        case .responseDelivery(let delivery):
+            if delivery == .stream,
+               !Self.selectedModelSupportsStreaming(snapshot)
+            {
+                return .conversation(
+                    .feedbackRequested(
+                        "Streaming is unavailable for the selected model."
+                    )
+                )
+            }
+
+            return selectResponseDelivery(
+                delivery,
+                snapshot: &snapshot
+            )
 
         case .discovery:
             return selectExposure(.discovery, snapshot: &snapshot)
@@ -219,6 +254,17 @@ private extension AgenticConversationSettingsControl {
         )
     }
 
+    mutating func selectResponseDelivery(
+        _ delivery: AgentModelResponseDelivery,
+        snapshot: inout AgenticConversationSnapshot
+    ) -> AgenticConversationSettingsControlEvent {
+        snapshot.selectedResponseDelivery = delivery
+        open(.root, snapshot: snapshot, currentID: rootSelection)
+        return .conversation(
+            .responseDeliverySelectionChanged(delivery)
+        )
+    }
+
     mutating func selectExposure(
         _ exposure: AgenticConversationToolExposure,
         snapshot: inout AgenticConversationSnapshot
@@ -257,6 +303,8 @@ private extension AgenticConversationSettingsControl {
                 $0.id == identifier
             }?.title ?? identifier.rawValue
             return "Model '\(title)' is unavailable."
+        case .responseDelivery(.stream):
+            return "Streaming is unavailable for the selected model."
         default:
             return "Selection is unavailable."
         }
@@ -297,6 +345,11 @@ private extension AgenticConversationSettingsControl {
                     )
                 )
             }
+            instructions = "j/k move  enter select  q back"
+
+        case .response:
+            path = ["Response"]
+            rows = responseDeliveryRows(snapshot)
             instructions = "j/k move  enter select  q back"
 
         case .exposure:
@@ -358,6 +411,18 @@ private extension AgenticConversationSettingsControl {
                 )
             ),
             TerminalSettingsRow(
+                id: .response,
+                title: "Response",
+                value: responseDeliveryTitle(
+                    snapshot.selectedResponseDelivery
+                ),
+                accessory: .disclosure,
+                detail: responseDeliveryDetail(
+                    snapshot.selectedResponseDelivery,
+                    snapshot: snapshot
+                )
+            ),
+            TerminalSettingsRow(
                 id: .exposure,
                 title: "Tool exposure",
                 value: snapshot.selectedToolExposure.title,
@@ -382,6 +447,94 @@ private extension AgenticConversationSettingsControl {
                 )
             ),
         ]
+    }
+
+    private static func responseDeliveryRows(
+        _ snapshot: AgenticConversationSnapshot
+    ) -> [TerminalSettingsRow<RowID>] {
+        let supportsStreaming = selectedModelSupportsStreaming(
+            snapshot
+        )
+
+        return [
+            TerminalSettingsRow(
+                id: .responseDelivery(.stream),
+                title: "Streaming",
+                caption: supportsStreaming
+                    ? nil
+                    : "Unsupported by selected model.",
+                isEnabled: supportsStreaming,
+                accessory: .radio(
+                    selected: snapshot.selectedResponseDelivery == .stream
+                ),
+                detail: responseDeliveryDetail(
+                    .stream,
+                    snapshot: snapshot
+                )
+            ),
+            TerminalSettingsRow(
+                id: .responseDelivery(.buffered),
+                title: "Buffered",
+                accessory: .radio(
+                    selected: snapshot.selectedResponseDelivery == .buffered
+                ),
+                detail: responseDeliveryDetail(
+                    .buffered,
+                    snapshot: snapshot
+                )
+            ),
+        ]
+    }
+
+    private static func responseDeliveryTitle(
+        _ delivery: AgentModelResponseDelivery
+    ) -> String {
+        switch delivery {
+        case .stream:
+            return "Streaming"
+        case .buffered:
+            return "Buffered"
+        }
+    }
+
+    private static func responseDeliveryDetail(
+        _ delivery: AgentModelResponseDelivery,
+        snapshot: AgenticConversationSnapshot
+    ) -> TerminalSettingsDetail {
+        let supportsStreaming = selectedModelSupportsStreaming(
+            snapshot
+        )
+
+        switch delivery {
+        case .stream:
+            return TerminalSettingsDetail(
+                title: "Streaming",
+                fields: [
+                    TerminalField(
+                        "model support",
+                        supportsStreaming ? "yes" : "no"
+                    ),
+                ],
+                body: "Deliver model output incrementally while the response is generated."
+            )
+
+        case .buffered:
+            return TerminalSettingsDetail(
+                title: "Buffered",
+                fields: [
+                    TerminalField("model support", "yes"),
+                ],
+                body: "Wait for the complete provider response before delivering it to the runtime."
+            )
+        }
+    }
+
+    private static func selectedModelSupportsStreaming(
+        _ snapshot: AgenticConversationSnapshot
+    ) -> Bool {
+        snapshot.models.first {
+            $0.id == snapshot.selectedModelProfileID
+        }?.supportsStreaming ?? true
     }
 
     private static func exposureRows(

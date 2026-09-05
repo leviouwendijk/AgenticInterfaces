@@ -26,10 +26,11 @@ enum AgenticConversationSmoke {
         case voiceFocusChanged
         case voiceStatusChanged
         case modelSelectionChanged
+        case responseDeliverySelectionChanged
+        case streamingCapabilityGateChanged
         case toolExposureSelectionChanged
         case skillSelectionChanged
         case settingsPresentationMissing
-        case attachmentDidNotOpen
         case runDidNotOpen
         case runDidNotClose
         case assistantMarkdownSourceChanged
@@ -66,6 +67,7 @@ enum AgenticConversationSmoke {
               submission.modelProfileID.rawValue == "apple-default",
               submission.skillIDs.isEmpty,
               submission.toolExposure == .discovery,
+              submission.responseDelivery == .stream,
               control.draftText.isEmpty,
               control.pinnedContents.isEmpty
         else {
@@ -233,6 +235,9 @@ enum AgenticConversationSmoke {
                 "Model"
               ),
               settingsPresentation.contains(
+                "Response"
+              ),
+              settingsPresentation.contains(
                 "Tool exposure"
               ),
               settingsPresentation.contains(
@@ -259,8 +264,67 @@ enum AgenticConversationSmoke {
             .char("q")
         )
 
+        var responseControl = AgenticConversationControl(
+            snapshot: fixture()
+        )
+        _ = responseControl.handle(
+            .escape
+        )
+        _ = responseControl.handle(
+            .char("s")
+        )
+        _ = responseControl.handle(
+            .char("j")
+        )
+        _ = responseControl.handle(
+            .enter
+        )
+        _ = responseControl.handle(
+            .char("j")
+        )
+        guard responseControl.handle(
+            .enter
+        ) == .responseDeliverySelectionChanged(
+            .buffered
+        ) else {
+            throw Failure.responseDeliverySelectionChanged
+        }
+
+        var nonStreamingSnapshot = fixture()
+        nonStreamingSnapshot.selectedModelProfileID = "buffered-model"
+        nonStreamingSnapshot.selectedResponseDelivery = .buffered
+
+        var nonStreamingControl = AgenticConversationControl(
+            snapshot: nonStreamingSnapshot
+        )
+        _ = nonStreamingControl.handle(
+            .escape
+        )
+        _ = nonStreamingControl.handle(
+            .char("s")
+        )
+        _ = nonStreamingControl.handle(
+            .char("j")
+        )
+        _ = nonStreamingControl.handle(
+            .enter
+        )
+        _ = nonStreamingControl.handle(
+            .char("k")
+        )
+        guard nonStreamingControl.handle(
+            .enter
+        ) == .feedbackRequested(
+            "Streaming is unavailable for the selected model."
+        ) else {
+            throw Failure.streamingCapabilityGateChanged
+        }
+
         _ = control.handle(
             .char("s")
+        )
+        _ = control.handle(
+            .char("j")
         )
         _ = control.handle(
             .char("j")
@@ -292,6 +356,9 @@ enum AgenticConversationSmoke {
             .char("j")
         )
         _ = control.handle(
+            .char("j")
+        )
+        _ = control.handle(
             .enter
         )
         guard control.handle(
@@ -308,12 +375,6 @@ enum AgenticConversationSmoke {
             .char("q")
         )
 
-        guard control.handle(.enter) == .attachmentOpened(
-            messageID: "assistant-run",
-            attachmentID: "conversation-run"
-        ) else {
-            throw Failure.attachmentDidNotOpen
-        }
         guard control.handle(.enter) == .runOpened(
             messageID: "assistant-run",
             runID: "conversation-run"
@@ -389,6 +450,12 @@ enum AgenticConversationSmoke {
                     id: "mock-model",
                     title: "Mock model",
                     detail: "deterministic interface fixture"
+                ),
+                AgenticConversationModelPresentation(
+                    id: "buffered-model",
+                    title: "Buffered-only model",
+                    detail: "does not support streaming",
+                    supportsStreaming: false
                 ),
             ],
             selectedModelProfileID: "apple-default",

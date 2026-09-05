@@ -6,7 +6,7 @@ enum AgenticConversationPendingSmoke {
         case submissionMissing
         case pendingStateMissing
         case pendingPresentationMissing
-        case spinnerDidNotAdvance
+        case syntheticPendingPresentationRemaining
         case pendingComposerMutated
         case pendingNavigationBlocked
         case pendingStateDidNotClear
@@ -44,27 +44,43 @@ enum AgenticConversationPendingSmoke {
             throw Failure.pendingStateMissing
         }
 
+        var liveSnapshot = fixture()
+        liveSnapshot.messages.append(
+            AgenticConversationMessagePresentation(
+                id: "live-user",
+                role: .user,
+                body: submission.body
+            )
+        )
+        liveSnapshot.messages.append(
+            AgenticConversationMessagePresentation(
+                id: "live-assistant",
+                role: .assistant,
+                body: "partial response"
+            )
+        )
+        liveSnapshot.activity = "streaming · 0.4s"
+        control.update(
+            liveSnapshot
+        )
+
         let first = rendered(
             control
         )
 
         guard first.contains("ping"),
-              first.contains("⠋"),
-              first.contains("invoking model")
+              first.contains("partial response"),
+              first.contains("streaming · 0.4s"),
+              first.contains("response pending")
         else {
             throw Failure.pendingPresentationMissing
         }
 
-        _ = control.advancePendingTurn()
-
-        let second = rendered(
-            control
-        )
-
-        guard second.contains("⠙"),
-              second.contains("invoking model")
+        guard !first.contains("⠋"),
+              !first.contains("⠙"),
+              first.components(separatedBy: "ping").count == 2
         else {
-            throw Failure.spinnerDidNotAdvance
+            throw Failure.syntheticPendingPresentationRemaining
         }
 
         _ = control.handle(

@@ -137,17 +137,20 @@ public struct AgenticConversationModelPresentation: Sendable, Hashable {
     public var title: String
     public var detail: String
     public var isAvailable: Bool
+    public var supportsStreaming: Bool
 
     public init(
         id: AgentModelProfileIdentifier,
         title: String,
         detail: String,
-        isAvailable: Bool = true
+        isAvailable: Bool = true,
+        supportsStreaming: Bool = true
     ) {
         self.id = id
         self.title = title
         self.detail = detail
         self.isAvailable = isAvailable
+        self.supportsStreaming = supportsStreaming
     }
 }
 
@@ -177,6 +180,7 @@ public struct AgenticConversationSubmission: Sendable, Hashable {
     public var modelProfileID: AgentModelProfileIdentifier
     public var skillIDs: [AgentSkillIdentifier]
     public var toolExposure: AgenticConversationToolExposure
+    public var responseDelivery: AgentModelResponseDelivery
 
     public init(
         body: String,
@@ -184,7 +188,8 @@ public struct AgenticConversationSubmission: Sendable, Hashable {
         contents: [AgenticConversationContentPresentation],
         modelProfileID: AgentModelProfileIdentifier,
         skillIDs: [AgentSkillIdentifier],
-        toolExposure: AgenticConversationToolExposure = .discovery
+        toolExposure: AgenticConversationToolExposure = .discovery,
+        responseDelivery: AgentModelResponseDelivery = .stream
     ) {
         self.body = body
         self.origin = origin
@@ -192,6 +197,7 @@ public struct AgenticConversationSubmission: Sendable, Hashable {
         self.modelProfileID = modelProfileID
         self.skillIDs = skillIDs
         self.toolExposure = toolExposure
+        self.responseDelivery = responseDelivery
     }
 }
 
@@ -205,6 +211,7 @@ public struct AgenticConversationSnapshot: Sendable, Hashable {
     public var messages: [AgenticConversationMessagePresentation]
     public var models: [AgenticConversationModelPresentation]
     public var selectedModelProfileID: AgentModelProfileIdentifier
+    public var selectedResponseDelivery: AgentModelResponseDelivery
     public var skills: [AgenticConversationSkillPresentation]
     public var selectedSkillIDs: [AgentSkillIdentifier]
     public var selectedToolExposure: AgenticConversationToolExposure
@@ -220,6 +227,7 @@ public struct AgenticConversationSnapshot: Sendable, Hashable {
         messages: [AgenticConversationMessagePresentation] = [],
         models: [AgenticConversationModelPresentation],
         selectedModelProfileID: AgentModelProfileIdentifier,
+        selectedResponseDelivery: AgentModelResponseDelivery = .stream,
         skills: [AgenticConversationSkillPresentation] = [],
         selectedSkillIDs: [AgentSkillIdentifier] = [],
         selectedToolExposure: AgenticConversationToolExposure = .discovery,
@@ -234,6 +242,7 @@ public struct AgenticConversationSnapshot: Sendable, Hashable {
         self.messages = messages
         self.models = models
         self.selectedModelProfileID = selectedModelProfileID
+        self.selectedResponseDelivery = selectedResponseDelivery
         self.skills = skills
         self.selectedSkillIDs = selectedSkillIDs
         self.selectedToolExposure = selectedToolExposure
