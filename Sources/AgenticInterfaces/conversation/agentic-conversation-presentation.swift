@@ -113,6 +113,18 @@ public enum AgenticConversationAttachmentPresentation: Sendable, Hashable {
     }
 }
 
+public enum AgenticConversationRunCardTone:
+    String,
+    Sendable,
+    Hashable
+{
+    case neutral
+    case active
+    case warning
+    case success
+    case failure
+}
+
 public struct AgenticConversationRunCardPresentation:
     Sendable,
     Hashable
@@ -120,15 +132,18 @@ public struct AgenticConversationRunCardPresentation:
     public var title: String
     public var body: String
     public var hint: String
+    public var tone: AgenticConversationRunCardTone
 
     public init(
         title: String,
         body: String,
-        hint: String
+        hint: String,
+        tone: AgenticConversationRunCardTone = .neutral
     ) {
         self.title = title
         self.body = body
         self.hint = hint
+        self.tone = tone
     }
 
     public static func project(
@@ -198,8 +213,35 @@ public struct AgenticConversationRunCardPresentation:
             hint: hint(
                 for: run.state,
                 interruption: interruption
+            ),
+            tone: tone(
+                for: run.state
             )
         )
+    }
+
+    private static func tone(
+        for state: AgenticHostConsoleRunState
+    ) -> AgenticConversationRunCardTone {
+        switch state {
+        case .ready,
+             .pause_pending,
+             .paused:
+            return .neutral
+
+        case .active:
+            return .active
+
+        case .awaitingApproval,
+             .onHold:
+            return .warning
+
+        case .completed:
+            return .success
+
+        case .failed:
+            return .failure
+        }
     }
 
     private static func title(

@@ -37,6 +37,7 @@ enum AgenticConversationSmoke {
         case assistantMarkdownSourceChanged
         case assistantMarkdownPresentationMissing
         case runCardProjectionChanged
+        case runCardStyleChanged
         case transcriptQExited
         case selectedMessagePresentationChanged
         case selectedMessageViewportChanged
@@ -99,9 +100,110 @@ enum AgenticConversationSmoke {
                 "Stage 2 of 3 · mutate_files",
                 "Human review required",
               ].joined(separator: "\n"),
-              card.hint == "Enter for actions"
+              card.hint == "Enter for actions",
+              card.tone == .warning
         else {
             throw Failure.runCardProjectionChanged
+        }
+
+        let toneExpectations: [
+            (
+                AgenticHostConsoleRunState,
+                AgenticConversationRunCardTone
+            )
+        ] = [
+            (.ready, .neutral),
+            (.active, .active),
+            (.pause_pending, .neutral),
+            (.paused, .neutral),
+            (.awaitingApproval, .warning),
+            (.onHold, .warning),
+            (.completed, .success),
+            (.failed, .failure),
+        ]
+
+        for (state, expectedTone) in toneExpectations {
+            var run = cardRun
+            run.state = state
+            let projected =
+                AgenticConversationRunCardPresentation.project(
+                    run: run,
+                    hostConsole: AgenticHostConsoleSnapshot(
+                        runs: [
+                            run,
+                        ]
+                    )
+                )
+
+            guard projected.tone == expectedTone else {
+                throw Failure.runCardProjectionChanged
+            }
+        }
+
+        let colorExpectations: [
+            (
+                AgenticHostConsoleRunState,
+                String
+            )
+        ] = [
+            (.awaitingApproval, ANSIColor.yellow.rawValue),
+            (.onHold, ANSIColor.yellow.rawValue),
+            (.completed, ANSIColor.green.rawValue),
+            (.failed, ANSIColor.red.rawValue),
+        ]
+
+        for (state, expectedColor) in colorExpectations {
+            var run = cardRun
+            run.state = state
+
+            var colorSnapshot = fixture()
+            colorSnapshot.messages = [
+                AgenticConversationMessagePresentation(
+                    id: "semantic-run-card",
+                    role: .assistant,
+                    body: "Semantic run card fixture.",
+                    attachments: [
+                        .run(
+                            runID: run.id
+                        ),
+                    ]
+                ),
+            ]
+            colorSnapshot.hostConsole =
+                AgenticHostConsoleSnapshot(
+                    runs: [
+                        run,
+                    ]
+                )
+
+            var colorControl =
+                AgenticConversationControl(
+                    snapshot: colorSnapshot
+                )
+            var colorFrame = TerminalFrame(
+                rows: 24,
+                columns: 80
+            )
+            colorControl.render(
+                into: &colorFrame,
+                in: TerminalRegion(
+                    rows: 24,
+                    columns: 80
+                )
+            )
+            let colorRendered = colorFrame
+                .resolved()
+                .spans
+                .map(\.content)
+                .joined(
+                    separator: "\n"
+                )
+
+            guard colorRendered.contains(
+                expectedColor
+            ) else {
+                throw Failure.runCardStyleChanged
+            }
         }
 
         var control = AgenticConversationControl(snapshot: fixture())
@@ -507,6 +609,12 @@ enum AgenticConversationSmoke {
               !rendered.contains("q quit")
         else {
             throw Failure.selectedMessagePresentationChanged
+        }
+
+        guard rendered.contains(
+            ANSIColor.green.rawValue
+        ) else {
+            throw Failure.runCardStyleChanged
         }
 
         var viewportSnapshot = fixture()

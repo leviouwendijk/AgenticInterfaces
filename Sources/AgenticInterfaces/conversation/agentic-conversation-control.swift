@@ -837,6 +837,7 @@ private extension AgenticConversationControl {
             let start = lines.count
             let selected = focus.current == .transcript
                 && message.id == selectedMessageID
+            var nestedInteractiveRows: Set<Int> = []
             let label = (selected ? "> " : "") + message.role.rawValue
             lines.append(
                 selected
@@ -901,8 +902,12 @@ private extension AgenticConversationControl {
                         hint: presentation.hint,
                         state: TerminalInteractiveBlock.resolvedState(
                             isFocused: selected
+                        ),
+                        style: runCardStyle(
+                            for: presentation.tone
                         )
                     )
+                    let blockStart = lines.count
 
                     lines.append(
                         contentsOf: block.render(
@@ -910,6 +915,9 @@ private extension AgenticConversationControl {
                         ).map { line in
                             "  " + line
                         }
+                    )
+                    nestedInteractiveRows.formUnion(
+                        blockStart..<lines.count
                     )
                 }
             }
@@ -923,7 +931,7 @@ private extension AgenticConversationControl {
                     )
                 )
 
-                for index in start..<lines.count {
+                for index in start..<lines.count where !nestedInteractiveRows.contains(index) {
                     lines[index] = selectionStyle.apply(
                         TerminalDisplay.fitted(
                             stripANSI(
@@ -943,6 +951,46 @@ private extension AgenticConversationControl {
             lines = [TerminalStyle.dim.apply("No messages yet.")]
         }
         return (lines, rows)
+    }
+
+    func runCardStyle(
+        for tone: AgenticConversationRunCardTone
+    ) -> TerminalInteractiveBlockStyle {
+        let theme = TerminalTheme.agentic
+        let accent: TerminalStyle
+
+        switch tone {
+        case .neutral:
+            accent = .dim
+
+        case .active:
+            accent = theme.title
+
+        case .warning:
+            accent = theme.warning
+
+        case .success:
+            accent = theme.success
+
+        case .failure:
+            accent = theme.failure
+        }
+
+        let emphasized = accent.merging(
+            .bold
+        )
+
+        return TerminalInteractiveBlockStyle(
+            border: accent,
+            focusedBorder: emphasized,
+            hoveredBorder: emphasized,
+            activeBorder: emphasized,
+            disabledBorder: .dim,
+            title: emphasized,
+            body: .none,
+            hint: .dim,
+            disabledContent: .dim
+        )
     }
 
     mutating func renderAttachment(
