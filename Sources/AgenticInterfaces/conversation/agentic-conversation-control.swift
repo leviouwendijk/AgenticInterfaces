@@ -914,10 +914,17 @@ private extension AgenticConversationControl {
                 }
             }
             if selected {
+                let selectionStyle = TerminalStyle(
+                    foreground: .hex(
+                        "#d0d0d0"
+                    ),
+                    background: .hex(
+                        "#3a3d43"
+                    )
+                )
+
                 for index in start..<lines.count {
-                    lines[index] = TerminalStyle(
-                        .inverse
-                    ).apply(
+                    lines[index] = selectionStyle.apply(
                         TerminalDisplay.fitted(
                             stripANSI(
                                 lines[index]

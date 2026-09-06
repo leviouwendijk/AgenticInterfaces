@@ -489,7 +489,12 @@ enum AgenticConversationSmoke {
             .map(\.content)
             .joined(separator: "\n")
         let selectedBody = TerminalStyle(
-            .inverse
+            foreground: .hex(
+                "#d0d0d0"
+            ),
+            background: .hex(
+                "#3a3d43"
+            )
         ).apply(
             TerminalDisplay.fitted(
                 "  I prepared a run for inspection.",
