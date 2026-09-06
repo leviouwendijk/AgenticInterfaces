@@ -37,11 +37,15 @@ enum AgenticConversationSmoke {
         case assistantMarkdownSourceChanged
         case assistantMarkdownPresentationMissing
         case runCardProjectionChanged
+        case transcriptQExited
+        case selectedMessagePresentationChanged
+        case selectedMessageViewportChanged
         case presentationMissing
     }
 
     static func run() throws {
         try AgenticConversationPendingSmoke.run()
+        try AgenticConversationRunReviewSmoke.run()
 
         let cardRun = AgenticHostConsoleRunPresentation(
             id: "card-run",
@@ -472,7 +476,9 @@ enum AgenticConversationSmoke {
         ) else {
             throw Failure.runDidNotClose
         }
-        _ = control.handle(.char("q"))
+        guard control.handle(.char("q")) == nil else {
+            throw Failure.transcriptQExited
+        }
 
         var frame = TerminalFrame(rows: 24, columns: 80)
         control.render(
@@ -482,6 +488,79 @@ enum AgenticConversationSmoke {
         let rendered = frame.resolved().spans
             .map(\.content)
             .joined(separator: "\n")
+        let selectedBody = TerminalStyle(
+            .inverse
+        ).apply(
+            TerminalDisplay.fitted(
+                "  I prepared a run for inspection.",
+                columns: 80
+            )
+        )
+
+        guard rendered.contains(selectedBody),
+              rendered.contains("ctrl-c quit"),
+              !rendered.contains("q quit")
+        else {
+            throw Failure.selectedMessagePresentationChanged
+        }
+
+        var viewportSnapshot = fixture()
+        viewportSnapshot.messages = [
+            AgenticConversationMessagePresentation(
+                id: "viewport-first",
+                role: .user,
+                body: "first message"
+            ),
+            AgenticConversationMessagePresentation(
+                id: "viewport-long",
+                role: .assistant,
+                body: [
+                    "long-1",
+                    "long-2",
+                    "long-3",
+                    "long-4",
+                    "long-5",
+                    "long-6",
+                    "long-tail",
+                ].joined(separator: "\n")
+            ),
+        ]
+        var viewportControl = AgenticConversationControl(
+            snapshot: viewportSnapshot
+        )
+        _ = viewportControl.handle(.escape)
+        _ = viewportControl.handle(.char("k"))
+
+        var viewportFrame = TerminalFrame(
+            rows: 10,
+            columns: 60
+        )
+        viewportControl.render(
+            into: &viewportFrame,
+            in: TerminalRegion(
+                rows: 10,
+                columns: 60
+            )
+        )
+        _ = viewportControl.handle(.char("j"))
+
+        viewportFrame.removeAll()
+        viewportControl.render(
+            into: &viewportFrame,
+            in: TerminalRegion(
+                rows: 10,
+                columns: 60
+            )
+        )
+        let viewportRendered = stripANSI(
+            viewportFrame.resolved().spans
+                .map(\.content)
+                .joined(separator: "\n")
+        )
+
+        guard viewportRendered.contains("long-tail") else {
+            throw Failure.selectedMessageViewportChanged
+        }
 
         guard control.snapshot.messages.first(where: {
             $0.id == "assistant-run"

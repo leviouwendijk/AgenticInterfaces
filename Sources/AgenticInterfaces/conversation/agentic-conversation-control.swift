@@ -10,6 +10,7 @@ public enum AgenticConversationFocus: Sendable, Hashable {
     case transcript
     case attachment
     case settings
+    case runReview
     case run
 }
 
@@ -49,6 +50,7 @@ public struct AgenticConversationControl: Sendable {
     private var settings: AgenticConversationSettingsControl
     private var pendingSubmission: AgenticConversationSubmission?
     private var openedRunID: String?
+    private var runReview: AgenticConversationRunReviewControl?
     private var hostConsole: AgenticHostConsoleWorkflowControl?
 
     public init(snapshot: AgenticConversationSnapshot) {
@@ -73,6 +75,7 @@ public struct AgenticConversationControl: Sendable {
         )
         self.pendingSubmission = nil
         self.openedRunID = nil
+        self.runReview = nil
         self.hostConsole = nil
     }
 
@@ -145,6 +148,22 @@ public struct AgenticConversationControl: Sendable {
         settings.update(
             snapshot
         )
+
+        if var runReview {
+            if runReview.update(
+                snapshot.hostConsole
+            ) {
+                self.runReview = runReview
+            } else {
+                self.runReview = nil
+
+                if focus.current == .runReview {
+                    focus.reset(
+                        to: .transcript
+                    )
+                }
+            }
+        }
 
         guard let openedRunID else {
             return
@@ -236,6 +255,7 @@ public struct AgenticConversationControl: Sendable {
 
             case .attachment,
                  .settings,
+                 .runReview,
                  .run:
                 break
             }
@@ -252,6 +272,8 @@ public struct AgenticConversationControl: Sendable {
             return handleAttachment(key)
         case .settings:
             return handleSettings(key)
+        case .runReview:
+            return handleRunReview(key)
         case .run:
             return handleRun(key)
         }
@@ -288,6 +310,14 @@ public struct AgenticConversationControl: Sendable {
                 into: &frame,
                 in: region
             )
+        case .runReview:
+            if var runReview {
+                runReview.render(
+                    into: &frame,
+                    in: region
+                )
+                self.runReview = runReview
+            }
         case .composer, .voice, .transcript, .run:
             break
         }
@@ -421,11 +451,6 @@ private extension AgenticConversationControl {
         switch key {
         case .tab, .escape:
             focus.replace(.composer)
-        case .char("q"):
-            guard pendingSubmission == nil else {
-                return nil
-            }
-            return .exitRequested
         case .char("j"), .down:
             moveMessage(by: 1)
         case .char("k"), .up:
@@ -545,6 +570,60 @@ private extension AgenticConversationControl {
         return .runClosed(runID: runID)
     }
 
+    mutating func handleRunReview(
+        _ key: TerminalKey
+    ) -> AgenticConversationEvent? {
+        guard var runReview else {
+            focus.reset(
+                to: .transcript
+            )
+            return .feedbackRequested(
+                "Run review is no longer available."
+            )
+        }
+
+        let event = runReview.handle(
+            key
+        )
+        self.runReview = runReview
+
+        guard let event else {
+            return nil
+        }
+
+        switch event {
+        case .closed:
+            self.runReview = nil
+            _ = focus.pop()
+            return nil
+
+        case .openRunConsole(let runID):
+            self.runReview = nil
+            _ = focus.pop()
+            return openRun(
+                runID: runID
+            )
+
+        case .actionRequested(
+            let interruptionID,
+            let runID,
+            let stepID,
+            let action
+        ):
+            self.runReview = nil
+            _ = focus.pop()
+
+            return .run(
+                .actionRequested(
+                    interruptionID: interruptionID,
+                    runID: runID,
+                    stepID: stepID,
+                    action: action
+                )
+            )
+        }
+    }
+
     mutating func openCurrentMessage() -> AgenticConversationEvent? {
         guard let currentMessage else {
             return .feedbackRequested("No message selected.")
@@ -553,6 +632,17 @@ private extension AgenticConversationControl {
         if currentMessage.attachments.count == 1,
            case .run(let runID) = currentMessage.attachments[0]
         {
+            if let review = AgenticConversationRunReviewControl(
+                snapshot: snapshot.hostConsole,
+                runID: runID
+            ) {
+                runReview = review
+                focus.push(
+                    .runReview
+                )
+                return nil
+            }
+
             return openRun(
                 runID: runID
             )
@@ -662,9 +752,22 @@ private extension AgenticConversationControl {
         transcript.update(lines: layout.lines, visibleRows: vertical[1].rows)
         if focus.current == .transcript,
            let selectedMessageID,
-           let row = layout.messageRows[selectedMessageID]?.lowerBound
+           let rows = layout.messageRows[selectedMessageID],
+           !rows.isEmpty
         {
-            transcript.reveal(row: row, margin: 1)
+            let visible = transcript.viewport.visibleRange
+
+            if rows.lowerBound < visible.lowerBound {
+                transcript.reveal(
+                    row: rows.lowerBound,
+                    margin: 1
+                )
+            } else if rows.upperBound > visible.upperBound {
+                transcript.reveal(
+                    row: rows.upperBound - 1,
+                    margin: 1
+                )
+            }
         } else if focus.current == .composer {
             transcript.moveToEnd()
         }
@@ -810,6 +913,21 @@ private extension AgenticConversationControl {
                     )
                 }
             }
+            if selected {
+                for index in start..<lines.count {
+                    lines[index] = TerminalStyle(
+                        .inverse
+                    ).apply(
+                        TerminalDisplay.fitted(
+                            stripANSI(
+                                lines[index]
+                            ),
+                            columns: width
+                        )
+                    )
+                }
+            }
+
             rows[message.id] = start..<lines.count
             lines.append("")
         }
@@ -982,6 +1100,7 @@ private extension AgenticConversationControl {
                 return "j/k message  enter inspect  tab composer  response pending"
             case .attachment,
                  .settings,
+                 .runReview,
                  .run:
                 break
             }
@@ -994,12 +1113,15 @@ private extension AgenticConversationControl {
         case .voice:
             return "enter voice  tab transcript  esc composer  ctrl-v voice"
         case .transcript:
-            return "j/k message  enter inspect  m model  s settings  tab composer  q quit"
+            return "j/k message  enter inspect  m model  s settings  tab composer  ctrl-c quit"
                 + voiceFooter
         case .attachment:
             return "h/l sibling  j/k scroll  enter run  q back"
         case .settings:
             return "conversation settings"
+        case .runReview:
+            return runReview?.footer
+                ?? "q conversation"
         case .run:
             return "q conversation"
         }
