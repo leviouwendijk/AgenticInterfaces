@@ -27,8 +27,8 @@ struct AgenticConversationSettingsControl: Sendable {
         case autonomyMode(AutonomyMode)
         case discovery
         case allTools
-        case skillSeeded
-        case explicit
+        case skill_seeded
+        case custom
         case skill(AgentSkillIdentifier)
     }
 
@@ -219,9 +219,9 @@ private extension AgenticConversationSettingsControl {
         case .allTools:
             return selectExposure(.all, snapshot: &snapshot)
 
-        case .skillSeeded:
+        case .skill_seeded:
             guard !snapshot.selectedSkillIDs.isEmpty
-                    || snapshot.selectedToolExposure == .skillSeeded
+                    || snapshot.selectedToolExposure == .skill_seeded
             else {
                 return .conversation(
                     .feedbackRequested(
@@ -229,12 +229,12 @@ private extension AgenticConversationSettingsControl {
                     )
                 )
             }
-            return selectExposure(.skillSeeded, snapshot: &snapshot)
+            return selectExposure(.skill_seeded, snapshot: &snapshot)
 
-        case .explicit:
+        case .custom:
             return .conversation(
                 .feedbackRequested(
-                    "Explicit tool exposure requires a fixed tool picker."
+                    "Custom tool exposure requires the tool picker."
                 )
             )
 
@@ -316,9 +316,9 @@ private extension AgenticConversationSettingsControl {
         snapshot: AgenticConversationSnapshot
     ) -> String {
         switch id {
-        case .explicit:
-            return "Explicit tool exposure requires a fixed tool picker."
-        case .skillSeeded:
+        case .custom:
+            return "Custom tool exposure requires the tool picker."
+        case .skill_seeded:
             return "Select at least one skill before using skill-seeded exposure."
         case .skills:
             return "No skills are registered."
@@ -668,28 +668,27 @@ private extension AgenticConversationSettingsControl {
                 snapshot: snapshot
             ),
             TerminalSettingsRow(
-                id: .skillSeeded,
-                title: AgenticConversationToolExposure.skillSeeded.title,
+                id: .skill_seeded,
+                title: AgenticConversationToolExposure.skill_seeded.title,
                 caption: snapshot.selectedSkillIDs.isEmpty
                     ? "Select a skill first."
                     : nil,
                 isEnabled: !snapshot.selectedSkillIDs.isEmpty
-                    || snapshot.selectedToolExposure == .skillSeeded,
+                    || snapshot.selectedToolExposure == .skill_seeded,
                 accessory: .radio(
-                    selected: snapshot.selectedToolExposure == .skillSeeded
+                    selected: snapshot.selectedToolExposure == .skill_seeded
                 ),
-                detail: exposureDetail(.skillSeeded, snapshot: snapshot)
+                detail: exposureDetail(.skill_seeded, snapshot: snapshot)
             ),
             TerminalSettingsRow(
-                id: .explicit,
-                title: "Explicit",
-                caption: "Fixed tool picker not installed yet.",
+                id: .custom,
+                title: AgenticConversationToolExposure.custom.title,
+                caption: "Tool picker wiring follows this state pass.",
                 isEnabled: false,
-                accessory: .radio(selected: false),
-                detail: TerminalSettingsDetail(
-                    title: "Explicit",
-                    body: "Expose a fixed set of tools once an explicit tool picker is installed."
-                )
+                accessory: .radio(
+                    selected: snapshot.selectedToolExposure == .custom
+                ),
+                detail: exposureDetail(.custom, snapshot: snapshot)
             ),
         ]
     }
@@ -734,7 +733,7 @@ private extension AgenticConversationSettingsControl {
                 body: "Advertise every registered model-facing tool immediately."
             )
 
-        case .skillSeeded:
+        case .skill_seeded:
             let tools = selectedSkillTools(snapshot)
             return TerminalSettingsDetail(
                 title: exposure.title,
@@ -746,8 +745,26 @@ private extension AgenticConversationSettingsControl {
                     TerminalField("dynamic", "yes"),
                 ],
                 body: tools.isEmpty
-                    ? "No selected skill tools are currently seeded."
-                    : "Seed selected skill tools and keep other capabilities discoverable."
+                    ? "No required tools from selected skills are currently seeded."
+                    : "Seed required tools from selected skills and keep other capabilities discoverable."
+            )
+
+        case .custom:
+            return TerminalSettingsDetail(
+                title: exposure.title,
+                fields: [
+                    TerminalField(
+                        "selected",
+                        "\(snapshot.customToolSelection.identifiers.count) tools"
+                    ),
+                    TerminalField(
+                        "dynamic",
+                        snapshot.customToolSelection.dynamicDiscovery
+                            ? "yes"
+                            : "no"
+                    ),
+                ],
+                body: "Expose an exact saved tool selection plus required tools from selected skills. Dynamic discovery may be disabled for a fixed explicit posture."
             )
         }
     }
@@ -790,8 +807,10 @@ private extension AgenticConversationSettingsControl {
             return .discovery
         case .all:
             return .allTools
-        case .skillSeeded:
-            return .skillSeeded
+        case .skill_seeded:
+            return .skill_seeded
+        case .custom:
+            return .custom
         }
     }
 }

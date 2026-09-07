@@ -100,6 +100,10 @@ enum AgenticConversationLab {
                     snapshot.selectedToolExposure = exposure
                     snapshot.activity = "\(exposure.title.lowercased()) tool exposure selected"
                     control.update(snapshot)
+                case .customToolSelectionChanged(let selection):
+                    snapshot.customToolSelection = selection
+                    snapshot.activity = "custom tool selection changed"
+                    control.update(snapshot)
                 case .skillSelectionChanged(let ids):
                     snapshot.selectedSkillIDs = ids
                     snapshot.activity = "skills selected"

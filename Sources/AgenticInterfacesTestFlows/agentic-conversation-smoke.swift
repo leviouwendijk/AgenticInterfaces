@@ -277,6 +277,12 @@ enum AgenticConversationSmoke {
               submission.modelProfileID.rawValue == "apple-default",
               submission.skillIDs.isEmpty,
               submission.toolExposure == .discovery,
+              submission.customToolSelection == AgenticConversationToolSelection(
+                identifiers: [
+                    "inspect_workspace",
+                ],
+                dynamicDiscovery: true
+              ),
               submission.responseDelivery == .stream,
               submission.autonomyMode == .auto_observe,
               control.draftText.isEmpty,
@@ -799,6 +805,47 @@ enum AgenticConversationSmoke {
                     ]
                 ),
             ],
+            toolCollections: [
+                AgenticConversationToolCollectionPresentation(
+                    id: "core",
+                    title: "Core",
+                    tools: [
+                        AgenticConversationToolPresentation(
+                            id: "inspect_workspace",
+                            title: "inspect_workspace",
+                            summary: "Inspect the active workspace."
+                        ),
+                        AgenticConversationToolPresentation(
+                            id: "mutate_files",
+                            title: "mutate_files",
+                            summary: "Apply bounded file mutations."
+                        ),
+                    ]
+                ),
+                AgenticConversationToolCollectionPresentation(
+                    id: "intrinsics",
+                    title: "Intrinsics",
+                    tools: [
+                        AgenticConversationToolPresentation(
+                            id: "find_tools",
+                            title: "find_tools",
+                            summary: "Discover and activate registered tools.",
+                            selectionRole: .dynamicDiscovery
+                        ),
+                        AgenticConversationToolPresentation(
+                            id: "inspect_tool_registry",
+                            title: "inspect_tool_registry",
+                            summary: "Inspect registered tool metadata."
+                        ),
+                    ]
+                ),
+            ],
+            customToolSelection: AgenticConversationToolSelection(
+                identifiers: [
+                    "inspect_workspace",
+                ],
+                dynamicDiscovery: true
+            ),
             hostConsole: AgenticHostConsoleSnapshot(
                 runs: [
                     AgenticHostConsoleRunPresentation(

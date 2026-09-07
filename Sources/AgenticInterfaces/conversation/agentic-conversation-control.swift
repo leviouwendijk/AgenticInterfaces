@@ -25,6 +25,7 @@ public enum AgenticConversationEvent: Sendable, Hashable {
     case responseDeliverySelectionChanged(AgentModelResponseDelivery)
     case autonomySelectionChanged(AutonomyMode)
     case toolExposureSelectionChanged(AgenticConversationToolExposure)
+    case customToolSelectionChanged(AgenticConversationToolSelection)
     case skillSelectionChanged([AgentSkillIdentifier])
     case attachmentOpened(messageID: String, attachmentID: String)
     case attachmentClosed(messageID: String)
@@ -407,6 +408,7 @@ private extension AgenticConversationControl {
             modelProfileID: snapshot.selectedModelProfileID,
             skillIDs: snapshot.selectedSkillIDs,
             toolExposure: snapshot.selectedToolExposure,
+            customToolSelection: snapshot.customToolSelection,
             responseDelivery: snapshot.selectedResponseDelivery,
             autonomyMode: snapshot.selectedAutonomyMode
         )

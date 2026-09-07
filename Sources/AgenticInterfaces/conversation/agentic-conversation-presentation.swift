@@ -18,7 +18,8 @@ public enum AgenticConversationToolExposure:
 {
     case discovery
     case all
-    case skillSeeded = "skill_seeded"
+    case skill_seeded
+    case custom
 
     public var title: String {
         switch self {
@@ -28,8 +29,11 @@ public enum AgenticConversationToolExposure:
         case .all:
             return "All tools"
 
-        case .skillSeeded:
+        case .skill_seeded:
             return "Skill seeded"
+
+        case .custom:
+            return "Custom"
         }
     }
 }
@@ -395,6 +399,7 @@ public struct AgenticConversationSubmission: Sendable, Hashable {
     public var modelProfileID: AgentModelProfileIdentifier
     public var skillIDs: [AgentSkillIdentifier]
     public var toolExposure: AgenticConversationToolExposure
+    public var customToolSelection: AgenticConversationToolSelection
     public var responseDelivery: AgentModelResponseDelivery
     public var autonomyMode: AutonomyMode
 
@@ -405,6 +410,7 @@ public struct AgenticConversationSubmission: Sendable, Hashable {
         modelProfileID: AgentModelProfileIdentifier,
         skillIDs: [AgentSkillIdentifier],
         toolExposure: AgenticConversationToolExposure = .discovery,
+        customToolSelection: AgenticConversationToolSelection = .init(),
         responseDelivery: AgentModelResponseDelivery = .stream,
         autonomyMode: AutonomyMode = .auto_observe
     ) {
@@ -414,6 +420,7 @@ public struct AgenticConversationSubmission: Sendable, Hashable {
         self.modelProfileID = modelProfileID
         self.skillIDs = skillIDs
         self.toolExposure = toolExposure
+        self.customToolSelection = customToolSelection
         self.responseDelivery = responseDelivery
         self.autonomyMode = autonomyMode
     }
@@ -434,6 +441,8 @@ public struct AgenticConversationSnapshot: Sendable, Hashable {
     public var skills: [AgenticConversationSkillPresentation]
     public var selectedSkillIDs: [AgentSkillIdentifier]
     public var selectedToolExposure: AgenticConversationToolExposure
+    public var toolCollections: [AgenticConversationToolCollectionPresentation]
+    public var customToolSelection: AgenticConversationToolSelection
     public var hostConsole: AgenticHostConsoleSnapshot
 
     public init(
@@ -451,6 +460,8 @@ public struct AgenticConversationSnapshot: Sendable, Hashable {
         skills: [AgenticConversationSkillPresentation] = [],
         selectedSkillIDs: [AgentSkillIdentifier] = [],
         selectedToolExposure: AgenticConversationToolExposure = .discovery,
+        toolCollections: [AgenticConversationToolCollectionPresentation] = [],
+        customToolSelection: AgenticConversationToolSelection = .init(),
         hostConsole: AgenticHostConsoleSnapshot = .init()
     ) {
         self.title = title
@@ -467,6 +478,8 @@ public struct AgenticConversationSnapshot: Sendable, Hashable {
         self.skills = skills
         self.selectedSkillIDs = selectedSkillIDs
         self.selectedToolExposure = selectedToolExposure
+        self.toolCollections = toolCollections
+        self.customToolSelection = customToolSelection
         self.hostConsole = hostConsole
     }
 }
