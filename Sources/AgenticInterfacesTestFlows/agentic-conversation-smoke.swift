@@ -106,6 +106,51 @@ enum AgenticConversationSmoke {
             throw Failure.runCardProjectionChanged
         }
 
+        let completedWarningRun = AgenticHostConsoleRunPresentation(
+            id: "completed-warning-run",
+            title: "Recovered fixture",
+            summary: "Recovered after discovery.",
+            state: .completed,
+            steps: [
+                AgenticHostConsoleStepPresentation(
+                    id: "warning-find",
+                    title: "find_tools",
+                    state: .completed
+                ),
+                AgenticHostConsoleStepPresentation(
+                    id: "warning-hidden-call",
+                    title: "mutate_files",
+                    detail: "Tool was registered but not exposed.",
+                    state: .warning
+                ),
+                AgenticHostConsoleStepPresentation(
+                    id: "warning-retry",
+                    title: "mutate_files",
+                    state: .completed
+                ),
+            ]
+        )
+        let completedWarningCard =
+            AgenticConversationRunCardPresentation.project(
+                run: completedWarningRun,
+                hostConsole: AgenticHostConsoleSnapshot(
+                    runs: [
+                        completedWarningRun,
+                    ]
+                )
+            )
+
+        guard completedWarningCard.title == "Run · completed",
+              completedWarningCard.body == [
+                "3 steps · 1 warning",
+                "Recovered after discovery.",
+              ].joined(separator: "\n"),
+              completedWarningCard.hint == "Enter for run details",
+              completedWarningCard.tone == .success
+        else {
+            throw Failure.runCardProjectionChanged
+        }
+
         let toneExpectations: [
             (
                 AgenticHostConsoleRunState,
@@ -697,7 +742,8 @@ enum AgenticConversationSmoke {
               rendered.contains("all tools"),
               rendered.contains("Swift editing"),
               rendered.contains("Run · completed"),
-              rendered.contains("Stage 1 of 1 · inspect_workspace"),
+              rendered.contains("1 step"),
+              !rendered.contains("Stage 1 of 1 · inspect_workspace"),
               rendered.contains("1 operation passed"),
               rendered.contains("Enter for run details")
         else {

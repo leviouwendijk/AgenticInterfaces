@@ -25,6 +25,7 @@ public enum AgenticHostConsoleStepState:
     case pending
     case active
     case completed
+    case warning
     case failed
     case skipped
 }

@@ -153,29 +153,59 @@ public struct AgenticConversationRunCardPresentation:
         let interruption = hostConsole.interruptions.first { interruption in
             interruption.runID == run.id
         }
-        let step =
-            interruption.flatMap { interruption in
-                run.steps.first { step in
-                    step.id == interruption.stepID
+        let isTerminal =
+            run.state == .completed
+                || run.state == .failed
+        let step: AgenticHostConsoleStepPresentation?
+
+        if isTerminal {
+            step = nil
+        } else {
+            step =
+                interruption.flatMap { interruption in
+                    run.steps.first { step in
+                        step.id == interruption.stepID
+                    }
                 }
-            }
-            ?? run.steps.first { step in
-                step.state == .active
-            }
-            ?? run.steps.first { step in
-                step.state == .failed
-            }
-            ?? run.steps.first { step in
-                step.state == .pending
-            }
-            ?? run.steps.last
+                ?? run.steps.first { step in
+                    step.state == .active
+                }
+                ?? run.steps.first { step in
+                    step.state == .failed
+                }
+                ?? run.steps.first { step in
+                    step.state == .pending
+                }
+                ?? run.steps.last
+        }
 
         var body: [String] = []
 
-        if let step,
-           let index = run.steps.firstIndex(where: { candidate in
-               candidate.id == step.id
-           })
+        if isTerminal,
+           !run.steps.isEmpty
+        {
+            let warningCount = run.steps.filter { step in
+                step.state == .warning
+            }.count
+            var outcome =
+                run.steps.count == 1
+                    ? "1 step"
+                    : "\(run.steps.count) steps"
+
+            if warningCount > 0 {
+                outcome +=
+                    warningCount == 1
+                        ? " · 1 warning"
+                        : " · \(warningCount) warnings"
+            }
+
+            body.append(
+                outcome
+            )
+        } else if let step,
+                  let index = run.steps.firstIndex(where: { candidate in
+                      candidate.id == step.id
+                  })
         {
             body.append(
                 "Stage \(index + 1) of \(run.steps.count) · \(step.title)"
