@@ -11,24 +11,34 @@ struct AgenticConversationSettingsControl: Sendable {
         case root
         case model
         case response
+        case invocationoptions
+        case requesttimeout
         case autonomy
         case exposure
+        case custom
+        case tool_collection(String)
         case skills
     }
 
     private enum RowID: Sendable, Hashable {
         case model
         case response
+        case invocationoptions
+        case requesttimeout
         case autonomy
         case exposure
         case skills
         case modelProfile(AgentModelProfileIdentifier)
         case responseDelivery(AgentModelResponseDelivery)
+        case timeoutseconds(Int?)
         case autonomyMode(AutonomyMode)
         case discovery
         case allTools
         case skill_seeded
         case custom
+        case dynamic_discovery
+        case tool_collection(String)
+        case tool(AgentToolIdentifier)
         case skill(AgentSkillIdentifier)
     }
 
@@ -80,11 +90,47 @@ struct AgenticConversationSettingsControl: Sendable {
             return nil
 
         case .cancelRequested:
-            guard page != .root else {
+            switch page {
+            case .root:
                 return .closeRequested
+
+            case .requesttimeout:
+                open(
+                    .invocationoptions,
+                    snapshot: snapshot,
+                    currentID: .requesttimeout
+                )
+                return nil
+
+            case .custom:
+                open(
+                    .exposure,
+                    snapshot: snapshot,
+                    currentID: .custom
+                )
+                return nil
+
+            case .tool_collection(let identifier):
+                open(
+                    .custom,
+                    snapshot: snapshot,
+                    currentID: .tool_collection(identifier)
+                )
+                return nil
+
+            case .model,
+                 .response,
+                 .invocationoptions,
+                 .autonomy,
+                 .exposure,
+                 .skills:
+                open(
+                    .root,
+                    snapshot: snapshot,
+                    currentID: rootSelection
+                )
+                return nil
             }
-            open(.root, snapshot: snapshot, currentID: rootSelection)
-            return nil
 
         case .unavailable(let id):
             return .conversation(
@@ -95,10 +141,33 @@ struct AgenticConversationSettingsControl: Sendable {
             return accept(id, snapshot: &snapshot)
 
         case .toggled(let id):
-            guard case .skill(let identifier) = id else {
+            switch id {
+            case .skill(let identifier):
+                return toggleSkill(
+                    identifier,
+                    snapshot: &snapshot
+                )
+
+            case .dynamic_discovery:
+                return toggleDynamicDiscovery(
+                    snapshot: &snapshot
+                )
+
+            case .tool_collection(let identifier):
+                return toggleToolCollection(
+                    identifier,
+                    snapshot: &snapshot
+                )
+
+            case .tool(let identifier):
+                return toggleTool(
+                    identifier,
+                    snapshot: &snapshot
+                )
+
+            default:
                 return nil
             }
-            return toggleSkill(identifier, snapshot: &snapshot)
         }
     }
 
@@ -138,6 +207,25 @@ private extension AgenticConversationSettingsControl {
                 snapshot: snapshot,
                 currentID: .responseDelivery(
                     snapshot.selectedResponseDelivery
+                )
+            )
+            return nil
+
+        case .invocationoptions:
+            rootSelection = .invocationoptions
+            open(
+                .invocationoptions,
+                snapshot: snapshot,
+                currentID: .requesttimeout
+            )
+            return nil
+
+        case .requesttimeout:
+            open(
+                .requesttimeout,
+                snapshot: snapshot,
+                currentID: .timeoutseconds(
+                    snapshot.selectedInvocationOptions.timeoutseconds
                 )
             )
             return nil
@@ -210,6 +298,19 @@ private extension AgenticConversationSettingsControl {
                 snapshot: &snapshot
             )
 
+        case .timeoutseconds(let timeoutseconds):
+            var options = snapshot.selectedInvocationOptions
+            options.timeoutseconds = timeoutseconds
+            snapshot.selectedInvocationOptions = options
+            open(
+                .invocationoptions,
+                snapshot: snapshot,
+                currentID: .requesttimeout
+            )
+            return .conversation(
+                .invocationOptionsSelectionChanged(options)
+            )
+
         case .autonomyMode(let mode):
             return selectAutonomy(mode, snapshot: &snapshot)
 
@@ -232,10 +333,46 @@ private extension AgenticConversationSettingsControl {
             return selectExposure(.skill_seeded, snapshot: &snapshot)
 
         case .custom:
+            snapshot.selectedToolExposure = .custom
+            open(
+                .custom,
+                snapshot: snapshot,
+                currentID: .dynamic_discovery
+            )
             return .conversation(
-                .feedbackRequested(
-                    "Custom tool exposure requires the tool picker."
+                .toolExposureSelectionChanged(.custom)
+            )
+
+        case .dynamic_discovery:
+            return toggleDynamicDiscovery(
+                snapshot: &snapshot
+            )
+
+        case .tool_collection(let identifier):
+            guard let collection = Self.toolCollection(
+                identifiedBy: identifier,
+                snapshot: snapshot
+            ) else {
+                return .conversation(
+                    .feedbackRequested(
+                        "Tool collection is no longer available."
+                    )
                 )
+            }
+
+            open(
+                .tool_collection(identifier),
+                snapshot: snapshot,
+                currentID: collection.tools.first.map {
+                    .tool($0.id)
+                }
+            )
+            return nil
+
+        case .tool(let identifier):
+            return toggleTool(
+                identifier,
+                snapshot: &snapshot
             )
 
         case .skill(let identifier):
@@ -266,6 +403,138 @@ private extension AgenticConversationSettingsControl {
 
         return .conversation(
             .skillSelectionChanged(snapshot.selectedSkillIDs)
+        )
+    }
+
+    mutating func toggleDynamicDiscovery(
+        snapshot: inout AgenticConversationSnapshot
+    ) -> AgenticConversationSettingsControlEvent {
+        var selection = snapshot.customToolSelection
+        selection.dynamicDiscovery.toggle()
+        snapshot.customToolSelection = selection
+
+        open(
+            .custom,
+            snapshot: snapshot,
+            currentID: .dynamic_discovery
+        )
+
+        return .conversation(
+            .customToolSelectionChanged(selection)
+        )
+    }
+
+    mutating func toggleToolCollection(
+        _ identifier: String,
+        snapshot: inout AgenticConversationSnapshot
+    ) -> AgenticConversationSettingsControlEvent {
+        guard let collection = Self.toolCollection(
+            identifiedBy: identifier,
+            snapshot: snapshot
+        ) else {
+            return .conversation(
+                .feedbackRequested(
+                    "Tool collection is no longer available."
+                )
+            )
+        }
+
+        let toolIdentifiers = Self.selectableTools(
+            in: collection
+        ).map(\.id)
+
+        guard !toolIdentifiers.isEmpty else {
+            return .conversation(
+                .feedbackRequested(
+                    "This collection has no independently selectable tools."
+                )
+            )
+        }
+
+        var selection = snapshot.customToolSelection
+        let selected = Set(selection.identifiers)
+        let allSelected = toolIdentifiers.allSatisfy {
+            selected.contains($0)
+        }
+
+        if allSelected {
+            let removing = Set(toolIdentifiers)
+            selection.identifiers.removeAll {
+                removing.contains($0)
+            }
+        } else {
+            var existing = Set(selection.identifiers)
+
+            for toolIdentifier in toolIdentifiers
+            where existing.insert(toolIdentifier).inserted {
+                selection.identifiers.append(
+                    toolIdentifier
+                )
+            }
+        }
+
+        snapshot.customToolSelection = selection
+        open(
+            .custom,
+            snapshot: snapshot,
+            currentID: .tool_collection(identifier)
+        )
+
+        return .conversation(
+            .customToolSelectionChanged(selection)
+        )
+    }
+
+    mutating func toggleTool(
+        _ identifier: AgentToolIdentifier,
+        snapshot: inout AgenticConversationSnapshot
+    ) -> AgenticConversationSettingsControlEvent {
+        guard let collection = snapshot.toolCollections.first(where: {
+            collection in
+            collection.tools.contains(where: {
+                $0.id == identifier
+            })
+        }),
+              let tool = collection.tools.first(where: {
+                  $0.id == identifier
+              })
+        else {
+            return .conversation(
+                .feedbackRequested(
+                    "Tool is no longer available."
+                )
+            )
+        }
+
+        guard tool.selectionRole == .selectable else {
+            return .conversation(
+                .feedbackRequested(
+                    "Tool '\(tool.title)' is controlled by Dynamic discovery."
+                )
+            )
+        }
+
+        var selection = snapshot.customToolSelection
+
+        if selection.identifiers.contains(identifier) {
+            selection.identifiers.removeAll {
+                $0 == identifier
+            }
+        } else {
+            selection.identifiers.append(
+                identifier
+            )
+        }
+
+        snapshot.customToolSelection = selection
+        open(
+            .tool_collection(collection.id),
+            snapshot: snapshot,
+            currentID: .tool(identifier)
+        )
+
+        return .conversation(
+            .customToolSelectionChanged(selection)
         )
     }
 
@@ -316,8 +585,16 @@ private extension AgenticConversationSettingsControl {
         snapshot: AgenticConversationSnapshot
     ) -> String {
         switch id {
-        case .custom:
-            return "Custom tool exposure requires the tool picker."
+        case .tool(let identifier):
+            if let tool = snapshot.toolCollections
+                .flatMap(\.tools)
+                .first(where: { $0.id == identifier }),
+               tool.selectionRole == .dynamicDiscovery
+            {
+                return "Tool '\(tool.title)' is controlled by Dynamic discovery."
+            }
+            return "Tool is unavailable."
+
         case .skill_seeded:
             return "Select at least one skill before using skill-seeded exposure."
         case .skills:
@@ -376,6 +653,16 @@ private extension AgenticConversationSettingsControl {
             rows = responseDeliveryRows(snapshot)
             instructions = "j/k move  enter select  q back"
 
+        case .invocationoptions:
+            path = ["Invocation options"]
+            rows = invocationOptionsRows(snapshot)
+            instructions = "j/k move  enter open  q back"
+
+        case .requesttimeout:
+            path = ["Invocation options", "Request timeout"]
+            rows = requestTimeoutRows(snapshot)
+            instructions = "j/k move  enter select  q back"
+
         case .autonomy:
             path = ["Autonomy"]
             rows = autonomyRows(snapshot)
@@ -385,6 +672,38 @@ private extension AgenticConversationSettingsControl {
             path = ["Tool exposure"]
             rows = exposureRows(snapshot)
             instructions = "j/k move  enter select  q back"
+
+        case .custom:
+            path = [
+                "Tool exposure",
+                "Custom",
+            ]
+            rows = customRows(snapshot)
+            instructions = "j/k move  enter open/toggle  space toggle  q back"
+
+        case .tool_collection(let identifier):
+            if let collection = toolCollection(
+                identifiedBy: identifier,
+                snapshot: snapshot
+            ) {
+                path = [
+                    "Tool exposure",
+                    "Custom",
+                    collection.title,
+                ]
+                rows = toolRows(
+                    collection,
+                    snapshot: snapshot
+                )
+            } else {
+                path = [
+                    "Tool exposure",
+                    "Custom",
+                    identifier,
+                ]
+                rows = []
+            }
+            instructions = "j/k move  enter/space toggle  q back"
 
         case .skills:
             path = ["Skills"]
@@ -452,6 +771,26 @@ private extension AgenticConversationSettingsControl {
                 )
             ),
             TerminalSettingsRow(
+                id: .invocationoptions,
+                title: "Invocation options",
+                value: requestTimeoutTitle(
+                    snapshot.selectedInvocationOptions.timeoutseconds
+                ),
+                accessory: .disclosure,
+                detail: TerminalSettingsDetail(
+                    title: "Invocation options",
+                    fields: [
+                        TerminalField(
+                            "request timeout",
+                            requestTimeoutTitle(
+                                snapshot.selectedInvocationOptions.timeoutseconds
+                            )
+                        ),
+                    ],
+                    body: "Configure provider invocation behavior for subsequent conversation turns."
+                )
+            ),
+            TerminalSettingsRow(
                 id: .autonomy,
                 title: "Autonomy",
                 value: autonomyTitle(snapshot.selectedAutonomyMode),
@@ -483,6 +822,87 @@ private extension AgenticConversationSettingsControl {
                 )
             ),
         ]
+    }
+
+    private static func invocationOptionsRows(
+        _ snapshot: AgenticConversationSnapshot
+    ) -> [TerminalSettingsRow<RowID>] {
+        [
+            TerminalSettingsRow(
+                id: .requesttimeout,
+                title: "Request timeout",
+                value: requestTimeoutTitle(
+                    snapshot.selectedInvocationOptions.timeoutseconds
+                ),
+                accessory: .disclosure,
+                detail: TerminalSettingsDetail(
+                    title: "Request timeout",
+                    fields: [
+                        TerminalField(
+                            "selected",
+                            requestTimeoutTitle(
+                                snapshot.selectedInvocationOptions.timeoutseconds
+                            )
+                        ),
+                    ],
+                    body: "Set the provider request timeout used for model invocations."
+                )
+            ),
+        ]
+    }
+
+    private static func requestTimeoutRows(
+        _ snapshot: AgenticConversationSnapshot
+    ) -> [TerminalSettingsRow<RowID>] {
+        requestTimeoutPresets().map { preset in
+            TerminalSettingsRow(
+                id: .timeoutseconds(preset.seconds),
+                title: preset.title,
+                accessory: .radio(
+                    selected:
+                        snapshot.selectedInvocationOptions.timeoutseconds
+                        == preset.seconds
+                ),
+                detail: TerminalSettingsDetail(
+                    title: preset.title,
+                    fields: [
+                        TerminalField(
+                            "seconds",
+                            preset.seconds.map { String($0) }
+                                ?? "provider default"
+                        ),
+                    ],
+                    body: preset.seconds == nil
+                        ? "Use the timeout policy supplied by the selected provider."
+                        : "Override the provider request timeout for model invocations."
+                )
+            )
+        }
+    }
+
+    private static func requestTimeoutPresets()
+        -> [(seconds: Int?, title: String)]
+    {
+        [
+            (nil, "Provider default"),
+            (60, "1 minute"),
+            (300, "5 minutes"),
+            (600, "10 minutes"),
+            (1_800, "30 minutes"),
+            (3_600, "60 minutes"),
+        ]
+    }
+
+    private static func requestTimeoutTitle(
+        _ timeoutseconds: Int?
+    ) -> String {
+        guard let timeoutseconds else {
+            return "Provider default"
+        }
+
+        return requestTimeoutPresets().first {
+            $0.seconds == timeoutseconds
+        }?.title ?? "\(timeoutseconds) seconds"
     }
 
     private static func responseDeliveryRows(
@@ -683,14 +1103,161 @@ private extension AgenticConversationSettingsControl {
             TerminalSettingsRow(
                 id: .custom,
                 title: AgenticConversationToolExposure.custom.title,
-                caption: "Tool picker wiring follows this state pass.",
-                isEnabled: false,
+                value: "\(snapshot.customToolSelection.identifiers.count) selected",
                 accessory: .radio(
                     selected: snapshot.selectedToolExposure == .custom
                 ),
                 detail: exposureDetail(.custom, snapshot: snapshot)
             ),
         ]
+    }
+
+    private static func customRows(
+        _ snapshot: AgenticConversationSnapshot
+    ) -> [TerminalSettingsRow<RowID>] {
+        let selected = Set(
+            snapshot.customToolSelection.identifiers
+        )
+
+        var rows: [TerminalSettingsRow<RowID>] = [
+            TerminalSettingsRow(
+                id: .dynamic_discovery,
+                title: "Dynamic discovery",
+                value: snapshot.customToolSelection.dynamicDiscovery
+                    ? "On"
+                    : "Off",
+                accessory: .checkbox(
+                    selected:
+                        snapshot.customToolSelection.dynamicDiscovery
+                ),
+                detail: TerminalSettingsDetail(
+                    title: "Dynamic discovery",
+                    fields: [
+                        TerminalField(
+                            "find_tools",
+                            snapshot.customToolSelection.dynamicDiscovery
+                                ? "exposed"
+                                : "not exposed"
+                        ),
+                    ],
+                    body: "When enabled, find_tools is exposed and may activate additional registered capabilities. When disabled, Custom exposure is fixed to the saved selection plus required skill tools."
+                )
+            ),
+        ]
+
+        rows.append(
+            contentsOf: snapshot.toolCollections.map { collection in
+                let selectable = selectableTools(
+                    in: collection
+                )
+                let selectedCount = selectable.reduce(
+                    into: 0
+                ) { count, tool in
+                    if selected.contains(tool.id) {
+                        count += 1
+                    }
+                }
+
+                return TerminalSettingsRow(
+                    id: .tool_collection(collection.id),
+                    title: collection.title,
+                    value: "\(selectedCount) / \(selectable.count)",
+                    isEnabled: !collection.tools.isEmpty,
+                    accessory: .checkbox(
+                        selected: !selectable.isEmpty
+                            && selectedCount == selectable.count
+                    ),
+                    detail: TerminalSettingsDetail(
+                        title: collection.title,
+                        fields: [
+                            TerminalField(
+                                "selected",
+                                "\(selectedCount) / \(selectable.count)"
+                            ),
+                        ],
+                        body: "Enter opens individual tools. Space selects or deselects the exact current selectable tool identifiers in this collection."
+                    )
+                )
+            }
+        )
+
+        return rows
+    }
+
+    private static func toolRows(
+        _ collection: AgenticConversationToolCollectionPresentation,
+        snapshot: AgenticConversationSnapshot
+    ) -> [TerminalSettingsRow<RowID>] {
+        let selected = Set(
+            snapshot.customToolSelection.identifiers
+        )
+
+        return collection.tools.map { tool in
+            switch tool.selectionRole {
+            case .selectable:
+                return TerminalSettingsRow(
+                    id: .tool(tool.id),
+                    title: tool.title,
+                    accessory: .checkbox(
+                        selected: selected.contains(tool.id)
+                    ),
+                    detail: TerminalSettingsDetail(
+                        title: tool.title,
+                        fields: [
+                            TerminalField(
+                                "identifier",
+                                tool.id.rawValue
+                            ),
+                        ],
+                        body: tool.summary
+                    )
+                )
+
+            case .dynamicDiscovery:
+                return TerminalSettingsRow(
+                    id: .tool(tool.id),
+                    title: tool.title,
+                    value: "derived",
+                    caption: "Controlled by Dynamic discovery.",
+                    isEnabled: false,
+                    accessory: .checkbox(
+                        selected:
+                            snapshot.customToolSelection.dynamicDiscovery
+                    ),
+                    detail: TerminalSettingsDetail(
+                        title: tool.title,
+                        fields: [
+                            TerminalField(
+                                "identifier",
+                                tool.id.rawValue
+                            ),
+                            TerminalField(
+                                "controlled by",
+                                "Dynamic discovery"
+                            ),
+                        ],
+                        body: tool.summary
+                    )
+                )
+            }
+        }
+    }
+
+    private static func toolCollection(
+        identifiedBy identifier: String,
+        snapshot: AgenticConversationSnapshot
+    ) -> AgenticConversationToolCollectionPresentation? {
+        snapshot.toolCollections.first {
+            $0.id == identifier
+        }
+    }
+
+    private static func selectableTools(
+        in collection: AgenticConversationToolCollectionPresentation
+    ) -> [AgenticConversationToolPresentation] {
+        collection.tools.filter {
+            $0.selectionRole == .selectable
+        }
     }
 
     private static func exposureRow(

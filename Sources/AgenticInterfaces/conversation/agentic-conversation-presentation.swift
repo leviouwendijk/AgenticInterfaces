@@ -401,6 +401,7 @@ public struct AgenticConversationSubmission: Sendable, Hashable {
     public var toolExposure: AgenticConversationToolExposure
     public var customToolSelection: AgenticConversationToolSelection
     public var responseDelivery: AgentModelResponseDelivery
+    public var invocationoptions: AgentModelInvocationOptions
     public var autonomyMode: AutonomyMode
 
     public init(
@@ -412,6 +413,7 @@ public struct AgenticConversationSubmission: Sendable, Hashable {
         toolExposure: AgenticConversationToolExposure = .discovery,
         customToolSelection: AgenticConversationToolSelection = .init(),
         responseDelivery: AgentModelResponseDelivery = .stream,
+        invocationoptions: AgentModelInvocationOptions = .default,
         autonomyMode: AutonomyMode = .auto_observe
     ) {
         self.body = body
@@ -422,6 +424,7 @@ public struct AgenticConversationSubmission: Sendable, Hashable {
         self.toolExposure = toolExposure
         self.customToolSelection = customToolSelection
         self.responseDelivery = responseDelivery
+        self.invocationoptions = invocationoptions
         self.autonomyMode = autonomyMode
     }
 }
@@ -437,6 +440,7 @@ public struct AgenticConversationSnapshot: Sendable, Hashable {
     public var models: [AgenticConversationModelPresentation]
     public var selectedModelProfileID: AgentModelProfileIdentifier
     public var selectedResponseDelivery: AgentModelResponseDelivery
+    public var selectedInvocationOptions: AgentModelInvocationOptions
     public var selectedAutonomyMode: AutonomyMode
     public var skills: [AgenticConversationSkillPresentation]
     public var selectedSkillIDs: [AgentSkillIdentifier]
@@ -456,6 +460,7 @@ public struct AgenticConversationSnapshot: Sendable, Hashable {
         models: [AgenticConversationModelPresentation],
         selectedModelProfileID: AgentModelProfileIdentifier,
         selectedResponseDelivery: AgentModelResponseDelivery = .stream,
+        selectedInvocationOptions: AgentModelInvocationOptions = .default,
         selectedAutonomyMode: AutonomyMode = .auto_observe,
         skills: [AgenticConversationSkillPresentation] = [],
         selectedSkillIDs: [AgentSkillIdentifier] = [],
@@ -474,6 +479,7 @@ public struct AgenticConversationSnapshot: Sendable, Hashable {
         self.models = models
         self.selectedModelProfileID = selectedModelProfileID
         self.selectedResponseDelivery = selectedResponseDelivery
+        self.selectedInvocationOptions = selectedInvocationOptions
         self.selectedAutonomyMode = selectedAutonomyMode
         self.skills = skills
         self.selectedSkillIDs = selectedSkillIDs

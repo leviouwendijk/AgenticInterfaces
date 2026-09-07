@@ -23,6 +23,7 @@ public enum AgenticConversationEvent: Sendable, Hashable {
     case submissionRequested(AgenticConversationSubmission)
     case modelSelectionChanged(AgentModelProfileIdentifier)
     case responseDeliverySelectionChanged(AgentModelResponseDelivery)
+    case invocationOptionsSelectionChanged(AgentModelInvocationOptions)
     case autonomySelectionChanged(AutonomyMode)
     case toolExposureSelectionChanged(AgenticConversationToolExposure)
     case customToolSelectionChanged(AgenticConversationToolSelection)
@@ -410,6 +411,7 @@ private extension AgenticConversationControl {
             toolExposure: snapshot.selectedToolExposure,
             customToolSelection: snapshot.customToolSelection,
             responseDelivery: snapshot.selectedResponseDelivery,
+            invocationoptions: snapshot.selectedInvocationOptions,
             autonomyMode: snapshot.selectedAutonomyMode
         )
         composer.clear()

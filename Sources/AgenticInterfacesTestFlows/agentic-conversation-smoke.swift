@@ -27,9 +27,14 @@ enum AgenticConversationSmoke {
         case voiceStatusChanged
         case modelSelectionChanged
         case responseDeliverySelectionChanged
+        case invocationOptionsSelectionChanged
         case autonomySelectionChanged
         case streamingCapabilityGateChanged
         case toolExposureSelectionChanged
+        case customToolExposureSelectionChanged
+        case customToolSelectionChanged
+        case customToolPickerPresentationMissing
+        case derivedToolSelectionChanged
         case skillSelectionChanged
         case settingsPresentationMissing
         case runDidNotOpen
@@ -284,6 +289,7 @@ enum AgenticConversationSmoke {
                 dynamicDiscovery: true
               ),
               submission.responseDelivery == .stream,
+              submission.invocationoptions == .default,
               submission.autonomyMode == .auto_observe,
               control.draftText.isEmpty,
               control.pinnedContents.isEmpty
@@ -455,6 +461,9 @@ enum AgenticConversationSmoke {
                 "Response"
               ),
               settingsPresentation.contains(
+                "Invocation options"
+              ),
+              settingsPresentation.contains(
                 "Autonomy"
               ),
               settingsPresentation.contains(
@@ -465,6 +474,150 @@ enum AgenticConversationSmoke {
               )
         else {
             throw Failure.settingsPresentationMissing
+        }
+
+        var customSettingsControl = AgenticConversationControl(
+            snapshot: fixture()
+        )
+        _ = customSettingsControl.handle(
+            .escape
+        )
+        _ = customSettingsControl.handle(
+            .char("s")
+        )
+        _ = customSettingsControl.handle(
+            .char("j")
+        )
+        _ = customSettingsControl.handle(
+            .char("j")
+        )
+        _ = customSettingsControl.handle(
+            .char("j")
+        )
+        _ = customSettingsControl.handle(
+            .char("j")
+        )
+        _ = customSettingsControl.handle(
+            .enter
+        )
+        _ = customSettingsControl.handle(
+            .char("j")
+        )
+        _ = customSettingsControl.handle(
+            .char("j")
+        )
+        _ = customSettingsControl.handle(
+            .char("j")
+        )
+
+        guard customSettingsControl.handle(
+            .enter
+        ) == .toolExposureSelectionChanged(
+            .custom
+        ) else {
+            throw Failure.customToolExposureSelectionChanged
+        }
+
+        var customPickerFrame = TerminalFrame(
+            rows: 28,
+            columns: 100
+        )
+        customSettingsControl.render(
+            into: &customPickerFrame,
+            in: TerminalRegion(
+                rows: 28,
+                columns: 100
+            )
+        )
+        let customPickerPresentation = stripANSI(
+            customPickerFrame.resolved().spans
+                .map(\.content)
+                .joined(
+                    separator: "\n"
+                )
+        )
+
+        guard customPickerPresentation.contains(
+            "Conversation settings / Tool exposure / Custom"
+        ),
+              customPickerPresentation.contains(
+                "Dynamic discovery"
+              ),
+              customPickerPresentation.contains(
+                "Core"
+              ),
+              customPickerPresentation.contains(
+                "1 / 2"
+              ),
+              customPickerPresentation.contains(
+                "Intrinsics"
+              )
+        else {
+            throw Failure.customToolPickerPresentationMissing
+        }
+
+        guard customSettingsControl.handle(
+            .space
+        ) == .customToolSelectionChanged(
+            AgenticConversationToolSelection(
+                identifiers: [
+                    "inspect_workspace",
+                ],
+                dynamicDiscovery: false
+            )
+        ) else {
+            throw Failure.customToolSelectionChanged
+        }
+
+        _ = customSettingsControl.handle(
+            .char("j")
+        )
+        guard customSettingsControl.handle(
+            .space
+        ) == .customToolSelectionChanged(
+            AgenticConversationToolSelection(
+                identifiers: [
+                    "inspect_workspace",
+                    "mutate_files",
+                ],
+                dynamicDiscovery: false
+            )
+        ) else {
+            throw Failure.customToolSelectionChanged
+        }
+
+        _ = customSettingsControl.handle(
+            .enter
+        )
+        guard customSettingsControl.handle(
+            .space
+        ) == .customToolSelectionChanged(
+            AgenticConversationToolSelection(
+                identifiers: [
+                    "mutate_files",
+                ],
+                dynamicDiscovery: false
+            )
+        ) else {
+            throw Failure.customToolSelectionChanged
+        }
+
+        _ = customSettingsControl.handle(
+            .char("q")
+        )
+        _ = customSettingsControl.handle(
+            .char("j")
+        )
+        _ = customSettingsControl.handle(
+            .enter
+        )
+
+        guard customSettingsControl.handle(
+            .space
+        ) == .feedbackRequested(
+            "Tool 'find_tools' is controlled by Dynamic discovery."
+        ) else {
+            throw Failure.derivedToolSelectionChanged
         }
 
         _ = control.handle(
@@ -510,11 +663,33 @@ enum AgenticConversationSmoke {
             throw Failure.responseDeliverySelectionChanged
         }
 
+        var invocationControl = AgenticConversationControl(
+            snapshot: fixture()
+        )
+        _ = invocationControl.handle(.escape)
+        _ = invocationControl.handle(.char("s"))
+        _ = invocationControl.handle(.char("j"))
+        _ = invocationControl.handle(.char("j"))
+        _ = invocationControl.handle(.enter)
+        _ = invocationControl.handle(.enter)
+        _ = invocationControl.handle(.char("j"))
+        _ = invocationControl.handle(.char("j"))
+        _ = invocationControl.handle(.char("j"))
+        _ = invocationControl.handle(.char("j"))
+        guard invocationControl.handle(.enter) == .invocationOptionsSelectionChanged(
+            .init(timeoutseconds: 1_800)
+        ),
+              invocationControl.snapshot.selectedInvocationOptions.timeoutseconds == 1_800
+        else {
+            throw Failure.invocationOptionsSelectionChanged
+        }
+
         var autonomyControl = AgenticConversationControl(
             snapshot: fixture()
         )
         _ = autonomyControl.handle(.escape)
         _ = autonomyControl.handle(.char("s"))
+        _ = autonomyControl.handle(.char("j"))
         _ = autonomyControl.handle(.char("j"))
         _ = autonomyControl.handle(.char("j"))
         _ = autonomyControl.handle(.enter)
@@ -570,6 +745,9 @@ enum AgenticConversationSmoke {
             .char("j")
         )
         _ = control.handle(
+            .char("j")
+        )
+        _ = control.handle(
             .enter
         )
         _ = control.handle(
@@ -588,6 +766,9 @@ enum AgenticConversationSmoke {
 
         _ = control.handle(
             .char("s")
+        )
+        _ = control.handle(
+            .char("j")
         )
         _ = control.handle(
             .char("j")
