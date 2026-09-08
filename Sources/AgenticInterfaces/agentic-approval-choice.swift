@@ -55,23 +55,6 @@ public enum AgenticApprovalChoice: String, Sendable, Codable, Hashable, CaseIter
         }
     }
 
-    public var approvalDecision: ApprovalDecision? {
-        switch self {
-        case .approve:
-            return .approved
-
-        case .deny:
-            return .denied
-
-        case .skip:
-            return .skipped
-
-        case .inspect_details,
-             .show_diff,
-             .stop_run:
-            return nil
-        }
-    }
 }
 
 public enum AgenticInterfaceEvent: Sendable, Codable, Hashable {
@@ -401,16 +384,6 @@ private extension TerminalAgenticRunPresenter {
     }
 }
 
-public enum TerminalApprovalPickerError: Error, Sendable, LocalizedError {
-    case stoppedRun
-
-    public var errorDescription: String? {
-        switch self {
-        case .stoppedRun:
-            return "The run was stopped from the approval picker."
-        }
-    }
-}
 
 public struct TerminalApprovalPicker: Sendable {
     public var stream: TerminalStream

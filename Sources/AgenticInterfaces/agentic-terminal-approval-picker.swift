@@ -5,66 +5,6 @@ import Terminal
 import Difference
 // import DifferenceTerminal
 
-public typealias TerminalApprovalHandler = TerminalApprovalPicker
-
-extension TerminalApprovalPicker: ToolApprovalHandler {
-    public func decide(
-        on review: ToolInvocation.Review
-    ) async throws -> ApprovalDecision {
-        try await decide(
-            AgenticApprovalPrompt(
-                review: review
-            )
-        )
-    }
-
-    public func decide(
-        on preflight: ToolPreflight,
-        requirement: ApprovalRequirement
-    ) async throws -> ApprovalDecision {
-        try await decide(
-            AgenticApprovalPrompt(
-                preflight: preflight,
-                requirement: requirement
-            )
-        )
-    }
-
-    private func decide(
-        _ prompt: AgenticApprovalPrompt
-    ) async throws -> ApprovalDecision {
-        if prompt.requirement.isDenied {
-            return .denied
-        }
-
-        if !prompt.requirement.requiresHumanReview {
-            return .approved
-        }
-
-        let choice = try await pick(
-            prompt
-        )
-
-        switch choice {
-        case .approve:
-            return .approved
-
-        case .deny:
-            return .denied
-
-        case .skip:
-            return .skipped
-
-        case .stop_run:
-            throw TerminalApprovalPickerError.stoppedRun
-
-        case .inspect_details,
-             .show_diff:
-            return .needshuman
-        }
-    }
-}
-
 extension TerminalApprovalPicker {
     func runMenu(
         _ prompt: AgenticApprovalPrompt
