@@ -225,6 +225,9 @@ public struct AgenticConversationControl: Sendable {
                 : nil
         case .key(let key):
             return handle(key)
+
+        case .keyStroke(let keyStroke):
+            return handle(keyStroke.key)
         }
     }
 

@@ -1,3 +1,4 @@
+import Swim
 import Terminal
 
 public enum AgenticHostConsoleFocus:
@@ -487,7 +488,7 @@ private extension AgenticHostConsoleControl {
             return .stepInspectionClosed
         }
 
-        let motion: TerminalMotion?
+        let motion: Swim.Motion?
 
         switch key {
         case .up,

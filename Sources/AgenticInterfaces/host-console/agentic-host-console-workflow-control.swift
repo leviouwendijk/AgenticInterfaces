@@ -1,4 +1,5 @@
 import DSL
+import Swim
 import Terminal
 import TerminalStructuredContent
 
@@ -627,7 +628,7 @@ private extension AgenticHostConsoleWorkflowControl {
             )
         }
 
-        let motion: TerminalMotion?
+        let motion: Swim.Motion?
 
         switch key {
         case .up,
@@ -688,7 +689,7 @@ private extension AgenticHostConsoleWorkflowControl {
             )
         }
 
-        let motion: TerminalMotion?
+        let motion: Swim.Motion?
 
         switch key {
         case .up,
@@ -741,7 +742,7 @@ private extension AgenticHostConsoleWorkflowControl {
             )
         }
 
-        let motion: TerminalMotion?
+        let motion: Swim.Motion?
 
         switch key {
         case .up,
