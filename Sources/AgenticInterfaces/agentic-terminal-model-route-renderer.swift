@@ -26,20 +26,18 @@ public struct TerminalModelRouteRenderer: Sendable {
             "  privacy      \(profile.privacy.rawValue)",
         ]
 
-        if !result.reasons.isEmpty {
+        if !result.diagnostics.isEmpty {
             lines.append(
-                "  reasons      \(result.reasons.joined(separator: ", "))"
-            )
-        }
-
-        if !result.warnings.isEmpty {
-            lines.append(
-                "  warnings"
+                "  diagnostics"
             )
 
-            for warning in result.warnings {
+            for diagnostic in result.diagnostics {
+                let message = diagnostic.message.map {
+                    " · \($0)"
+                } ?? ""
+
                 lines.append(
-                    "    - \(warning)"
+                    "    - \(diagnostic.severity.rawValue) \(diagnostic.code.rawValue)\(message)"
                 )
             }
         }

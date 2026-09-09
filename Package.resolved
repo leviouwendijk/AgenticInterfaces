@@ -1,5 +1,5 @@
 {
-  "originHash" : "79a7c7d93c0c6067779a0ef998db68fa0b44df5d6987f08e1a95287dcdeb3248",
+  "originHash" : "7552a7985acdd46ed83ac9ece33bf34cb8c0b79b0ac6e79b7be88b7f2824a330",
   "pins" : [
     {
       "identity" : "agentic",
@@ -7,7 +7,7 @@
       "location" : "https://github.com/leviouwendijk/Agentic.git",
       "state" : {
         "branch" : "master",
-        "revision" : "c452798d7a02cef14a811a4cca0c590a773db67b"
+        "revision" : "b4271a89701c5bf2b8f96d1c64497c9ec20c3864"
       }
     },
     {
@@ -142,7 +142,7 @@
       "location" : "https://github.com/leviouwendijk/Position.git",
       "state" : {
         "branch" : "master",
-        "revision" : "c80214283130c1bd4fc1c54dd5f3c574e3e4986c"
+        "revision" : "66a8219a6780a6346e55c9531f8fabaa4ff713d9"
       }
     },
     {
@@ -223,7 +223,34 @@
       "location" : "https://github.com/leviouwendijk/Swim.git",
       "state" : {
         "branch" : "master",
-        "revision" : "0dc46fe1b1d7579e2a883ae45383061cf76d64ee"
+        "revision" : "1fed94b1baa61cf92f991c96613acaea418546ff"
+      }
+    },
+    {
+      "identity" : "swiminterpreter",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/leviouwendijk/SwimInterpreter.git",
+      "state" : {
+        "branch" : "master",
+        "revision" : "cda871b5496777ab1de6ba16501310781260bc26"
+      }
+    },
+    {
+      "identity" : "swimio",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/leviouwendijk/SwimIO.git",
+      "state" : {
+        "branch" : "master",
+        "revision" : "a89344f22ab67a729e244ce1576711ae0fcaa537"
+      }
+    },
+    {
+      "identity" : "swimterminal",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/leviouwendijk/SwimTerminal.git",
+      "state" : {
+        "branch" : "master",
+        "revision" : "9b58a95940d70dbded329b2baa5f969a9c79f9ea"
       }
     },
     {
@@ -232,7 +259,7 @@
       "location" : "https://github.com/leviouwendijk/Terminal.git",
       "state" : {
         "branch" : "master",
-        "revision" : "9c25740bc00db1019293675375bec5234776805a"
+        "revision" : "0b63af5e4049793948d3fe3dbdd47d2b5958250d"
       }
     },
     {
@@ -242,6 +269,15 @@
       "state" : {
         "branch" : "master",
         "revision" : "ef72deb44f924372959189d0c258c5cf7e2ba8ae"
+      }
+    },
+    {
+      "identity" : "writers",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/leviouwendijk/Writers.git",
+      "state" : {
+        "branch" : "master",
+        "revision" : "c7ff138fa30f6daf3570a03540ab55bfae5767a3"
       }
     }
   ],

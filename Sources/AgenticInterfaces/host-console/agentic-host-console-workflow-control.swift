@@ -628,39 +628,29 @@ private extension AgenticHostConsoleWorkflowControl {
             )
         }
 
-        let motion: Swim.Motion?
-
         switch key {
         case .up,
              .char("k"):
-            motion = .up
+            _ = document.scrollUp()
 
         case .down,
              .char("j"):
-            motion = .down
+            _ = document.scrollDown()
 
         case .pageUp:
-            motion = .pageUp
+            _ = document.pageUp()
 
         case .pageDown:
-            motion = .pageDown
+            _ = document.pageDown()
 
         case .home:
-            motion = .documentStart
+            document.moveToStart()
 
         case .end:
-            motion = .documentEnd
+            document.moveToEnd()
 
         default:
-            motion = nil
-        }
-
-        if let motion {
-            _ = document.handle(
-                .motion(
-                    motion
-                )
-            )
+            break
         }
 
         return nil
@@ -689,39 +679,29 @@ private extension AgenticHostConsoleWorkflowControl {
             )
         }
 
-        let motion: Swim.Motion?
-
         switch key {
         case .up,
              .char("k"):
-            motion = .up
+            _ = runInspector.scrollUp()
 
         case .down,
              .char("j"):
-            motion = .down
+            _ = runInspector.scrollDown()
 
         case .pageUp:
-            motion = .pageUp
+            _ = runInspector.pageUp()
 
         case .pageDown:
-            motion = .pageDown
+            _ = runInspector.pageDown()
 
         case .home:
-            motion = .documentStart
+            runInspector.moveToStart()
 
         case .end:
-            motion = .documentEnd
+            runInspector.moveToEnd()
 
         default:
-            motion = nil
-        }
-
-        if let motion {
-            _ = runInspector.handle(
-                .motion(
-                    motion
-                )
-            )
+            break
         }
 
         return nil
@@ -742,39 +722,29 @@ private extension AgenticHostConsoleWorkflowControl {
             )
         }
 
-        let motion: Swim.Motion?
-
         switch key {
         case .up,
              .char("k"):
-            motion = .up
+            _ = diagnostic.scrollUp()
 
         case .down,
              .char("j"):
-            motion = .down
+            _ = diagnostic.scrollDown()
 
         case .pageUp:
-            motion = .pageUp
+            _ = diagnostic.pageUp()
 
         case .pageDown:
-            motion = .pageDown
+            _ = diagnostic.pageDown()
 
         case .home:
-            motion = .documentStart
+            diagnostic.moveToStart()
 
         case .end:
-            motion = .documentEnd
+            diagnostic.moveToEnd()
 
         default:
-            motion = nil
-        }
-
-        if let motion {
-            _ = diagnostic.handle(
-                .motion(
-                    motion
-                )
-            )
+            break
         }
 
         return nil

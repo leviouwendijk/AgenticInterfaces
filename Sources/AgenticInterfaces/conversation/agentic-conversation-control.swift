@@ -1,6 +1,7 @@
 import Agentic
 import Foundation
 import ParsersStructuredContent
+import Swim
 import Terminal
 import TerminalStructuredContent
 
@@ -180,7 +181,7 @@ public struct AgenticConversationControl: Sendable {
         _ transcription: AgenticConversationTranscription,
         disposition: AgenticConversationTranscriptionDisposition = .draft
     ) -> AgenticConversationEvent? {
-        let text = TerminalTextBuffer(
+        let text = SwimTextBuffer(
             text: transcription.text
         ).text
 
@@ -218,7 +219,7 @@ public struct AgenticConversationControl: Sendable {
                 return nil
             }
 
-            let normalized = TerminalTextBuffer(
+            let normalized = SwimTextBuffer(
                 text: text
             ).text
             guard !normalized.isEmpty else {
@@ -395,7 +396,7 @@ private extension AgenticConversationControl {
         kind: AgenticConversationContentKind,
         detail: String? = nil
     ) -> AgenticConversationEvent? {
-        let source = TerminalTextBuffer(text: source).text
+        let source = SwimTextBuffer(text: source).text
         guard !source.isEmpty else {
             return nil
         }
@@ -596,13 +597,13 @@ private extension AgenticConversationControl {
         case .char("l"), .right:
             moveAttachment(by: 1)
         case .char("j"), .down:
-            _ = attachmentDocument.handle(.motion(.down))
+            _ = attachmentDocument.scrollDown()
         case .char("k"), .up:
-            _ = attachmentDocument.handle(.motion(.up))
+            _ = attachmentDocument.scrollUp()
         case .pageUp:
-            _ = attachmentDocument.handle(.motion(.pageUp))
+            _ = attachmentDocument.pageUp()
         case .pageDown:
-            _ = attachmentDocument.handle(.motion(.pageDown))
+            _ = attachmentDocument.pageDown()
         case .home:
             attachmentDocument.moveToStart()
         case .end:
@@ -950,22 +951,12 @@ private extension AgenticConversationControl {
             )
         }
 
-        if focus.current == .composer,
-           composer.hasCommandPresentation
-        {
-            composer.renderCommandLine(
-                into: &frame,
-                in: vertical[3],
-                isFocused: pendingSubmission == nil
-            )
-        } else {
-            frame.write(
-                TerminalStyle.dim.apply(
-                    footer
-                ),
-                in: vertical[3]
-            )
-        }
+        frame.write(
+            TerminalStyle.dim.apply(
+                footer
+            ),
+            in: vertical[3]
+        )
     }
 
     func transcriptLines(

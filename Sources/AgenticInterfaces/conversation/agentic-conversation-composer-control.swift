@@ -1,4 +1,7 @@
+import Foundation
 import Swim
+import SwimIO
+import SwimTerminal
 import Terminal
 
 private enum AgenticConversationComposerKeyAction:
@@ -47,10 +50,9 @@ enum AgenticConversationComposerEvent:
 struct AgenticConversationComposerControl:
     Sendable
 {
-    private var surface: TerminalTextSurface
-    private var commandLine: TerminalCommandLine
-    private let inputBufferStore: TerminalInputBufferStore
-    private let inputBufferID: TerminalInputBufferID
+    private var surface: SwimTerminalSurface
+    private let inputBufferStore: SwimBufferStore
+    private let inputBufferID: UUID
     private var keyMap: TerminalKeyMap<AgenticConversationComposerKeyAction>
     private var quitConfirmation: TerminalListControl<
         AgenticConversationComposerQuitItem,
@@ -74,8 +76,10 @@ struct AgenticConversationComposerControl:
             to: .submit
         )
 
-        let editorPresentation = TerminalTextEditorPresentation(
-            lineNumbers: .hybrid,
+        let editorPresentation = SwimTerminalPresentation(
+            lineNumbers: TerminalLineNumberPresentation(
+                mode: .hybrid
+            ),
             indentationGuides: TerminalIndentationGuideOptions(
                 isEnabled: true,
                 width: 4,
@@ -83,21 +87,20 @@ struct AgenticConversationComposerControl:
             )
         )
 
-        self.surface = TerminalTextSurface(
-            editor: TerminalTextEditor(
+        self.surface = SwimTerminalSurface(
+            editor: SwimEditor(
                 mode: .insert
             ),
-            sizePolicy: TerminalTextSurfaceSizePolicy(
+            sizePolicy: SwimTerminalSurfaceSizePolicy(
                 minimumRows: 1,
                 maximumRows: 6
             ),
-            compactEditorPresentation: editorPresentation,
-            expandedEditorPresentation: editorPresentation,
+            compactPresentation: editorPresentation,
+            expandedPresentation: editorPresentation,
             placeholder: "type a message..."
         )
-        self.commandLine = TerminalCommandLine()
-        self.inputBufferStore = TerminalInputBufferStore()
-        self.inputBufferID = TerminalInputBufferID()
+        self.inputBufferStore = SwimBufferStore()
+        self.inputBufferID = UUID()
         self.keyMap = keyMap
         self.quitConfirmation = TerminalListControl(
             items: [
@@ -129,20 +132,14 @@ struct AgenticConversationComposerControl:
         surface.setMode(
             .insert
         )
-        commandLine.clearStatus()
+        surface.setCommandStatus(
+            nil
+        )
         isQuitConfirmationPresented = false
     }
 
-    var mode: Swim.Mode {
-        surface.mode
-    }
-
     var isExpanded: Bool {
-        surface.presentation == .expanded
-    }
-
-    var hasCommandPresentation: Bool {
-        commandLine.hasPresentation
+        surface.surfacePresentation == .expanded
     }
 
     func compactRows(
@@ -157,7 +154,7 @@ struct AgenticConversationComposerControl:
         _ text: String
     ) {
         _ = surface.handle(
-            .paste(
+            TerminalInputEvent.paste(
                 text
             )
         )
@@ -168,10 +165,12 @@ struct AgenticConversationComposerControl:
         surface.setMode(
             .insert
         )
-        surface.setPresentation(
+        surface.setSurfacePresentation(
             .compact
         )
-        commandLine.clearStatus()
+        surface.setCommandStatus(
+            nil
+        )
         isQuitConfirmationPresented = false
     }
 
@@ -199,19 +198,15 @@ struct AgenticConversationComposerControl:
             )
         }
 
-        if commandLine.isActive {
-            handleCommandLine(
-                key
-            )
-            return nil
-        }
-
-        if key == .control("F") {
-            surface.togglePresentation()
+        if key == .control("F"),
+           !surface.commandLine.isActive
+        {
+            surface.toggleSurfacePresentation()
             return nil
         }
 
         if key == .tab,
+           !surface.commandLine.isActive,
            !isExpanded,
            surface.mode != .insert,
            surface.mode != .replace
@@ -222,8 +217,43 @@ struct AgenticConversationComposerControl:
         switch surface.handle(
             key
         ) {
-        case .commandLineRequested?:
-            commandLine.begin()
+        case .commandRequested(let command)?:
+            switch command {
+            case .write:
+                do {
+                    let record = SwimStoredBufferRecord(
+                        id: inputBufferID,
+                        label: "agentic conversation composer",
+                        content: surface.text,
+                        cursorOffset: surface.editor.buffer.cursor.offset
+                    )
+                    _ = try inputBufferStore.store(
+                        record
+                    )
+                    let destination = inputBufferStore.layout.bufferRecordURL(
+                        for: inputBufferID
+                    )
+                    surface.setCommandStatus(
+                        "\"\(destination.lastPathComponent)\" written"
+                    )
+                } catch {
+                    surface.setCommandStatus(
+                        "E212: Can't open file for writing: \(error)"
+                    )
+                }
+
+            case .quit:
+                if isExpanded {
+                    surface.setSurfacePresentation(
+                        .compact
+                    )
+                } else {
+                    _ = quitConfirmation.select(
+                        id: .cancel
+                    )
+                    isQuitConfirmationPresented = true
+                }
+            }
 
         case .cancelRequested?:
             if !isExpanded {
@@ -231,7 +261,9 @@ struct AgenticConversationComposerControl:
             }
 
         case .changed?,
-             .copied(_)?,
+             .copyRequested(_)?,
+             .invalidCommand(_)?,
+             .rejected(_)?,
              nil:
             break
         }
@@ -244,8 +276,8 @@ struct AgenticConversationComposerControl:
         in region: TerminalRegion,
         isFocused: Bool
     ) {
-        let presentation = surface.presentation
-        surface.setPresentation(
+        let presentation = surface.surfacePresentation
+        surface.setSurfacePresentation(
             .compact
         )
         surface.render(
@@ -254,21 +286,8 @@ struct AgenticConversationComposerControl:
             isFocused: isFocused
                 && !isQuitConfirmationPresented
         )
-        surface.setPresentation(
+        surface.setSurfacePresentation(
             presentation
-        )
-    }
-
-    mutating func renderCommandLine(
-        into frame: inout TerminalFrame,
-        in region: TerminalRegion,
-        isFocused: Bool
-    ) {
-        commandLine.render(
-            into: &frame,
-            in: region,
-            isFocused: isFocused
-                && !isQuitConfirmationPresented
         )
     }
 
@@ -293,54 +312,6 @@ struct AgenticConversationComposerControl:
 }
 
 private extension AgenticConversationComposerControl {
-    mutating func handleCommandLine(
-        _ key: TerminalKey
-    ) {
-        switch commandLine.handle(
-            key
-        ) {
-        case .editing,
-             .cancelled,
-             .inactive:
-            break
-
-        case .command(let command):
-            switch command {
-            case .write:
-                do {
-                    let destination = try inputBufferStore.write(
-                        surface.text,
-                        id: inputBufferID
-                    )
-                    commandLine.setStatus(
-                        "\"\(destination.path)\" written"
-                    )
-                } catch {
-                    commandLine.setStatus(
-                        "E212: Can't open file for writing: \(error)"
-                    )
-                }
-
-            case .quit:
-                if isExpanded {
-                    surface.setPresentation(
-                        .compact
-                    )
-                } else {
-                    _ = quitConfirmation.select(
-                        id: .cancel
-                    )
-                    isQuitConfirmationPresented = true
-                }
-            }
-
-        case .invalid(let command):
-            commandLine.setStatus(
-                "E492: Not an editor command: \(command)"
-            )
-        }
-    }
-
     mutating func handleQuitConfirmation(
         _ key: TerminalKey
     ) -> AgenticConversationComposerEvent? {
@@ -401,46 +372,39 @@ private extension AgenticConversationComposerControl {
             return
         }
 
-        let editorRows = max(
+        let showsCommandLine = surface.commandLine.hasPresentation
+        let surfaceRows = max(
             0,
-            content.rows - 1
+            content.rows - (showsCommandLine ? 0 : 1)
         )
 
-        if editorRows > 0 {
+        if surfaceRows > 0 {
             surface.render(
                 into: &frame,
                 in: TerminalRegion(
                     top: content.top,
                     leading: content.leading,
-                    rows: editorRows,
+                    rows: surfaceRows,
                     columns: content.columns
                 ),
                 isFocused: true
             )
         }
 
-        if content.rows > 0 {
-            let commandRegion = TerminalRegion(
-                top: content.bottom - 1,
-                leading: content.leading,
-                rows: 1,
-                columns: content.columns
+        if !showsCommandLine,
+           content.rows > 0
+        {
+            frame.write(
+                TerminalStyle.dim.apply(
+                    "mode \(surface.mode) · ctrl-enter submit · ctrl-c normal · :w save · :q compact · ctrl-f compact"
+                ),
+                in: TerminalRegion(
+                    top: content.bottom - 1,
+                    leading: content.leading,
+                    rows: 1,
+                    columns: content.columns
+                )
             )
-
-            if commandLine.hasPresentation {
-                commandLine.render(
-                    into: &frame,
-                    in: commandRegion,
-                    isFocused: true
-                )
-            } else {
-                frame.write(
-                    TerminalStyle.dim.apply(
-                        "mode \(surface.mode) · ctrl-enter submit · ctrl-c normal · :w save · :q compact · ctrl-f compact"
-                    ),
-                    in: commandRegion
-                )
-            }
         }
     }
 

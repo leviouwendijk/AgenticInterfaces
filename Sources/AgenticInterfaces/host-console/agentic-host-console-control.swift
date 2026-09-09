@@ -488,39 +488,29 @@ private extension AgenticHostConsoleControl {
             return .stepInspectionClosed
         }
 
-        let motion: Swim.Motion?
-
         switch key {
         case .up,
              .char("k"):
-            motion = .up
+            _ = inspectorDocument.scrollUp()
 
         case .down,
              .char("j"):
-            motion = .down
+            _ = inspectorDocument.scrollDown()
 
         case .pageUp:
-            motion = .pageUp
+            _ = inspectorDocument.pageUp()
 
         case .pageDown:
-            motion = .pageDown
+            _ = inspectorDocument.pageDown()
 
         case .home:
-            motion = .documentStart
+            inspectorDocument.moveToStart()
 
         case .end:
-            motion = .documentEnd
+            inspectorDocument.moveToEnd()
 
         default:
-            motion = nil
-        }
-
-        if let motion {
-            _ = inspectorDocument.handle(
-                .motion(
-                    motion
-                )
-            )
+            break
         }
 
         return nil

@@ -353,33 +353,17 @@ private extension AgenticConversationRunReviewControl {
 
         case .up,
              .char("k"):
-            _ = document.handle(
-                .motion(
-                    .up
-                )
-            )
+            _ = document.scrollUp()
 
         case .down,
              .char("j"):
-            _ = document.handle(
-                .motion(
-                    .down
-                )
-            )
+            _ = document.scrollDown()
 
         case .pageUp:
-            _ = document.handle(
-                .motion(
-                    .pageUp
-                )
-            )
+            _ = document.pageUp()
 
         case .pageDown:
-            _ = document.handle(
-                .motion(
-                    .pageDown
-                )
-            )
+            _ = document.pageDown()
 
         case .home:
             document.moveToStart()
