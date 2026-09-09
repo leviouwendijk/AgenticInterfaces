@@ -1,5 +1,5 @@
 {
-  "originHash" : "58e51175e60a420b36ba33a173a095961a702a41c5720b5cb6f8f005ce61a9d8",
+  "originHash" : "79a7c7d93c0c6067779a0ef998db68fa0b44df5d6987f08e1a95287dcdeb3248",
   "pins" : [
     {
       "identity" : "agentic",
@@ -220,10 +220,10 @@
     {
       "identity" : "swim",
       "kind" : "remoteSourceControl",
-      "location" : "https://github.com/leviouwendijk/Swim",
+      "location" : "https://github.com/leviouwendijk/Swim.git",
       "state" : {
         "branch" : "master",
-        "revision" : "5d78adc0f34d4b62e35a92725fda2ab444bb4e99"
+        "revision" : "0dc46fe1b1d7579e2a883ae45383061cf76d64ee"
       }
     },
     {
@@ -232,7 +232,7 @@
       "location" : "https://github.com/leviouwendijk/Terminal.git",
       "state" : {
         "branch" : "master",
-        "revision" : "0017ef919fd1bef179a1bf60c7ee17af86dfd67a"
+        "revision" : "9c25740bc00db1019293675375bec5234776805a"
       }
     },
     {

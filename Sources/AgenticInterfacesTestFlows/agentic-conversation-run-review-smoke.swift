@@ -71,6 +71,9 @@ enum AgenticConversationRunReviewSmoke {
         _ = control.handle(
             .escape
         )
+        _ = control.handle(
+            .escape
+        )
 
         guard control.handle(
             .enter

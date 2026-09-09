@@ -31,7 +31,12 @@ enum AgenticConversationPendingSmoke {
         )
 
         guard case .submissionRequested(let submission)? =
-            control.handle(.enter)
+            control.handle(
+                TerminalKeyStroke(
+                    key: .enter,
+                    modifiers: .control
+                )
+            )
         else {
             throw Failure.submissionMissing
         }

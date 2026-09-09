@@ -40,7 +40,7 @@ public struct AgenticConversationControl: Sendable {
     public private(set) var snapshot: AgenticConversationSnapshot
     public private(set) var focus: TerminalFocusStack<AgenticConversationFocus>
 
-    private var composer: TerminalTextInputControl
+    private var composer: AgenticConversationComposerControl
     private var voiceMeter: TerminalLevelMeter
     private var draftOrigin: AgenticConversationInputOrigin
     private var transcript: TerminalScrollableDocument
@@ -58,10 +58,7 @@ public struct AgenticConversationControl: Sendable {
     public init(snapshot: AgenticConversationSnapshot) {
         self.snapshot = snapshot
         self.focus = TerminalFocusStack(.composer)
-        self.composer = TerminalTextInputControl(
-            prompt: "> ",
-            placeholder: "type a message..."
-        )
+        self.composer = AgenticConversationComposerControl()
         self.voiceMeter = TerminalLevelMeter(
             capacity: 32
         )
@@ -82,7 +79,7 @@ public struct AgenticConversationControl: Sendable {
     }
 
     public var draftText: String {
-        composer.input.text
+        composer.text
     }
 
     public var pinnedContents: [AgenticConversationContentPresentation] {
@@ -216,24 +213,69 @@ public struct AgenticConversationControl: Sendable {
     ) -> AgenticConversationEvent? {
         switch event {
         case .paste(let text):
-            return focus.current == .composer
-                && pendingSubmission == nil
-                ? pin(
-                    text,
-                    kind: .pasted
+            guard focus.current == .composer,
+                  pendingSubmission == nil else {
+                return nil
+            }
+
+            let normalized = TerminalTextBuffer(
+                text: text
+            ).text
+            guard !normalized.isEmpty else {
+                return nil
+            }
+
+            if composer.isExpanded
+                || !normalized.contains("\n")
+            {
+                composer.insertPaste(
+                    normalized
                 )
-                : nil
+                return nil
+            }
+
+            return pin(
+                normalized,
+                kind: .pasted
+            )
+
         case .key(let key):
-            return handle(key)
+            return handle(
+                key
+            )
 
         case .keyStroke(let keyStroke):
-            return handle(keyStroke.key)
+            return handle(
+                keyStroke
+            )
         }
+    }
+
+    public mutating func handle(
+        _ keyStroke: TerminalKeyStroke
+    ) -> AgenticConversationEvent? {
+        if focus.current == .composer {
+            if keyStroke.key == .control("V"),
+               snapshot.voiceState == .recording
+            {
+                return voiceAction()
+            }
+
+            return handleComposer(
+                keyStroke
+            )
+        }
+
+        return handle(
+            keyStroke.key
+        )
     }
 
     public mutating func handle(_ key: TerminalKey) -> AgenticConversationEvent? {
         if key == .control("C") {
-            return .exitRequested
+            return handle(
+                .escape
+            )
         }
 
         if key == .escape,
@@ -251,14 +293,20 @@ public struct AgenticConversationControl: Sendable {
             return nil
         }
 
+        if key == .control("V"),
+           snapshot.voiceState == .recording
+        {
+            return voiceAction()
+        }
+
         if key == .control("V") {
             switch focus.current {
-            case .composer,
-                 .voice,
+            case .voice,
                  .transcript:
                 return voiceAction()
 
-            case .attachment,
+            case .composer,
+                 .attachment,
                  .settings,
                  .runReview,
                  .run:
@@ -268,7 +316,11 @@ public struct AgenticConversationControl: Sendable {
 
         switch focus.current {
         case .composer:
-            return handleComposer(key)
+            return handleComposer(
+                TerminalKeyStroke(
+                    key: key
+                )
+            )
         case .voice:
             return handleVoice(key)
         case .transcript:
@@ -323,7 +375,15 @@ public struct AgenticConversationControl: Sendable {
                 )
                 self.runReview = runReview
             }
-        case .composer, .voice, .transcript, .run:
+        case .composer:
+            composer.renderOverlay(
+                into: &frame,
+                in: region
+            )
+
+        case .voice,
+             .transcript,
+             .run:
             break
         }
     }
@@ -374,26 +434,57 @@ private extension AgenticConversationControl {
         return .contentPinned(content)
     }
 
-    mutating func handleComposer(_ key: TerminalKey) -> AgenticConversationEvent? {
-        if key == .tab {
-            focus.replace(.voice)
+    mutating func handleComposer(
+        _ keyStroke: TerminalKeyStroke
+    ) -> AgenticConversationEvent? {
+        if pendingSubmission != nil {
+            switch keyStroke.key {
+            case .escape,
+                 .control("C"):
+                focus.replace(
+                    .transcript
+                )
+
+            case .tab:
+                focus.replace(
+                    .voice
+                )
+
+            default:
+                break
+            }
+
             return nil
         }
 
-        if key == .escape {
-            focus.replace(.transcript)
+        switch composer.handle(
+            keyStroke
+        ) {
+        case .submitRequested?:
+            return submitComposer()
+
+        case .focusVoiceRequested?:
+            focus.replace(
+                .voice
+            )
+            return nil
+
+        case .focusTranscriptRequested?:
+            focus.replace(
+                .transcript
+            )
+            return nil
+
+        case .exitRequested?:
+            return .exitRequested
+
+        case nil:
             return nil
         }
+    }
 
-        guard pendingSubmission == nil else {
-            return nil
-        }
-
-        guard composer.handle(key) == .submitRequested else {
-            return nil
-        }
-
-        let body = composer.input.text.trimmingCharacters(
+    mutating func submitComposer() -> AgenticConversationEvent? {
+        let body = composer.text.trimmingCharacters(
             in: .whitespacesAndNewlines
         )
         guard !body.isEmpty || !pendingContents.isEmpty else {
@@ -417,7 +508,7 @@ private extension AgenticConversationControl {
             invocationoptions: snapshot.selectedInvocationOptions,
             autonomyMode: snapshot.selectedAutonomyMode
         )
-        composer.clear()
+        composer.clearAfterSubmission()
         draftOrigin = .typed
         pendingContents.removeAll(keepingCapacity: true)
         return .submissionRequested(submission)
@@ -720,9 +811,32 @@ private extension AgenticConversationControl {
         into frame: inout TerminalFrame,
         in region: TerminalRegion
     ) {
+        let composerColumns = max(
+            1,
+            region.columns - 5
+        )
+        let composerRows = composer.compactRows(
+            columns: composerColumns
+        )
+        let pendingRows = pendingContents.isEmpty
+            ? 0
+            : 1
+        let controlRows = min(
+            max(
+                0,
+                region.rows - 4
+            ),
+            pendingRows + composerRows
+        )
+
         let vertical = TerminalLayout.vertical(
             in: region,
-            [.fixed(3), .flex(1), .fixed(2), .fixed(1)]
+            [
+                .fixed(3),
+                .flex(1),
+                .fixed(controlRows),
+                .fixed(1),
+            ]
         )
         guard vertical.count == 4 else {
             return
@@ -780,20 +894,28 @@ private extension AgenticConversationControl {
         }
         transcript.render(into: &frame, in: vertical[1])
 
-        let pending = pendingContents.map(\.summary).joined(separator: " · ")
-        frame.write(
-            TerminalStyle.dim.apply(pending),
-            in: TerminalRegion(
-                top: vertical[2].top,
-                leading: vertical[2].leading,
-                rows: 1,
-                columns: vertical[2].columns
+        if pendingRows > 0 {
+            let pending = pendingContents
+                .map(\.summary)
+                .joined(separator: " · ")
+            frame.write(
+                TerminalStyle.dim.apply(pending),
+                in: TerminalRegion(
+                    top: vertical[2].top,
+                    leading: vertical[2].leading,
+                    rows: 1,
+                    columns: vertical[2].columns
+                )
             )
-        )
+        }
+
         let composerRow = TerminalRegion(
-            top: vertical[2].top + 1,
+            top: vertical[2].top + pendingRows,
             leading: vertical[2].leading,
-            rows: 1,
+            rows: max(
+                0,
+                vertical[2].rows - pendingRows
+            ),
             columns: vertical[2].columns
         )
         let composerLayout = TerminalLayout.horizontal(
@@ -828,7 +950,22 @@ private extension AgenticConversationControl {
             )
         }
 
-        frame.write(TerminalStyle.dim.apply(footer), in: vertical[3])
+        if focus.current == .composer,
+           composer.hasCommandPresentation
+        {
+            composer.renderCommandLine(
+                into: &frame,
+                in: vertical[3],
+                isFocused: pendingSubmission == nil
+            )
+        } else {
+            frame.write(
+                TerminalStyle.dim.apply(
+                    footer
+                ),
+                in: vertical[3]
+            )
+        }
     }
 
     func transcriptLines(
@@ -1155,7 +1292,7 @@ private extension AgenticConversationControl {
         if pendingSubmission != nil {
             switch focus.current {
             case .composer:
-                return "response pending  tab voice  esc transcript  ctrl-c quit"
+                return "response pending  tab voice  esc/ctrl-c transcript"
             case .voice:
                 return "response pending  tab transcript  esc composer"
             case .transcript:
@@ -1170,12 +1307,11 @@ private extension AgenticConversationControl {
 
         switch focus.current {
         case .composer:
-            return "enter send  paste pin  tab voice  esc transcript  ctrl-c quit"
-                + voiceFooter
+            return "enter newline  ctrl-enter send  ctrl-c normal  :w save  :q quit  ctrl-f expand"
         case .voice:
             return "enter voice  tab transcript  esc composer  ctrl-v voice"
         case .transcript:
-            return "j/k message  enter inspect  m model  s settings  tab composer  ctrl-c quit"
+            return "j/k message  enter inspect  m model  s settings  tab composer  ctrl-c composer"
                 + voiceFooter
         case .attachment:
             return "h/l sibling  j/k scroll  enter run  q back"

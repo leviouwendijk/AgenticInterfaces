@@ -52,6 +52,7 @@ enum AgenticConversationSmoke {
     static func run() throws {
         try AgenticConversationPendingSmoke.run()
         try AgenticConversationRunReviewSmoke.run()
+        try AgenticConversationComposerSmoke.run()
 
         let cardRun = AgenticHostConsoleRunPresentation(
             id: "card-run",
@@ -273,7 +274,12 @@ enum AgenticConversationSmoke {
             throw Failure.pastedContentChanged
         }
 
-        let submitted = control.handle(.enter)
+        let submitted = control.handle(
+            TerminalKeyStroke(
+                key: .enter,
+                modifiers: .control
+            )
+        )
         guard case .submissionRequested(let submission)? = submitted,
               submission.body == "q",
               submission.origin == .typed,
@@ -321,7 +327,12 @@ enum AgenticConversationSmoke {
             throw Failure.transcribedContentChanged
         }
 
-        let voiceSubmitted = control.handle(.enter)
+        let voiceSubmitted = control.handle(
+            TerminalKeyStroke(
+                key: .enter,
+                modifiers: .control
+            )
+        )
         guard case .submissionRequested(let voiceSubmission)? = voiceSubmitted,
               voiceSubmission.body == "spoken draft",
               voiceSubmission.origin == .transcribed,
@@ -336,11 +347,19 @@ enum AgenticConversationSmoke {
         var unconfiguredControl = AgenticConversationControl(
             snapshot: fixture()
         )
-        guard unconfiguredControl.handle(
-            .control("V")
-        ) == .feedbackRequested(
-            "Voice input unavailable — no transcription provider configured."
-        ) else {
+        _ = unconfiguredControl.handle(
+            .escape
+        )
+        _ = unconfiguredControl.handle(
+            .tab
+        )
+        guard unconfiguredControl.focus.current == .voice,
+              unconfiguredControl.handle(
+                .enter
+              ) == .feedbackRequested(
+                "Voice input unavailable — no transcription provider configured."
+              )
+        else {
             throw Failure.voiceAvailabilityChanged
         }
 
@@ -349,6 +368,9 @@ enum AgenticConversationSmoke {
 
         var availableControl = AgenticConversationControl(
             snapshot: availableSnapshot
+        )
+        _ = availableControl.handle(
+            .escape
         )
         guard availableControl.handle(
             .tab
@@ -423,9 +445,13 @@ enum AgenticConversationSmoke {
         }
 
         _ = control.handle(.escape)
+        _ = control.handle(.escape)
 
         var settingsControl = AgenticConversationControl(
             snapshot: fixture()
+        )
+        _ = settingsControl.handle(
+            .escape
         )
         _ = settingsControl.handle(
             .escape
@@ -478,6 +504,9 @@ enum AgenticConversationSmoke {
 
         var customSettingsControl = AgenticConversationControl(
             snapshot: fixture()
+        )
+        _ = customSettingsControl.handle(
+            .escape
         )
         _ = customSettingsControl.handle(
             .escape
@@ -644,6 +673,9 @@ enum AgenticConversationSmoke {
             .escape
         )
         _ = responseControl.handle(
+            .escape
+        )
+        _ = responseControl.handle(
             .char("s")
         )
         _ = responseControl.handle(
@@ -667,6 +699,7 @@ enum AgenticConversationSmoke {
             snapshot: fixture()
         )
         _ = invocationControl.handle(.escape)
+        _ = invocationControl.handle(.escape)
         _ = invocationControl.handle(.char("s"))
         _ = invocationControl.handle(.char("j"))
         _ = invocationControl.handle(.char("j"))
@@ -688,6 +721,7 @@ enum AgenticConversationSmoke {
             snapshot: fixture()
         )
         _ = autonomyControl.handle(.escape)
+        _ = autonomyControl.handle(.escape)
         _ = autonomyControl.handle(.char("s"))
         _ = autonomyControl.handle(.char("j"))
         _ = autonomyControl.handle(.char("j"))
@@ -708,6 +742,9 @@ enum AgenticConversationSmoke {
 
         var nonStreamingControl = AgenticConversationControl(
             snapshot: nonStreamingSnapshot
+        )
+        _ = nonStreamingControl.handle(
+            .escape
         )
         _ = nonStreamingControl.handle(
             .escape
@@ -837,7 +874,7 @@ enum AgenticConversationSmoke {
         )
 
         guard rendered.contains(selectedBody),
-              rendered.contains("ctrl-c quit"),
+              rendered.contains("ctrl-c composer"),
               !rendered.contains("q quit")
         else {
             throw Failure.selectedMessagePresentationChanged
@@ -873,6 +910,7 @@ enum AgenticConversationSmoke {
         var viewportControl = AgenticConversationControl(
             snapshot: viewportSnapshot
         )
+        _ = viewportControl.handle(.escape)
         _ = viewportControl.handle(.escape)
         _ = viewportControl.handle(.char("k"))
 
