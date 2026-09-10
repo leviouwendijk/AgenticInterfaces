@@ -86,9 +86,9 @@ enum AgenticConversationLab {
                 case .feedbackRequested(let message):
                     snapshot.activity = message
                     control.update(snapshot)
-                case .modelSelectionChanged(let id):
-                    snapshot.selectedModelProfileID = id
-                    snapshot.activity = "model selected"
+                case .modelPreferenceChanged(let id):
+                    snapshot.preferredModelProfileID = id
+                    snapshot.activity = "model preference changed"
                     control.update(snapshot)
                 case .responseDeliverySelectionChanged(let delivery):
                     snapshot.selectedResponseDelivery = delivery

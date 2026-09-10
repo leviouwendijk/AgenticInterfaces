@@ -163,7 +163,7 @@ enum AgenticConversationPendingSmoke {
                     detail: "responsive conversation fixture"
                 ),
             ],
-            selectedModelProfileID: "pending-model"
+            preferredModelProfileID: "pending-model"
         )
     }
 }

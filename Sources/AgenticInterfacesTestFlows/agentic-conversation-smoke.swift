@@ -25,7 +25,7 @@ enum AgenticConversationSmoke {
         case voiceCancelChanged
         case voiceFocusChanged
         case voiceStatusChanged
-        case modelSelectionChanged
+        case modelPreferenceChanged
         case responseDeliverySelectionChanged
         case invocationOptionsSelectionChanged
         case autonomySelectionChanged
@@ -285,7 +285,7 @@ enum AgenticConversationSmoke {
               submission.origin == .typed,
               submission.contents.map(\.body) == [pasted],
               submission.contents.map(\.kind) == [.pasted],
-              submission.modelProfileID.rawValue == "apple-default",
+              submission.preferredModelProfileID.rawValue == "apple-default",
               submission.skillIDs.isEmpty,
               submission.toolExposure == .discovery,
               submission.customToolSelection == AgenticConversationToolSelection(
@@ -657,10 +657,10 @@ enum AgenticConversationSmoke {
         )
         guard control.handle(
             .enter
-        ) == .modelSelectionChanged(
+        ) == .modelPreferenceChanged(
             "mock-model"
         ) else {
-            throw Failure.modelSelectionChanged
+            throw Failure.modelPreferenceChanged
         }
         _ = control.handle(
             .char("q")
@@ -737,7 +737,7 @@ enum AgenticConversationSmoke {
         }
 
         var nonStreamingSnapshot = fixture()
-        nonStreamingSnapshot.selectedModelProfileID = "buffered-model"
+        nonStreamingSnapshot.preferredModelProfileID = "buffered-model"
         nonStreamingSnapshot.selectedResponseDelivery = .buffered
 
         var nonStreamingControl = AgenticConversationControl(
@@ -1010,7 +1010,7 @@ enum AgenticConversationSmoke {
                     supportsStreaming: false
                 ),
             ],
-            selectedModelProfileID: "apple-default",
+            preferredModelProfileID: "apple-default",
             skills: [
                 AgenticConversationSkillPresentation(
                     id: "swift-editing",

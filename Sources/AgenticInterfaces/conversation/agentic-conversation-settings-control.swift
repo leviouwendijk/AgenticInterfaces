@@ -73,7 +73,7 @@ struct AgenticConversationSettingsControl: Sendable {
         open(
             .model,
             snapshot: snapshot,
-            currentID: .modelProfile(snapshot.selectedModelProfileID)
+            currentID: .modelProfile(snapshot.preferredModelProfileID)
         )
     }
 
@@ -196,7 +196,7 @@ private extension AgenticConversationSettingsControl {
             open(
                 .model,
                 snapshot: snapshot,
-                currentID: .modelProfile(snapshot.selectedModelProfileID)
+                currentID: .modelProfile(snapshot.preferredModelProfileID)
             )
             return nil
 
@@ -269,22 +269,22 @@ private extension AgenticConversationSettingsControl {
                   model.isAvailable
             else {
                 return .conversation(
-                    .feedbackRequested("Selected model is unavailable.")
+                    .feedbackRequested("Preferred model is unavailable.")
                 )
             }
 
-            snapshot.selectedModelProfileID = identifier
+            snapshot.preferredModelProfileID = identifier
 
             if !model.supportsStreaming {
                 snapshot.selectedResponseDelivery = .buffered
             }
 
             open(.root, snapshot: snapshot, currentID: rootSelection)
-            return .conversation(.modelSelectionChanged(identifier))
+            return .conversation(.modelPreferenceChanged(identifier))
 
         case .responseDelivery(let delivery):
             if delivery == .stream,
-               !Self.selectedModelSupportsStreaming(snapshot)
+               !Self.preferredModelSupportsStreaming(snapshot)
             {
                 return .conversation(
                     .feedbackRequested(
@@ -635,7 +635,7 @@ private extension AgenticConversationSettingsControl {
                     value: model.isAvailable ? nil : "unavailable",
                     isEnabled: model.isAvailable,
                     accessory: .radio(
-                        selected: model.id == snapshot.selectedModelProfileID
+                        selected: model.id == snapshot.preferredModelProfileID
                     ),
                     detail: TerminalSettingsDetail(
                         title: model.title,
@@ -744,17 +744,17 @@ private extension AgenticConversationSettingsControl {
         _ snapshot: AgenticConversationSnapshot
     ) -> [TerminalSettingsRow<RowID>] {
         let model = snapshot.models.first {
-            $0.id == snapshot.selectedModelProfileID
+            $0.id == snapshot.preferredModelProfileID
         }
 
         return [
             TerminalSettingsRow(
                 id: .model,
                 title: "Model",
-                value: model?.title ?? snapshot.selectedModelProfileID.rawValue,
+                value: model?.title ?? snapshot.preferredModelProfileID.rawValue,
                 accessory: .disclosure,
                 detail: TerminalSettingsDetail(
-                    title: model?.title ?? snapshot.selectedModelProfileID.rawValue,
+                    title: model?.title ?? snapshot.preferredModelProfileID.rawValue,
                     body: model?.detail
                 )
             ),
@@ -908,7 +908,7 @@ private extension AgenticConversationSettingsControl {
     private static func responseDeliveryRows(
         _ snapshot: AgenticConversationSnapshot
     ) -> [TerminalSettingsRow<RowID>] {
-        let supportsStreaming = selectedModelSupportsStreaming(
+        let supportsStreaming = preferredModelSupportsStreaming(
             snapshot
         )
 
@@ -957,7 +957,7 @@ private extension AgenticConversationSettingsControl {
         _ delivery: AgentModelResponseDelivery,
         snapshot: AgenticConversationSnapshot
     ) -> TerminalSettingsDetail {
-        let supportsStreaming = selectedModelSupportsStreaming(
+        let supportsStreaming = preferredModelSupportsStreaming(
             snapshot
         )
 
@@ -1065,11 +1065,11 @@ private extension AgenticConversationSettingsControl {
         }
     }
 
-    private static func selectedModelSupportsStreaming(
+    private static func preferredModelSupportsStreaming(
         _ snapshot: AgenticConversationSnapshot
     ) -> Bool {
         snapshot.models.first {
-            $0.id == snapshot.selectedModelProfileID
+            $0.id == snapshot.preferredModelProfileID
         }?.supportsStreaming ?? true
     }
 

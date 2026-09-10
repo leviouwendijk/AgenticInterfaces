@@ -22,7 +22,7 @@ public enum AgenticConversationEvent: Sendable, Hashable {
     case voiceCancelRequested
     case contentPinned(AgenticConversationContentPresentation)
     case submissionRequested(AgenticConversationSubmission)
-    case modelSelectionChanged(AgentModelProfileIdentifier)
+    case modelPreferenceChanged(AgentModelProfileIdentifier)
     case responseDeliverySelectionChanged(AgentModelResponseDelivery)
     case invocationOptionsSelectionChanged(AgentModelInvocationOptions)
     case autonomySelectionChanged(AutonomyMode)
@@ -492,16 +492,16 @@ private extension AgenticConversationControl {
             return .feedbackRequested("Message is empty.")
         }
         guard snapshot.models.contains(where: {
-            $0.id == snapshot.selectedModelProfileID && $0.isAvailable
+            $0.id == snapshot.preferredModelProfileID && $0.isAvailable
         }) else {
-            return .feedbackRequested("Selected model is unavailable.")
+            return .feedbackRequested("Preferred model is unavailable.")
         }
 
         let submission = AgenticConversationSubmission(
             body: body,
             origin: draftOrigin,
             contents: pendingContents,
-            modelProfileID: snapshot.selectedModelProfileID,
+            preferredModelProfileID: snapshot.preferredModelProfileID,
             skillIDs: snapshot.selectedSkillIDs,
             toolExposure: snapshot.selectedToolExposure,
             customToolSelection: snapshot.customToolSelection,
@@ -844,8 +844,8 @@ private extension AgenticConversationControl {
         }
 
         let modelTitle = snapshot.models.first {
-            $0.id == snapshot.selectedModelProfileID
-        }?.title ?? snapshot.selectedModelProfileID.rawValue
+            $0.id == snapshot.preferredModelProfileID
+        }?.title ?? snapshot.preferredModelProfileID.rawValue
         let selectedSkills = snapshot.skills.filter {
             snapshot.selectedSkillIDs.contains(
                 $0.id
