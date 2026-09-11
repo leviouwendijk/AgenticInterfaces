@@ -19,7 +19,7 @@ public struct TerminalModelRouteRenderer: Sendable {
             "model route",
             "  purpose      \(result.route.purpose.rawValue)",
             "  profile      \(profile.identifier.rawValue)",
-            "  adapter      \(profile.adapterIdentifier.rawValue)",
+            "  gateway      \(profile.gatewayIdentifier.rawValue)",
             "  model        \(profile.model)",
             "  cost         \(profile.cost.rawValue)",
             "  latency      \(profile.latency.rawValue)",
