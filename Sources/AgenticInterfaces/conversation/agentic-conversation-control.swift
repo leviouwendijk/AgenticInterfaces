@@ -37,6 +37,11 @@ public enum AgenticConversationEvent: Sendable, Hashable {
     case feedbackRequested(String)
 }
 
+private enum AgenticConversationTranscriptReveal: Sendable {
+    case start
+    case end
+}
+
 public struct AgenticConversationControl: Sendable {
     public private(set) var snapshot: AgenticConversationSnapshot
     public private(set) var focus: TerminalFocusStack<AgenticConversationFocus>
@@ -47,6 +52,8 @@ public struct AgenticConversationControl: Sendable {
     private var transcript: TerminalScrollableDocument
     private var attachmentDocument: TerminalScrollableDocument
     private var selectedMessageID: String?
+    private var transcriptSelectionFollowsEnd: Bool
+    private var pendingTranscriptReveal: AgenticConversationTranscriptReveal?
     private var pendingContents: [AgenticConversationContentPresentation]
     private var nextContentOrdinal: Int
     private var attachmentIndex: Int
@@ -67,6 +74,8 @@ public struct AgenticConversationControl: Sendable {
         self.transcript = TerminalScrollableDocument(followEnd: true)
         self.attachmentDocument = TerminalScrollableDocument()
         self.selectedMessageID = snapshot.messages.last?.id
+        self.transcriptSelectionFollowsEnd = true
+        self.pendingTranscriptReveal = nil
         self.pendingContents = []
         self.nextContentOrdinal = 1
         self.attachmentIndex = 0
@@ -95,6 +104,8 @@ public struct AgenticConversationControl: Sendable {
         _ submission: AgenticConversationSubmission
     ) {
         pendingSubmission = submission
+        transcriptSelectionFollowsEnd = true
+        pendingTranscriptReveal = nil
         transcript.moveToEnd()
     }
 
@@ -138,12 +149,18 @@ public struct AgenticConversationControl: Sendable {
         } else if previousVoiceState == .recording {
             voiceMeter.reset()
         }
-        if let previousMessageID,
-           snapshot.messages.contains(where: { $0.id == previousMessageID })
+        if transcriptSelectionFollowsEnd {
+            selectedMessageID = snapshot.messages.last?.id
+        } else if let previousMessageID,
+                  snapshot.messages.contains(where: { $0.id == previousMessageID })
         {
             selectedMessageID = previousMessageID
         } else {
             selectedMessageID = snapshot.messages.last?.id
+            transcriptSelectionFollowsEnd = true
+            pendingTranscriptReveal = selectedMessageID == nil
+                ? nil
+                : .end
         }
         settings.update(
             snapshot
@@ -785,6 +802,8 @@ private extension AgenticConversationControl {
     mutating func moveMessage(by offset: Int) {
         guard !snapshot.messages.isEmpty else {
             selectedMessageID = nil
+            transcriptSelectionFollowsEnd = true
+            pendingTranscriptReveal = nil
             return
         }
         let current = selectedMessageID.flatMap { id in
@@ -792,6 +811,13 @@ private extension AgenticConversationControl {
         } ?? snapshot.messages.count - 1
         let next = min(snapshot.messages.count - 1, max(0, current + offset))
         selectedMessageID = snapshot.messages[next].id
+        transcriptSelectionFollowsEnd = next == snapshot.messages.count - 1
+
+        if offset < 0 {
+            pendingTranscriptReveal = .start
+        } else if offset > 0 {
+            pendingTranscriptReveal = .end
+        }
     }
 
     mutating func moveAttachment(by offset: Int) {
@@ -873,25 +899,34 @@ private extension AgenticConversationControl {
         let layout = transcriptLines(columns: vertical[1].columns)
         transcript.update(lines: layout.lines, visibleRows: vertical[1].rows)
         if focus.current == .transcript,
-           let selectedMessageID,
-           let rows = layout.messageRows[selectedMessageID],
-           !rows.isEmpty
+           let pendingTranscriptReveal
         {
-            let visible = transcript.viewport.visibleRange
+            if let selectedMessageID,
+               let rows = layout.messageRows[selectedMessageID],
+               !rows.isEmpty
+            {
+                switch pendingTranscriptReveal {
+                case .start:
+                    transcript.reveal(
+                        row: rows.lowerBound,
+                        margin: 1
+                    )
 
-            if rows.lowerBound < visible.lowerBound {
-                transcript.reveal(
-                    row: rows.lowerBound,
-                    margin: 1
-                )
-            } else if rows.upperBound > visible.upperBound {
-                transcript.reveal(
-                    row: rows.upperBound - 1,
-                    margin: 1
-                )
+                case .end:
+                    if transcriptSelectionFollowsEnd,
+                       selectedMessageID == snapshot.messages.last?.id
+                    {
+                        transcript.moveToEnd()
+                    } else {
+                        transcript.reveal(
+                            row: rows.upperBound - 1,
+                            margin: 1
+                        )
+                    }
+                }
             }
-        } else if focus.current == .composer {
-            transcript.moveToEnd()
+
+            self.pendingTranscriptReveal = nil
         }
         transcript.render(into: &frame, in: vertical[1])
 

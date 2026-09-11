@@ -886,6 +886,105 @@ enum AgenticConversationSmoke {
             throw Failure.runCardStyleChanged
         }
 
+        var messageSelectionSnapshot = fixture()
+        messageSelectionSnapshot.messages = [
+            AgenticConversationMessagePresentation(
+                id: "selection-first",
+                role: .user,
+                body: "first selection"
+            ),
+            AgenticConversationMessagePresentation(
+                id: "selection-second",
+                role: .assistant,
+                body: "second selection"
+            ),
+        ]
+        var messageSelectionControl = AgenticConversationControl(
+            snapshot: messageSelectionSnapshot
+        )
+
+        messageSelectionSnapshot.messages.append(
+            AgenticConversationMessagePresentation(
+                id: "selection-third",
+                role: .assistant,
+                body: "third selection"
+            )
+        )
+        messageSelectionControl.update(
+            messageSelectionSnapshot
+        )
+
+        guard messageSelectionControl.currentMessage?.id == "selection-third" else {
+            throw Failure.selectedMessagePresentationChanged
+        }
+
+        _ = messageSelectionControl.handle(.escape)
+        _ = messageSelectionControl.handle(.escape)
+        _ = messageSelectionControl.handle(.char("k"))
+
+        guard messageSelectionControl.focus.current == .transcript,
+              messageSelectionControl.currentMessage?.id == "selection-second"
+        else {
+            throw Failure.selectedMessagePresentationChanged
+        }
+
+        _ = messageSelectionControl.handle(.tab)
+        messageSelectionSnapshot.messages.append(
+            AgenticConversationMessagePresentation(
+                id: "selection-fourth",
+                role: .assistant,
+                body: "fourth selection"
+            )
+        )
+        messageSelectionControl.update(
+            messageSelectionSnapshot
+        )
+
+        guard messageSelectionControl.focus.current == .composer,
+              messageSelectionControl.currentMessage?.id == "selection-second"
+        else {
+            throw Failure.selectedMessagePresentationChanged
+        }
+
+        _ = messageSelectionControl.handle(.tab)
+
+        guard messageSelectionControl.focus.current == .voice,
+              messageSelectionControl.currentMessage?.id == "selection-second"
+        else {
+            throw Failure.selectedMessagePresentationChanged
+        }
+
+        _ = messageSelectionControl.handle(.tab)
+
+        guard messageSelectionControl.focus.current == .transcript,
+              messageSelectionControl.currentMessage?.id == "selection-second"
+        else {
+            throw Failure.selectedMessagePresentationChanged
+        }
+
+        _ = messageSelectionControl.handle(.char("j"))
+        _ = messageSelectionControl.handle(.char("j"))
+
+        guard messageSelectionControl.currentMessage?.id == "selection-fourth" else {
+            throw Failure.selectedMessagePresentationChanged
+        }
+
+        _ = messageSelectionControl.handle(.tab)
+        messageSelectionSnapshot.messages.append(
+            AgenticConversationMessagePresentation(
+                id: "selection-fifth",
+                role: .assistant,
+                body: "fifth selection"
+            )
+        )
+        messageSelectionControl.update(
+            messageSelectionSnapshot
+        )
+
+        guard messageSelectionControl.currentMessage?.id == "selection-fifth" else {
+            throw Failure.selectedMessagePresentationChanged
+        }
+
         var viewportSnapshot = fixture()
         viewportSnapshot.messages = [
             AgenticConversationMessagePresentation(
@@ -942,6 +1041,48 @@ enum AgenticConversationSmoke {
         )
 
         guard viewportRendered.contains("long-tail") else {
+            throw Failure.selectedMessageViewportChanged
+        }
+
+        viewportFrame.removeAll()
+        viewportControl.render(
+            into: &viewportFrame,
+            in: TerminalRegion(
+                rows: 10,
+                columns: 60
+            )
+        )
+        let stableViewportRendered = stripANSI(
+            viewportFrame.resolved().spans
+                .map(\.content)
+                .joined(separator: "\n")
+        )
+
+        guard stableViewportRendered.contains("long-tail") else {
+            throw Failure.selectedMessageViewportChanged
+        }
+
+        guard viewportControl.handle(.enter) == .feedbackRequested(
+            "Selected message has no attached content or run."
+        ) else {
+            throw Failure.selectedMessageViewportChanged
+        }
+
+        viewportFrame.removeAll()
+        viewportControl.render(
+            into: &viewportFrame,
+            in: TerminalRegion(
+                rows: 10,
+                columns: 60
+            )
+        )
+        let inspectedViewportRendered = stripANSI(
+            viewportFrame.resolved().spans
+                .map(\.content)
+                .joined(separator: "\n")
+        )
+
+        guard inspectedViewportRendered.contains("long-tail") else {
             throw Failure.selectedMessageViewportChanged
         }
 
