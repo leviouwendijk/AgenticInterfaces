@@ -1095,10 +1095,15 @@ private extension AgenticConversationControl {
                     )
 
                 case .program(let program):
-                    let tone: AgenticConversationRunCardTone =
-                        program.outcome == .succeeded
-                            ? .success
-                            : .failure
+                    let tone: AgenticConversationRunCardTone
+                    switch program.outcome {
+                    case .succeeded:
+                        tone = .success
+                    case .suspended:
+                        tone = .warning
+                    case .failed:
+                        tone = .failure
+                    }
                     let block = TerminalInteractiveBlock(
                         title: program.transcriptTitle,
                         body: program.transcriptBody,
