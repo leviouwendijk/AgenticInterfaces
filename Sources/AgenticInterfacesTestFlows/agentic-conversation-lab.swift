@@ -83,6 +83,27 @@ enum AgenticConversationLab {
                     )
                     snapshot.activity = "submission captured in memory"
                     control.update(snapshot)
+                case .programInvocationRequested(_, let submission):
+                    let userID = "lab-user-\(nextMessageOrdinal)"
+                    let assistantID = "lab-assistant-\(nextMessageOrdinal)"
+                    nextMessageOrdinal += 1
+                    snapshot.messages.append(
+                        AgenticConversationMessagePresentation(
+                            id: userID,
+                            role: .user,
+                            body: submission.body,
+                            attachments: submission.contents.map { .content($0) }
+                        )
+                    )
+                    snapshot.messages.append(
+                        AgenticConversationMessagePresentation(
+                            id: assistantID,
+                            role: .assistant,
+                            body: "Program execution is wired by the Host-backed conversation path."
+                        )
+                    )
+                    snapshot.activity = "program submission captured in memory"
+                    control.update(snapshot)
                 case .feedbackRequested(let message):
                     snapshot.activity = message
                     control.update(snapshot)

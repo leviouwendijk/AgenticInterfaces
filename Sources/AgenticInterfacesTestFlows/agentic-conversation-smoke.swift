@@ -47,12 +47,46 @@ enum AgenticConversationSmoke {
         case selectedMessagePresentationChanged
         case selectedMessageViewportChanged
         case presentationMissing
+        case programCommandChanged
     }
 
     static func run() throws {
         try AgenticConversationPendingSmoke.run()
         try AgenticConversationRunReviewSmoke.run()
         try AgenticConversationComposerSmoke.run()
+
+        var programSnapshot = fixture()
+        programSnapshot.programs = [
+            .init(
+                identifier: "fixture.conversation_program",
+                title: "Conversation Program",
+                summary: "Conversation Program command fixture."
+            ),
+        ]
+        var programControl = AgenticConversationControl(
+            snapshot: programSnapshot
+        )
+        _ = programControl.applyTranscription(
+            .init(
+                text: "/program fixture.conversation_program {\"value\":\"hello\"}"
+            )
+        )
+        let programEvent = programControl.handle(
+            TerminalKeyStroke(
+                key: .enter,
+                modifiers: .control
+            )
+        )
+
+        guard case .programInvocationRequested(
+            let invocation,
+            let submission
+        )? = programEvent,
+              invocation.program.rawValue == "fixture.conversation_program",
+              submission.body == "/program fixture.conversation_program {\"value\":\"hello\"}"
+        else {
+            throw Failure.programCommandChanged
+        }
 
         let cardRun = AgenticHostConsoleRunPresentation(
             id: "card-run",

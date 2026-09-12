@@ -1,4 +1,5 @@
 import Agentic
+import AgenticPrograms
 
 public enum AgenticConversationContentKind: String, Sendable, Hashable {
     case pasted = "pasted_content"
@@ -84,12 +85,15 @@ public struct AgenticConversationContentPresentation: Sendable, Hashable {
 
 public enum AgenticConversationAttachmentPresentation: Sendable, Hashable {
     case content(AgenticConversationContentPresentation)
+    case program(AgenticConversationProgramExecutionPresentation)
     case run(runID: String)
 
     public var id: String {
         switch self {
         case .content(let content):
             return content.id
+        case .program(let program):
+            return program.id
         case .run(let runID):
             return runID
         }
@@ -99,6 +103,8 @@ public enum AgenticConversationAttachmentPresentation: Sendable, Hashable {
         switch self {
         case .content(let content):
             return content.title
+        case .program(let program):
+            return program.title
         case .run(let runID):
             return hostConsole.runs.first { $0.id == runID }?.title ?? "Run"
         }
@@ -108,6 +114,8 @@ public enum AgenticConversationAttachmentPresentation: Sendable, Hashable {
         switch self {
         case .content(let content):
             return content.summary
+        case .program(let program):
+            return "program · \(program.program.rawValue) · \(program.outcome.rawValue)"
         case .run(let runID):
             guard let run = hostConsole.runs.first(where: { $0.id == runID }) else {
                 return "run · \(runID) · unavailable"
@@ -438,6 +446,7 @@ public struct AgenticConversationSnapshot: Sendable, Hashable {
     public var voiceStatus: AgenticConversationVoice.Status?
     public var messages: [AgenticConversationMessagePresentation]
     public var models: [AgenticConversationModelPresentation]
+    public var programs: [AgentProgramDescriptor]
     public var preferredModelProfileID: AgentModelProfileIdentifier
     public var selectedResponseDelivery: AgentModelResponseDelivery
     public var selectedInvocationOptions: AgentModelInvocationOptions
@@ -458,6 +467,7 @@ public struct AgenticConversationSnapshot: Sendable, Hashable {
         voiceStatus: AgenticConversationVoice.Status? = nil,
         messages: [AgenticConversationMessagePresentation] = [],
         models: [AgenticConversationModelPresentation],
+        programs: [AgentProgramDescriptor] = [],
         preferredModelProfileID: AgentModelProfileIdentifier,
         selectedResponseDelivery: AgentModelResponseDelivery = .stream,
         selectedInvocationOptions: AgentModelInvocationOptions = .default,
@@ -477,6 +487,7 @@ public struct AgenticConversationSnapshot: Sendable, Hashable {
         self.voiceStatus = voiceStatus
         self.messages = messages
         self.models = models
+        self.programs = programs
         self.preferredModelProfileID = preferredModelProfileID
         self.selectedResponseDelivery = selectedResponseDelivery
         self.selectedInvocationOptions = selectedInvocationOptions

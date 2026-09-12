@@ -22,6 +22,10 @@ public enum AgenticConversationEvent: Sendable, Hashable {
     case voiceCancelRequested
     case contentPinned(AgenticConversationContentPresentation)
     case submissionRequested(AgenticConversationSubmission)
+    case programInvocationRequested(
+        invocation: AgenticConversationProgramInvocation,
+        submission: AgenticConversationSubmission
+    )
     case modelPreferenceChanged(AgentModelProfileIdentifier)
     case responseDeliverySelectionChanged(AgentModelResponseDelivery)
     case invocationOptionsSelectionChanged(AgentModelInvocationOptions)
@@ -508,11 +512,6 @@ private extension AgenticConversationControl {
         guard !body.isEmpty || !pendingContents.isEmpty else {
             return .feedbackRequested("Message is empty.")
         }
-        guard snapshot.models.contains(where: {
-            $0.id == snapshot.preferredModelProfileID && $0.isAvailable
-        }) else {
-            return .feedbackRequested("Preferred model is unavailable.")
-        }
 
         let submission = AgenticConversationSubmission(
             body: body,
@@ -526,6 +525,58 @@ private extension AgenticConversationControl {
             invocationoptions: snapshot.selectedInvocationOptions,
             autonomyMode: snapshot.selectedAutonomyMode
         )
+
+        do {
+            if let invocation = try AgenticConversationProgramCommand.parse(
+                body
+            ) {
+                guard pendingContents.isEmpty else {
+                    return .feedbackRequested(
+                        "Program commands do not accept pinned content yet."
+                    )
+                }
+
+                guard snapshot.programs.contains(where: { descriptor in
+                    descriptor.identifier == invocation.program
+                }) else {
+                    return .feedbackRequested(
+                        "Program '\(invocation.program.rawValue)' is not available."
+                    )
+                }
+
+                composer.clearAfterSubmission()
+                draftOrigin = .typed
+                pendingContents.removeAll(keepingCapacity: true)
+
+                return .programInvocationRequested(
+                    invocation: invocation,
+                    submission: submission
+                )
+            }
+        } catch AgenticConversationProgramCommandError.missingProgramIdentifier {
+            let available = snapshot.programs
+                .map { descriptor in
+                    descriptor.identifier.rawValue
+                }
+                .joined(separator: ", ")
+
+            return .feedbackRequested(
+                available.isEmpty
+                    ? "No Programs are available."
+                    : "Available Programs: \(available)"
+            )
+        } catch {
+            return .feedbackRequested(
+                error.localizedDescription
+            )
+        }
+
+        guard snapshot.models.contains(where: {
+            $0.id == snapshot.preferredModelProfileID && $0.isAvailable
+        }) else {
+            return .feedbackRequested("Preferred model is unavailable.")
+        }
+
         composer.clearAfterSubmission()
         draftOrigin = .typed
         pendingContents.removeAll(keepingCapacity: true)
@@ -1043,6 +1094,35 @@ private extension AgenticConversationControl {
                         )
                     )
 
+                case .program(let program):
+                    let tone: AgenticConversationRunCardTone =
+                        program.outcome == .succeeded
+                            ? .success
+                            : .failure
+                    let block = TerminalInteractiveBlock(
+                        title: program.transcriptTitle,
+                        body: program.transcriptBody,
+                        hint: "Enter for program details",
+                        state: TerminalInteractiveBlock.resolvedState(
+                            isFocused: selected
+                        ),
+                        style: runCardStyle(
+                            for: tone
+                        )
+                    )
+                    let blockStart = lines.count
+
+                    lines.append(
+                        contentsOf: block.render(
+                            width: bodyWidth
+                        ).map { line in
+                            "  " + line
+                        }
+                    )
+                    nestedInteractiveRows.formUnion(
+                        blockStart..<lines.count
+                    )
+
                 case .run(let runID):
                     guard let run = snapshot.hostConsole.runs.first(
                         where: { run in
@@ -1195,6 +1275,13 @@ private extension AgenticConversationControl {
                 columns: body.columns,
                 visibleRows: body.rows,
                 wrapping: .display
+            )
+        case .program(let program):
+            attachmentDocument.update(
+                text: program.detailsBody,
+                columns: body.columns,
+                visibleRows: body.rows,
+                wrapping: .word
             )
         case .run(let runID):
             let run = snapshot.hostConsole.runs.first { $0.id == runID }
