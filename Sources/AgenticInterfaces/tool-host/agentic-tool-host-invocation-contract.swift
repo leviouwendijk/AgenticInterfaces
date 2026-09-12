@@ -2,7 +2,7 @@ import Agentic
 import AgenticExecution
 import Primitives
 import Schema
-import SchemaMacros
+import Macros
 
 /// Canonical model-facing Agentic tool-call payload.
 @JSONSchema
