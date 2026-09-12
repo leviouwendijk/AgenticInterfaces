@@ -24,6 +24,7 @@ public enum AgenticConversationProgramExecutionOutcome:
     Hashable
 {
     case succeeded
+    case suspended
     case failed
 }
 
@@ -35,6 +36,7 @@ public struct AgenticConversationProgramStepPresentation:
     public var title: String
     public var detail: String?
     public var failed: Bool
+    public var suspended: Bool
     public var durationMilliseconds: Int
 
     public init(
@@ -42,13 +44,25 @@ public struct AgenticConversationProgramStepPresentation:
         title: String,
         detail: String? = nil,
         failed: Bool = false,
+        suspended: Bool = false,
         durationMilliseconds: Int = 0
     ) {
         self.index = index
         self.title = title
         self.detail = detail
         self.failed = failed
+        self.suspended = suspended
         self.durationMilliseconds = durationMilliseconds
+    }
+
+    public var marker: String {
+        if failed {
+            return "×"
+        }
+        if suspended {
+            return "◉"
+        }
+        return "✓"
     }
 }
 
@@ -98,6 +112,8 @@ public struct AgenticConversationProgramExecutionPresentation:
         switch outcome {
         case .succeeded:
             return "Program · completed"
+        case .suspended:
+            return "Program · awaiting approval"
         case .failed:
             return "Program · failed"
         }
@@ -107,8 +123,7 @@ public struct AgenticConversationProgramExecutionPresentation:
         var lines = [title]
 
         for step in steps {
-            let marker = step.failed ? "×" : "✓"
-            var line = "\(marker) \(step.title)"
+            var line = "\(step.marker) \(step.title)"
 
             if let detail = step.detail,
                !detail.isEmpty
@@ -150,8 +165,7 @@ public struct AgenticConversationProgramExecutionPresentation:
             lines.append("steps")
 
             for step in steps {
-                let marker = step.failed ? "×" : "✓"
-                var line = "\(marker) \(step.title)"
+                var line = "\(step.marker) \(step.title)"
 
                 if let detail = step.detail,
                    !detail.isEmpty
