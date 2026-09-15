@@ -9,6 +9,7 @@ public enum AgenticConversationFocus: Sendable, Hashable {
     case composer
     case voice
     case transcript
+    case pinnedContent
     case attachment
     case settings
     case runReview
@@ -59,6 +60,8 @@ public struct AgenticConversationControl: Sendable {
     private var transcriptSelectionFollowsEnd: Bool
     private var pendingTranscriptReveal: AgenticConversationTranscriptReveal?
     private var pendingContents: [AgenticConversationContentPresentation]
+    private var excludedPendingContentIDs: Set<String>
+    private var pinnedContent: AgenticConversationPinnedContentControl
     private var nextContentOrdinal: Int
     private var attachmentIndex: Int
     private var settings: AgenticConversationSettingsControl
@@ -82,6 +85,10 @@ public struct AgenticConversationControl: Sendable {
         self.transcriptSelectionFollowsEnd = true
         self.pendingTranscriptReveal = nil
         self.pendingContents = []
+        self.excludedPendingContentIDs = []
+        self.pinnedContent = AgenticConversationPinnedContentControl(
+            contents: []
+        )
         self.nextContentOrdinal = 1
         self.attachmentIndex = 0
         self.settings = AgenticConversationSettingsControl(
@@ -325,12 +332,26 @@ public struct AgenticConversationControl: Sendable {
                 return voiceAction()
 
             case .composer,
+                 .pinnedContent,
                  .attachment,
                  .settings,
                  .runReview,
                  .run:
                 break
             }
+        }
+
+        if key == .char("p"),
+           focus.current == .transcript,
+           !pendingContents.isEmpty
+        {
+            pinnedContent.update(
+                contents: pendingContents
+            )
+            focus.push(
+                .pinnedContent
+            )
+            return nil
         }
 
         switch focus.current {
@@ -344,6 +365,8 @@ public struct AgenticConversationControl: Sendable {
             return handleVoice(key)
         case .transcript:
             return handleTranscript(key)
+        case .pinnedContent:
+            return handlePinnedContent(key)
         case .attachment:
             return handleAttachment(key)
         case .settings:
@@ -379,6 +402,13 @@ public struct AgenticConversationControl: Sendable {
         }
 
         switch focus.current {
+        case .pinnedContent:
+            pinnedContent.render(
+                into: &frame,
+                in: region,
+                contents: pendingContents,
+                excludedIDs: excludedPendingContentIDs
+            )
         case .attachment:
             renderAttachment(into: &frame, in: region)
         case .settings:
@@ -450,6 +480,9 @@ private extension AgenticConversationControl {
         )
         nextContentOrdinal += 1
         pendingContents.append(content)
+        pinnedContent.update(
+            contents: pendingContents
+        )
         return .contentPinned(content)
     }
 
@@ -506,14 +539,18 @@ private extension AgenticConversationControl {
         let body = composer.text.trimmingCharacters(
             in: .whitespacesAndNewlines
         )
-        guard !body.isEmpty || !pendingContents.isEmpty else {
+        let includedContents = pendingContents.filter { content in
+            !excludedPendingContentIDs.contains(content.id)
+        }
+
+        guard !body.isEmpty || !includedContents.isEmpty else {
             return .feedbackRequested("Message is empty.")
         }
 
         let submission = AgenticConversationSubmission(
             body: body,
             origin: draftOrigin,
-            contents: pendingContents,
+            contents: includedContents,
             preferredModelProfileID: snapshot.preferredModelProfileID,
             skillIDs: snapshot.selectedSkillIDs,
             toolExposure: snapshot.selectedToolExposure,
@@ -527,9 +564,15 @@ private extension AgenticConversationControl {
             if let invocation = try AgenticConversationProgramCommand.parse(
                 body
             ) {
-                guard pendingContents.isEmpty else {
+                guard includedContents.isEmpty else {
+                    pinnedContent.update(
+                        contents: pendingContents
+                    )
+                    focus.push(
+                        .pinnedContent
+                    )
                     return .feedbackRequested(
-                        "Program commands do not accept pinned content yet."
+                        "Program commands cannot include pinned content. Exclude or remove the included pins to continue."
                     )
                 }
 
@@ -543,7 +586,6 @@ private extension AgenticConversationControl {
 
                 composer.clearAfterSubmission()
                 draftOrigin = .typed
-                pendingContents.removeAll(keepingCapacity: true)
 
                 return .programInvocationRequested(
                     invocation: invocation,
@@ -576,8 +618,61 @@ private extension AgenticConversationControl {
 
         composer.clearAfterSubmission()
         draftOrigin = .typed
-        pendingContents.removeAll(keepingCapacity: true)
+
+        let submittedContentIDs = Set(
+            includedContents.map(\.id)
+        )
+        pendingContents.removeAll { content in
+            submittedContentIDs.contains(content.id)
+        }
+        excludedPendingContentIDs.formIntersection(
+            Set(
+                pendingContents.map(\.id)
+            )
+        )
+        pinnedContent.update(
+            contents: pendingContents
+        )
+
         return .submissionRequested(submission)
+    }
+
+    mutating func handlePinnedContent(
+        _ key: TerminalKey
+    ) -> AgenticConversationEvent? {
+        guard let event = pinnedContent.handle(
+            key,
+            contents: pendingContents
+        ) else {
+            return nil
+        }
+
+        switch event {
+        case .closeRequested:
+            _ = focus.pop()
+
+        case .inclusionToggled(let id):
+            if excludedPendingContentIDs.contains(id) {
+                excludedPendingContentIDs.remove(id)
+            } else {
+                excludedPendingContentIDs.insert(id)
+            }
+
+        case .removeRequested(let id):
+            pendingContents.removeAll { content in
+                content.id == id
+            }
+            excludedPendingContentIDs.remove(id)
+            pinnedContent.update(
+                contents: pendingContents
+            )
+
+            if pendingContents.isEmpty {
+                _ = focus.pop()
+            }
+        }
+
+        return nil
     }
 
     mutating func handleVoice(_ key: TerminalKey) -> AgenticConversationEvent? {
@@ -1424,7 +1519,8 @@ private extension AgenticConversationControl {
                 return "response pending  tab transcript  esc composer"
             case .transcript:
                 return "j/k message  enter inspect  tab composer  response pending"
-            case .attachment,
+            case .pinnedContent,
+                 .attachment,
                  .settings,
                  .runReview,
                  .run:
@@ -1438,8 +1534,12 @@ private extension AgenticConversationControl {
         case .voice:
             return "enter voice  tab transcript  esc composer  ctrl-v voice"
         case .transcript:
-            return "j/k message  enter inspect  m model  s settings  tab composer  ctrl-c composer"
+            return "j/k message  enter inspect  m model  s settings"
+                + (pendingContents.isEmpty ? "" : "  p pins")
+                + "  tab composer  ctrl-c composer"
                 + voiceFooter
+        case .pinnedContent:
+            return pinnedContent.footer
         case .attachment:
             return "h/l sibling  j/k scroll  enter run  q back"
         case .settings:

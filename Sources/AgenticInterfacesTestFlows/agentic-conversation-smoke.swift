@@ -54,6 +54,7 @@ enum AgenticConversationSmoke {
         try AgenticConversationPendingSmoke.run()
         try AgenticConversationRunReviewSmoke.run()
         try AgenticConversationComposerSmoke.run()
+        try AgenticConversationPinnedContentSmoke.run()
 
         var programSnapshot = fixture()
         programSnapshot.programs = [
