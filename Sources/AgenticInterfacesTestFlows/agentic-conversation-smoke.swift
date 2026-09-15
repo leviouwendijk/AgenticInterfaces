@@ -378,18 +378,12 @@ enum AgenticConversationSmoke {
         var unconfiguredControl = AgenticConversationControl(
             snapshot: fixture()
         )
-        _ = unconfiguredControl.handle(
-            .escape
-        )
-        _ = unconfiguredControl.handle(
-            .tab
-        )
-        guard unconfiguredControl.focus.current == .voice,
-              unconfiguredControl.handle(
-                .enter
-              ) == .feedbackRequested(
-                "Voice input unavailable — no transcription provider configured."
-              )
+        guard unconfiguredControl.handle(
+            .controlSpace
+        ) == .feedbackRequested(
+            "Voice input unavailable — no transcription provider configured."
+        ),
+              unconfiguredControl.focus.current == .composer
         else {
             throw Failure.voiceAvailabilityChanged
         }
@@ -403,13 +397,14 @@ enum AgenticConversationSmoke {
         _ = availableControl.handle(
             .escape
         )
-        guard availableControl.handle(
+        _ = availableControl.handle(
             .tab
-        ) == nil,
-              availableControl.focus.current == .voice,
+        )
+        guard availableControl.focus.current == .transcript,
               availableControl.handle(
-                .enter
-              ) == .voiceStartRequested
+                .controlSpace
+              ) == .voiceStartRequested,
+              availableControl.focus.current == .voice
         else {
             throw Failure.voiceFocusChanged
         }
@@ -451,6 +446,14 @@ enum AgenticConversationSmoke {
             throw Failure.voiceStatusChanged
         }
 
+        guard availableControl.handle(
+            .controlSpace
+        ) == .voiceStopRequested,
+              availableControl.focus.current == .transcript
+        else {
+            throw Failure.voiceStopChanged
+        }
+
         var recordingControl = AgenticConversationControl(
             snapshot: availableSnapshot
         )
@@ -462,8 +465,10 @@ enum AgenticConversationSmoke {
         }
 
         guard recordingControl.handle(
-            .control("V")
-        ) == .voiceStopRequested else {
+            .controlSpace
+        ) == .voiceStopRequested,
+              recordingControl.focus.current == .composer
+        else {
             throw Failure.voiceStopChanged
         }
 
@@ -904,8 +909,10 @@ enum AgenticConversationSmoke {
             )
         )
 
-        guard rendered.contains(selectedBody),
-              rendered.contains("ctrl-c composer"),
+        guard control.focus.current == .transcript,
+              rendered.contains(selectedBody),
+              rendered.contains("tab composer"),
+              !rendered.contains("tab voice"),
               !rendered.contains("q quit")
         else {
             throw Failure.selectedMessagePresentationChanged
@@ -972,14 +979,6 @@ enum AgenticConversationSmoke {
         )
 
         guard messageSelectionControl.focus.current == .composer,
-              messageSelectionControl.currentMessage?.id == "selection-second"
-        else {
-            throw Failure.selectedMessagePresentationChanged
-        }
-
-        _ = messageSelectionControl.handle(.tab)
-
-        guard messageSelectionControl.focus.current == .voice,
               messageSelectionControl.currentMessage?.id == "selection-second"
         else {
             throw Failure.selectedMessagePresentationChanged

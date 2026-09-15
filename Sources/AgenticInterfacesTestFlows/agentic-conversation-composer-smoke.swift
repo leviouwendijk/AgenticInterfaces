@@ -279,7 +279,7 @@ enum AgenticConversationComposerSmoke {
             .tab
         )
 
-        guard control.focus.current == .voice else {
+        guard control.focus.current == .transcript else {
             throw Failure.tabSemanticsChanged
         }
     }

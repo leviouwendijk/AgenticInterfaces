@@ -42,7 +42,6 @@ enum AgenticConversationComposerEvent:
     Sendable
 {
     case submitRequested
-    case focusVoiceRequested
     case focusTranscriptRequested
     case exitRequested
 }
@@ -211,7 +210,7 @@ struct AgenticConversationComposerControl:
            surface.mode != .insert,
            surface.mode != .replace
         {
-            return .focusVoiceRequested
+            return .focusTranscriptRequested
         }
 
         switch surface.handle(

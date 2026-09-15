@@ -63,6 +63,7 @@ public struct AgenticConversationControl: Sendable {
     private var excludedPendingContentIDs: Set<String>
     private var pinnedContent: AgenticConversationPinnedContentControl
     private var nextContentOrdinal: Int
+    private var voiceReturnFocus: AgenticConversationFocus
     private var attachmentIndex: Int
     private var settings: AgenticConversationSettingsControl
     private var pendingSubmission: AgenticConversationSubmission?
@@ -90,6 +91,7 @@ public struct AgenticConversationControl: Sendable {
             contents: []
         )
         self.nextContentOrdinal = 1
+        self.voiceReturnFocus = .composer
         self.attachmentIndex = 0
         self.settings = AgenticConversationSettingsControl(
             snapshot: snapshot
@@ -280,13 +282,9 @@ public struct AgenticConversationControl: Sendable {
     public mutating func handle(
         _ keyStroke: TerminalKeyStroke
     ) -> AgenticConversationEvent? {
-        if focus.current == .composer {
-            if keyStroke.key == .control("V"),
-               snapshot.voiceState == .recording
-            {
-                return voiceAction()
-            }
-
+        if focus.current == .composer,
+           keyStroke.key != .controlSpace
+        {
             return handleComposer(
                 keyStroke
             )
@@ -308,31 +306,25 @@ public struct AgenticConversationControl: Sendable {
            snapshot.voiceState == .recording
         {
             focus.replace(
-                .composer
+                voiceReturnFocus
             )
             return .voiceCancelRequested
         }
 
-        if key == .control("V"),
-           pendingSubmission != nil
-        {
-            return nil
-        }
+        if key == .controlSpace {
+            guard pendingSubmission == nil else {
+                return nil
+            }
 
-        if key == .control("V"),
-           snapshot.voiceState == .recording
-        {
-            return voiceAction()
-        }
-
-        if key == .control("V") {
             switch focus.current {
-            case .voice,
-                 .transcript:
-                return voiceAction()
-
             case .composer,
-                 .pinnedContent,
+                 .voice,
+                 .transcript:
+                return voiceAction(
+                    sourceFocus: focus.current
+                )
+
+            case .pinnedContent,
                  .attachment,
                  .settings,
                  .runReview,
@@ -492,14 +484,10 @@ private extension AgenticConversationControl {
         if pendingSubmission != nil {
             switch keyStroke.key {
             case .escape,
-                 .control("C"):
+                 .control("C"),
+                 .tab:
                 focus.replace(
                     .transcript
-                )
-
-            case .tab:
-                focus.replace(
-                    .voice
                 )
 
             default:
@@ -514,12 +502,6 @@ private extension AgenticConversationControl {
         ) {
         case .submitRequested?:
             return submitComposer()
-
-        case .focusVoiceRequested?:
-            focus.replace(
-                .voice
-            )
-            return nil
 
         case .focusTranscriptRequested?:
             focus.replace(
@@ -676,18 +658,17 @@ private extension AgenticConversationControl {
     }
 
     mutating func handleVoice(_ key: TerminalKey) -> AgenticConversationEvent? {
-        if key == .tab {
-            focus.replace(.transcript)
-            return nil
-        }
-
         if key == .escape {
             if snapshot.voiceState == .recording {
-                focus.replace(.composer)
+                focus.replace(
+                    voiceReturnFocus
+                )
                 return .voiceCancelRequested
             }
 
-            focus.replace(.composer)
+            focus.replace(
+                voiceReturnFocus
+            )
             return nil
         }
 
@@ -703,7 +684,9 @@ private extension AgenticConversationControl {
             return nil
         }
 
-        return voiceAction()
+        return voiceAction(
+            sourceFocus: focus.current
+        )
     }
 
     mutating func handleTranscript(_ key: TerminalKey) -> AgenticConversationEvent? {
@@ -1514,9 +1497,9 @@ private extension AgenticConversationControl {
         if pendingSubmission != nil {
             switch focus.current {
             case .composer:
-                return "response pending  tab voice  esc/ctrl-c transcript"
+                return "response pending  tab/esc transcript"
             case .voice:
-                return "response pending  tab transcript  esc composer"
+                return "response pending  esc back"
             case .transcript:
                 return "j/k message  enter inspect  tab composer  response pending"
             case .pinnedContent,
@@ -1531,8 +1514,10 @@ private extension AgenticConversationControl {
         switch focus.current {
         case .composer:
             return "enter newline  ctrl-enter send  ctrl-c normal  :w save  :q quit  ctrl-f expand"
+                + voiceFooter
         case .voice:
-            return "enter voice  tab transcript  esc composer  ctrl-v voice"
+            return "esc back"
+                + voiceFooter
         case .transcript:
             return "j/k message  enter inspect  m model  s settings"
                 + (pendingContents.isEmpty ? "" : "  p pins")
@@ -1578,9 +1563,28 @@ private extension AgenticConversationControl {
         )
     }
 
-    mutating func voiceAction() -> AgenticConversationEvent? {
+    mutating func voiceAction(
+        sourceFocus: AgenticConversationFocus
+    ) -> AgenticConversationEvent? {
+        switch sourceFocus {
+        case .composer,
+             .transcript:
+            voiceReturnFocus = sourceFocus
+
+        case .voice,
+             .pinnedContent,
+             .attachment,
+             .settings,
+             .runReview,
+             .run:
+            break
+        }
+
         switch snapshot.voiceState {
         case .recording:
+            focus.replace(
+                voiceReturnFocus
+            )
             return .voiceStopRequested
 
         case .transcribing:
@@ -1613,22 +1617,22 @@ private extension AgenticConversationControl {
     var voiceFooter: String {
         switch snapshot.voiceState {
         case .recording:
-            return "  ctrl-v stop  esc cancel"
+            return "  ctrl-space stop  esc cancel"
 
         case .transcribing:
             return "  transcribing..."
 
         case .failed(_):
-            return "  ctrl-v retry"
+            return "  ctrl-space retry"
 
         case .idle:
             switch snapshot.voiceAvailability {
             case .available:
-                return "  ctrl-v mic"
+                return "  ctrl-space mic"
 
             case .unconfigured,
                  .unavailable(_):
-                return "  ctrl-v mic unavailable"
+                return "  ctrl-space mic unavailable"
             }
         }
     }
