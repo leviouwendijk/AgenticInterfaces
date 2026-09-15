@@ -63,6 +63,7 @@ public struct AgenticConversationControl: Sendable {
     private var attachmentIndex: Int
     private var settings: AgenticConversationSettingsControl
     private var pendingSubmission: AgenticConversationSubmission?
+    private var pendingSpinner: TerminalSpinnerControl
     private var openedRunID: String?
     private var runReview: AgenticConversationRunReviewControl?
     private var hostConsole: AgenticHostConsoleWorkflowControl?
@@ -87,6 +88,9 @@ public struct AgenticConversationControl: Sendable {
             snapshot: snapshot
         )
         self.pendingSubmission = nil
+        self.pendingSpinner = TerminalSpinnerControl(
+            label: "invoking model…"
+        )
         self.openedRunID = nil
         self.runReview = nil
         self.hostConsole = nil
@@ -108,6 +112,7 @@ public struct AgenticConversationControl: Sendable {
         _ submission: AgenticConversationSubmission
     ) {
         pendingSubmission = submission
+        pendingSpinner.reset()
         transcriptSelectionFollowsEnd = true
         pendingTranscriptReveal = nil
         transcript.moveToEnd()
@@ -115,6 +120,7 @@ public struct AgenticConversationControl: Sendable {
 
     public mutating func endPendingTurn() {
         pendingSubmission = nil
+        pendingSpinner.reset()
     }
 
     public var currentMessage: AgenticConversationMessagePresentation? {
@@ -247,19 +253,10 @@ public struct AgenticConversationControl: Sendable {
                 return nil
             }
 
-            if composer.isExpanded
-                || !normalized.contains("\n")
-            {
-                composer.insertPaste(
-                    normalized
-                )
-                return nil
-            }
-
-            return pin(
-                normalized,
-                kind: .pasted
+            composer.insertPaste(
+                normalized
             )
+            return nil
 
         case .key(let key):
             return handle(
@@ -936,13 +933,25 @@ private extension AgenticConversationControl {
         } else {
             skillTitle = "\(selectedSkills.count) skills"
         }
+        let activity: String
+        if let snapshotActivity = snapshot.activity {
+            activity = TerminalStyle.dim.apply(
+                snapshotActivity
+            )
+        } else if pendingSubmission != nil {
+            activity = pendingSpinner.render()
+            _ = pendingSpinner.advance()
+        } else {
+            activity = ""
+        }
+
         frame.write(
             [
                 TerminalStyle.bold.apply(snapshot.title),
                 TerminalStyle.dim.apply(
                     "\(snapshot.workspace) · \(modelTitle) · \(snapshot.selectedToolExposure.title.lowercased()) · \(skillTitle)"
                 ),
-                snapshot.activity.map { TerminalStyle.dim.apply($0) } ?? "",
+                activity,
             ],
             in: vertical[0]
         )

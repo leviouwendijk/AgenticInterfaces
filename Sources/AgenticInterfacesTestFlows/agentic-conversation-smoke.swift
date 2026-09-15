@@ -298,12 +298,9 @@ enum AgenticConversationSmoke {
         }
 
         let pasted = "alpha\nbeta\n"
-        let pinned = control.handle(.paste(pasted))
-        guard case .contentPinned(let content)? = pinned,
-              content.kind == .pasted,
-              content.body == pasted,
-              control.pinnedContents.first?.kind == .pasted,
-              control.pinnedContents.first?.body == pasted
+        guard control.handle(.paste(pasted)) == nil,
+              control.draftText == "qalpha\nbeta\n",
+              control.pinnedContents.isEmpty
         else {
             throw Failure.pastedContentChanged
         }
@@ -315,10 +312,9 @@ enum AgenticConversationSmoke {
             )
         )
         guard case .submissionRequested(let submission)? = submitted,
-              submission.body == "q",
+              submission.body == "qalpha\nbeta",
               submission.origin == .typed,
-              submission.contents.map(\.body) == [pasted],
-              submission.contents.map(\.kind) == [.pasted],
+              submission.contents.isEmpty,
               submission.preferredModelProfileID.rawValue == "apple-default",
               submission.skillIDs.isEmpty,
               submission.toolExposure == .discovery,

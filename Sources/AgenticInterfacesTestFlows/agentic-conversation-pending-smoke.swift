@@ -6,7 +6,7 @@ enum AgenticConversationPendingSmoke {
         case submissionMissing
         case pendingStateMissing
         case pendingPresentationMissing
-        case syntheticPendingPresentationRemaining
+        case pendingSpinnerChanged
         case pendingComposerMutated
         case pendingNavigationBlocked
         case pendingStateDidNotClear
@@ -49,6 +49,24 @@ enum AgenticConversationPendingSmoke {
             throw Failure.pendingStateMissing
         }
 
+        let invoking = rendered(
+            &control
+        )
+        guard invoking.contains(
+            "⠋ invoking model…"
+        ) else {
+            throw Failure.pendingSpinnerChanged
+        }
+
+        let advanced = rendered(
+            &control
+        )
+        guard advanced.contains(
+            "⠙ invoking model…"
+        ) else {
+            throw Failure.pendingSpinnerChanged
+        }
+
         var liveSnapshot = fixture()
         liveSnapshot.messages.append(
             AgenticConversationMessagePresentation(
@@ -70,7 +88,7 @@ enum AgenticConversationPendingSmoke {
         )
 
         let first = rendered(
-            control
+            &control
         )
 
         guard first.contains("ping"),
@@ -81,11 +99,10 @@ enum AgenticConversationPendingSmoke {
             throw Failure.pendingPresentationMissing
         }
 
-        guard !first.contains("⠋"),
-              !first.contains("⠙"),
+        guard !first.contains("invoking model…"),
               first.components(separatedBy: "ping").count == 2
         else {
-            throw Failure.syntheticPendingPresentationRemaining
+            throw Failure.pendingSpinnerChanged
         }
 
         _ = control.handle(
@@ -125,9 +142,8 @@ enum AgenticConversationPendingSmoke {
     }
 
     private static func rendered(
-        _ control: AgenticConversationControl
+        _ control: inout AgenticConversationControl
     ) -> String {
-        var control = control
         var frame = TerminalFrame(
             rows: 24,
             columns: 80
