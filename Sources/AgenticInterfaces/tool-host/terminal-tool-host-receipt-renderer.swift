@@ -49,7 +49,10 @@ private extension TerminalToolHostReceiptRenderer {
         copiedToClipboard: Bool
     ) -> String {
         let processing =
-            invocation.toolResult?.processing
+            invocation
+                .execution?
+                .result
+                .processing
         let projection =
             processing?.projection
 
@@ -147,7 +150,8 @@ private extension TerminalToolHostReceiptRenderer {
         let invocation = record.invocation
         let processing =
             invocation?
-                .toolResult?
+                .execution?
+                .result
                 .processing
         let projection =
             processing?
@@ -253,7 +257,7 @@ private extension TerminalToolHostReceiptRenderer {
             return "denied"
         }
 
-        if invocation.toolResult?.isError == true {
+        if invocation.execution?.result.isError == true {
             return "failed"
         }
 
