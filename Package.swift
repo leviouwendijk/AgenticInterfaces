@@ -60,6 +60,7 @@ let package = Package(
             name: "AgenticInterfacesTestFlows",
             dependencies: [
                 "AgenticInterfaces",
+                .product(name: "Agentic", package: "Agentic"),
                 .product(name: "DSL", package: "DSL"),
                 .product(name: "Terminal", package: "Terminal"),
             ]
