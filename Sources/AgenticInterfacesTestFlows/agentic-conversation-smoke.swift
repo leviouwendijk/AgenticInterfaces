@@ -52,8 +52,10 @@ enum AgenticConversationSmoke {
 
     static func run() throws {
         try AgenticConversationUserInputSmoke.run()
+        try AgenticConversationUserInputIntegrationSmoke.run()
         try AgenticConversationPendingSmoke.run()
         try AgenticConversationRunReviewSmoke.run()
+        try AgenticConversationWorkspaceAccessReviewSmoke.run()
         try AgenticConversationComposerSmoke.run()
         try AgenticConversationPinnedContentSmoke.run()
 

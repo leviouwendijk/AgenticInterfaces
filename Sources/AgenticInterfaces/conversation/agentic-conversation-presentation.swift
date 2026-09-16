@@ -437,6 +437,22 @@ public struct AgenticConversationSubmission: Sendable, Hashable {
     }
 }
 
+public struct AgenticConversationUserInputPresentation: Sendable, Hashable {
+    public var interactionID: String
+    public var runID: String
+    public var request: UserInputRequest
+
+    public init(
+        interactionID: String,
+        runID: String,
+        request: UserInputRequest
+    ) {
+        self.interactionID = interactionID
+        self.runID = runID
+        self.request = request
+    }
+}
+
 public struct AgenticConversationSnapshot: Sendable, Hashable {
     public var title: String
     public var workspace: String
@@ -448,6 +464,7 @@ public struct AgenticConversationSnapshot: Sendable, Hashable {
     public var models: [AgenticConversationModelPresentation]
     public var programs: [AgentProgramDescriptor]
     public var preferredModelProfileID: AgentModelProfileIdentifier
+    public var pendingUserInput: AgenticConversationUserInputPresentation?
     public var selectedResponseDelivery: AgentModelResponseDelivery
     public var selectedInvocationOptions: AgentModelInvocationOptions
     public var selectedAutonomyMode: AutonomyMode
@@ -469,6 +486,7 @@ public struct AgenticConversationSnapshot: Sendable, Hashable {
         models: [AgenticConversationModelPresentation],
         programs: [AgentProgramDescriptor] = [],
         preferredModelProfileID: AgentModelProfileIdentifier,
+        pendingUserInput: AgenticConversationUserInputPresentation? = nil,
         selectedResponseDelivery: AgentModelResponseDelivery = .stream,
         selectedInvocationOptions: AgentModelInvocationOptions = .default,
         selectedAutonomyMode: AutonomyMode = .auto_observe,
@@ -489,6 +507,7 @@ public struct AgenticConversationSnapshot: Sendable, Hashable {
         self.models = models
         self.programs = programs
         self.preferredModelProfileID = preferredModelProfileID
+        self.pendingUserInput = pendingUserInput
         self.selectedResponseDelivery = selectedResponseDelivery
         self.selectedInvocationOptions = selectedInvocationOptions
         self.selectedAutonomyMode = selectedAutonomyMode

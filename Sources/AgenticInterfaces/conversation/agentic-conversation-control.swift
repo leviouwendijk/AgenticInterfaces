@@ -13,6 +13,7 @@ public enum AgenticConversationFocus: Sendable, Hashable {
     case attachment
     case settings
     case runReview
+    case userInput
     case run
 }
 
@@ -26,6 +27,11 @@ public enum AgenticConversationEvent: Sendable, Hashable {
     case programInvocationRequested(
         invocation: AgenticConversationProgramInvocation,
         submission: AgenticConversationSubmission
+    )
+    case userInputReplyRequested(
+        interactionID: String,
+        runID: String,
+        reply: UserInputReply
     )
     case modelPreferenceChanged(AgentModelProfileIdentifier)
     case responseDeliverySelectionChanged(AgentModelResponseDelivery)
@@ -70,11 +76,19 @@ public struct AgenticConversationControl: Sendable {
     private var pendingSpinner: TerminalSpinnerControl
     private var openedRunID: String?
     private var runReview: AgenticConversationRunReviewControl?
+    private var userInput: AgenticConversationUserInputControl?
+    private var resolvingUserInputID: String?
     private var hostConsole: AgenticHostConsoleWorkflowControl?
 
     public init(snapshot: AgenticConversationSnapshot) {
+        let pendingUserInput = snapshot.pendingUserInput
+
         self.snapshot = snapshot
-        self.focus = TerminalFocusStack(.composer)
+        self.focus = TerminalFocusStack(
+            pendingUserInput == nil
+                ? .composer
+                : .transcript
+        )
         self.composer = AgenticConversationComposerControl()
         self.voiceMeter = TerminalLevelMeter(
             capacity: 32
@@ -102,7 +116,19 @@ public struct AgenticConversationControl: Sendable {
         )
         self.openedRunID = nil
         self.runReview = nil
+        self.userInput = pendingUserInput.map { pending in
+            AgenticConversationUserInputControl(
+                request: pending.request
+            )
+        }
+        self.resolvingUserInputID = nil
         self.hostConsole = nil
+
+        if pendingUserInput != nil {
+            self.focus.push(
+                .userInput
+            )
+        }
     }
 
     public var draftText: String {
@@ -132,6 +158,20 @@ public struct AgenticConversationControl: Sendable {
         pendingSpinner.reset()
     }
 
+    public mutating func beginUserInputResolution(
+        interactionID: String
+    ) {
+        guard snapshot.pendingUserInput?.interactionID == interactionID else {
+            return
+        }
+
+        resolvingUserInputID = interactionID
+    }
+
+    public mutating func endUserInputResolution() {
+        resolvingUserInputID = nil
+    }
+
     public var currentMessage: AgenticConversationMessagePresentation? {
         guard let selectedMessageID else {
             return nil
@@ -153,6 +193,7 @@ public struct AgenticConversationControl: Sendable {
     public mutating func update(_ snapshot: AgenticConversationSnapshot) {
         let previousMessageID = selectedMessageID
         let previousVoiceState = self.snapshot.voiceState
+        let previousUserInputID = self.snapshot.pendingUserInput?.interactionID
         self.snapshot = snapshot
 
         if snapshot.voiceState == .recording {
@@ -183,6 +224,9 @@ public struct AgenticConversationControl: Sendable {
         }
         settings.update(
             snapshot
+        )
+        synchronizeUserInput(
+            previousInteractionID: previousUserInputID
         )
 
         if var runReview {
@@ -250,6 +294,12 @@ public struct AgenticConversationControl: Sendable {
     ) -> AgenticConversationEvent? {
         switch event {
         case .paste(let text):
+            if focus.current == .userInput {
+                return handleUserInput(
+                    .paste(text)
+                )
+            }
+
             guard focus.current == .composer,
                   pendingSubmission == nil else {
                 return nil
@@ -282,6 +332,18 @@ public struct AgenticConversationControl: Sendable {
     public mutating func handle(
         _ keyStroke: TerminalKeyStroke
     ) -> AgenticConversationEvent? {
+        if focus.current == .userInput {
+            let userInputStroke = keyStroke.key == .control("C")
+                ? TerminalKeyStroke(
+                    key: .escape
+                )
+                : keyStroke
+
+            return handleUserInput(
+                userInputStroke
+            )
+        }
+
         if focus.current == .composer,
            keyStroke.key != .controlSpace
         {
@@ -328,6 +390,7 @@ public struct AgenticConversationControl: Sendable {
                  .attachment,
                  .settings,
                  .runReview,
+                 .userInput,
                  .run:
                 break
             }
@@ -365,6 +428,12 @@ public struct AgenticConversationControl: Sendable {
             return handleSettings(key)
         case .runReview:
             return handleRunReview(key)
+        case .userInput:
+            return handleUserInput(
+                TerminalKeyStroke(
+                    key: key
+                )
+            )
         case .run:
             return handleRun(key)
         }
@@ -416,6 +485,11 @@ public struct AgenticConversationControl: Sendable {
                 )
                 self.runReview = runReview
             }
+        case .userInput:
+            renderUserInput(
+                into: &frame,
+                in: region
+            )
         case .composer:
             composer.renderOverlay(
                 into: &frame,
@@ -692,6 +766,9 @@ private extension AgenticConversationControl {
     mutating func handleTranscript(_ key: TerminalKey) -> AgenticConversationEvent? {
         switch key {
         case .tab, .escape:
+            guard snapshot.pendingUserInput == nil else {
+                return nil
+            }
             focus.replace(.composer)
         case .char("j"), .down:
             moveMessage(by: 1)
@@ -719,6 +796,14 @@ private extension AgenticConversationControl {
             )
             focus.push(
                 .settings
+            )
+        case .char("u"):
+            guard snapshot.pendingUserInput != nil,
+                  userInput != nil else {
+                return nil
+            }
+            focus.push(
+                .userInput
             )
         case .enter:
             return openCurrentMessage()
@@ -1335,6 +1420,139 @@ private extension AgenticConversationControl {
         )
     }
 
+    mutating func synchronizeUserInput(
+        previousInteractionID: String?
+    ) {
+        guard let pending = snapshot.pendingUserInput else {
+            userInput = nil
+            resolvingUserInputID = nil
+
+            if focus.current == .userInput {
+                _ = focus.pop()
+
+                if focus.current == .userInput {
+                    focus.reset(
+                        to: .transcript
+                    )
+                }
+            }
+            return
+        }
+
+        guard pending.interactionID != previousInteractionID
+                || userInput == nil else {
+            return
+        }
+
+        userInput = AgenticConversationUserInputControl(
+            request: pending.request
+        )
+        resolvingUserInputID = nil
+
+        if focus.current != .userInput {
+            focus.push(
+                .userInput
+            )
+        }
+    }
+
+    mutating func handleUserInput(
+        _ event: TerminalInputEvent
+    ) -> AgenticConversationEvent? {
+        guard resolvingUserInputID == nil,
+              let pending = snapshot.pendingUserInput,
+              var userInput else {
+            return nil
+        }
+
+        let event = userInput.handle(
+            event
+        )
+        self.userInput = userInput
+
+        return consumeUserInputEvent(
+            event,
+            pending: pending
+        )
+    }
+
+    mutating func handleUserInput(
+        _ keyStroke: TerminalKeyStroke
+    ) -> AgenticConversationEvent? {
+        guard resolvingUserInputID == nil,
+              let pending = snapshot.pendingUserInput,
+              var userInput else {
+            return nil
+        }
+
+        let event = userInput.handle(
+            keyStroke
+        )
+        self.userInput = userInput
+
+        return consumeUserInputEvent(
+            event,
+            pending: pending
+        )
+    }
+
+    mutating func consumeUserInputEvent(
+        _ event: AgenticConversationUserInputEvent?,
+        pending: AgenticConversationUserInputPresentation
+    ) -> AgenticConversationEvent? {
+        guard let event else {
+            return nil
+        }
+
+        switch event {
+        case .submitted(let reply):
+            return .userInputReplyRequested(
+                interactionID: pending.interactionID,
+                runID: pending.runID,
+                reply: reply
+            )
+
+        case .closeRequested:
+            _ = focus.pop()
+
+            if focus.current == .composer {
+                focus.replace(
+                    .transcript
+                )
+            }
+            return nil
+
+        case .feedbackRequested(let message):
+            return .feedbackRequested(
+                message
+            )
+        }
+    }
+
+    mutating func renderUserInput(
+        into frame: inout TerminalFrame,
+        in region: TerminalRegion
+    ) {
+        guard var userInput else {
+            return
+        }
+
+        let overlay = AgenticHostConsoleInspectionSurface.overlay(
+            in: region
+        )
+        let content = overlay.render(
+            into: &frame,
+            in: region,
+            title: "input"
+        )
+
+        userInput.render(
+            into: &frame,
+            in: content
+        )
+        self.userInput = userInput
+    }
+
     mutating func renderAttachment(
         into frame: inout TerminalFrame,
         in region: TerminalRegion
@@ -1506,6 +1724,7 @@ private extension AgenticConversationControl {
                  .attachment,
                  .settings,
                  .runReview,
+                 .userInput,
                  .run:
                 break
             }
@@ -1521,7 +1740,7 @@ private extension AgenticConversationControl {
         case .transcript:
             return "j/k message  enter inspect  m model  s settings"
                 + (pendingContents.isEmpty ? "" : "  p pins")
-                + "  tab composer  ctrl-c composer"
+                + (snapshot.pendingUserInput == nil ? "  tab composer  ctrl-c composer" : "  u input")
                 + voiceFooter
         case .pinnedContent:
             return pinnedContent.footer
@@ -1532,6 +1751,12 @@ private extension AgenticConversationControl {
         case .runReview:
             return runReview?.footer
                 ?? "q conversation"
+        case .userInput:
+            if resolvingUserInputID != nil {
+                return "submitting input…"
+            }
+            return userInput?.footer
+                ?? "esc conversation"
         case .run:
             return "q conversation"
         }
@@ -1576,6 +1801,7 @@ private extension AgenticConversationControl {
              .attachment,
              .settings,
              .runReview,
+             .userInput,
              .run:
             break
         }
