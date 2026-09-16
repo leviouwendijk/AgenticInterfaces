@@ -109,6 +109,7 @@ public enum AgenticHostConsoleInterruptionKind:
     Hashable
 {
     case approval
+    case workspace_access
     case recovery
 }
 
@@ -121,6 +122,8 @@ public enum AgenticHostConsoleAction:
     case approve
     case deny
     case skip
+    case grant_for_turn
+    case grant_for_session
     case continueRun = "continue_run"
     case stopRun = "stop_run"
     case retry
@@ -136,6 +139,12 @@ public enum AgenticHostConsoleAction:
 
         case .skip:
             return "Skip"
+
+        case .grant_for_turn:
+            return "This turn"
+
+        case .grant_for_session:
+            return "This session"
 
         case .continueRun:
             return "Continue ToolPlan"
@@ -161,6 +170,12 @@ public enum AgenticHostConsoleAction:
 
         case .skip:
             return "Skip the suspended step and continue when the runtime permits it."
+
+        case .grant_for_turn:
+            return "Grant the requested workspace access until the current turn ends."
+
+        case .grant_for_session:
+            return "Grant the requested workspace access for the current session."
 
         case .continueRun:
             return "Continue the remaining ToolPlan after the resolved step."

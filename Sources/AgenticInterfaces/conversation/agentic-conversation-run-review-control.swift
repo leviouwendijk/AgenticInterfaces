@@ -64,10 +64,10 @@ struct AgenticConversationRunReviewControl:
         var summary: String {
             switch self {
             case .document(.diff):
-                return "Inspect the exact staged diff for this approval."
+                return "Inspect the exact diff associated with this interruption."
 
             case .document(.details):
-                return "Inspect the full staged intent and preflight details."
+                return "Inspect the full details for this interruption."
 
             case .document(.stdout):
                 return "Inspect stdout for this stage."
@@ -101,7 +101,9 @@ struct AgenticConversationRunReviewControl:
     ) {
         guard let interruption = snapshot.interruptions.first(where: {
             $0.runID == runID
-                && $0.kind == .approval
+                && Self.isReviewableInterruptionKind(
+                    $0.kind
+                )
         }) else {
             return nil
         }
@@ -136,7 +138,9 @@ struct AgenticConversationRunReviewControl:
             $0.id == interruptionID
                 && $0.runID == runID
                 && $0.stepID == stepID
-                && $0.kind == .approval
+                && Self.isReviewableInterruptionKind(
+                    $0.kind
+                )
         }) else {
             return false
         }
@@ -283,6 +287,19 @@ private extension AgenticConversationRunReviewControl {
         ]
     }
 
+    private static func isReviewableInterruptionKind(
+        _ kind: AgenticHostConsoleInterruptionKind
+    ) -> Bool {
+        switch kind {
+        case .approval,
+             .workspace_access:
+            return true
+
+        case .recovery:
+            return false
+        }
+    }
+
     private static func makeItems(
         snapshot: AgenticHostConsoleSnapshot,
         interruption: AgenticHostConsoleInterruptionPresentation
@@ -311,7 +328,9 @@ private extension AgenticConversationRunReviewControl {
                 switch action {
                 case .approve,
                      .deny,
-                     .skip:
+                     .skip,
+                     .grant_for_turn,
+                     .grant_for_session:
                     return .action(
                         action
                     )
