@@ -139,6 +139,7 @@ enum AgenticConversationLab {
                      .voiceStopRequested,
                      .voiceCancelRequested,
                      .contentPinned,
+                     .userInputReplyRequested,
                      .attachmentOpened,
                      .attachmentClosed,
                      .runOpened,

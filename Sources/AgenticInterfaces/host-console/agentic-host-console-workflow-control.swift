@@ -1573,6 +1573,8 @@ private extension AgenticHostConsoleWorkflowControl {
 
         switch row.item {
         case .approve,
+             .grant_for_turn,
+             .grant_for_session,
              .retry,
              .continueRun,
              .createFixBranch:
@@ -1601,6 +1603,9 @@ private extension AgenticHostConsoleInterruptionKind {
         switch self {
         case .approval:
             return "approval required"
+
+        case .workspace_access:
+            return "workspace access requested"
 
         case .recovery:
             return "run on hold"
