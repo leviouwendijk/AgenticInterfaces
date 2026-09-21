@@ -45,13 +45,25 @@ extension TerminalApprovalPicker {
                 )
             },
             summary: { result in
+                let selection: String
+
                 switch result {
                 case .picked(let item, _):
-                    return "\(theme.label.apply("selected")) \(theme.value.apply(item.title))\n"
+                    selection = theme.value.apply(
+                        item.title
+                    )
 
                 case .cancelled:
-                    return "\(theme.label.apply("selected")) \(theme.warning.apply("Stop run"))\n"
+                    selection = theme.warning.apply(
+                        "Stop run"
+                    )
                 }
+
+                return """
+                \(theme.label.apply("selected")) \(selection) · \(theme.value.apply(prompt.toolName))
+                \(theme.label.apply("intent")) \(theme.value.apply(prompt.preflight.summary))
+
+                """
             }
         )
 

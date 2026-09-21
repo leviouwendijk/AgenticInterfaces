@@ -72,9 +72,8 @@ private extension TerminalToolHostReceiptRenderer {
                 invocation.review.preflight.risk.rawValue
             ),
             .init(
-                "summary",
-                projection?.summary
-                    ?? invocation.review.preflight.summary
+                "intent",
+                invocation.review.preflight.summary
             ),
         ]
 
@@ -85,6 +84,17 @@ private extension TerminalToolHostReceiptRenderer {
                     projection.status
                 ),
                 at: 1
+            )
+        }
+
+        if let summary = projection?.summary,
+           !summary.isEmpty
+        {
+            fields.append(
+                .init(
+                    "summary",
+                    summary
+                )
             )
         }
 
@@ -177,6 +187,19 @@ private extension TerminalToolHostReceiptRenderer {
         var lines = [
             "\(record.call.name)  \(details.joined(separator: " · "))"
         ]
+
+        if let intent = invocation?.review.preflight.summary,
+           !intent.isEmpty
+        {
+            lines.append(
+                contentsOf:
+                    labeledValueLines(
+                        label: "intent",
+                        value: intent,
+                        prefix: "  "
+                    )
+            )
+        }
 
         if let projection {
             lines.append(
