@@ -16,7 +16,7 @@ extension TerminalApprovalPicker {
         var instructions = prompt.preflight.summary
 
         if let guidelines = AgenticGuidelinePresentation.summary(
-            prompt.guidelineRelations
+            prompt.guidelineReferences
         ) {
             instructions += "\n\nguidelines\n\(guidelines)"
         }
@@ -97,7 +97,7 @@ extension TerminalApprovalPicker {
         )
 
         if let guidelineDetails = AgenticGuidelinePresentation.details(
-            prompt.guidelineRelations
+            prompt.guidelineReferences
         ) {
             Terminal.write(
                 TerminalBlock(
@@ -116,7 +116,7 @@ extension TerminalApprovalPicker {
     func renderDiff(
         _ prompt: AgenticApprovalPrompt
     ) {
-        guard let diffPreview = prompt.preflight.diffPreview,
+        guard let diffPreview = prompt.preflight.preview.difference,
               !diffPreview.isEmpty
         else {
             Terminal.write(
@@ -136,30 +136,24 @@ extension TerminalApprovalPicker {
             return
         }
 
-        let renderedDiff: String
-
-        if let layout = diffPreview.layout {
-            renderedDiff = TerminalDifferenceRenderer.render(
-                layout,
-                options: .init(
-                    base: .init(
-                        showHeader: true,
-                        showUnchangedLines: false,
-                        contextLineCount: diffPreview.contextLineCount
-                    )
+        let renderedDiff = TerminalDifferenceRenderer.render(
+            diffPreview.layout,
+            options: .init(
+                base: .init(
+                    showHeader: true,
+                    showUnchangedLines: false
                 )
             )
-        } else {
-            renderedDiff = diffPreview.text
-        }
+        )
 
         Terminal.write(
             TerminalBlock(
                 title: diffPreview.title ?? "Diff preview",
                 fields: [
-                    .init("format", diffPreview.format),
-                    .init("context", "\(diffPreview.contextLineCount)"),
-                    .init("changes", "+\(diffPreview.insertedLineCount) -\(diffPreview.deletedLineCount)"),
+                    .init(
+                        "changes",
+                        "+\(diffPreview.layout.changes.insertions.count) -\(diffPreview.layout.changes.deletions.count)"
+                    ),
                 ],
                 body: renderedDiff,
                 theme: theme,

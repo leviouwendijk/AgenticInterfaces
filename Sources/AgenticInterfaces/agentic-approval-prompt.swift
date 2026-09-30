@@ -3,7 +3,7 @@ import AgenticExecution
 
 public struct AgenticApprovalPrompt: Sendable, Codable, Hashable {
     public var title: String
-    public var toolCall: AgentToolCall?
+    public var toolCall: ToolCall?
     public var preflight: ToolPreflight
     public var requirement: ApprovalRequirement
     public var review: ToolInvocation.Review?
@@ -11,7 +11,7 @@ public struct AgenticApprovalPrompt: Sendable, Codable, Hashable {
 
     public init(
         title: String? = nil,
-        toolCall: AgentToolCall? = nil,
+        toolCall: ToolCall? = nil,
         preflight: ToolPreflight,
         requirement: ApprovalRequirement,
         review: ToolInvocation.Review? = nil,
@@ -41,11 +41,17 @@ public struct AgenticApprovalPrompt: Sendable, Codable, Hashable {
     }
 
     public var toolName: String {
-        toolCall?.name ?? preflight.toolName
+        toolCall?.tool.rawValue ?? preflight.tool.rawValue
     }
 
-    public var guidelineRelations: [AgentGuidelineRelation] {
-        review?.guidelineRelations ?? []
+    public var guidelineReferences: [Reference.Guideline] {
+        (review?.references ?? []).compactMap { reference in
+            guard case .guideline(let guideline) = reference else {
+                return nil
+            }
+
+            return guideline
+        }
     }
 }
 

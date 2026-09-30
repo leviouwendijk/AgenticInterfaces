@@ -48,13 +48,11 @@ private extension TerminalToolHostReceiptRenderer {
         _ invocation: ToolInvocation.Result,
         copiedToClipboard: Bool
     ) -> String {
-        let processing =
+        let projection =
             invocation
                 .execution?
                 .result
-                .processing
-        let projection =
-            processing?.projection
+                .projection
 
         var fields: [TerminalField] = [
             .init(
@@ -106,16 +104,16 @@ private extension TerminalToolHostReceiptRenderer {
         )
 
         return block(
-            title: invocation.review.call.name,
+            title: invocation.review.call.tool.rawValue,
             fields: fields,
-            body: processingBody(
-                processing
+            body: projectionBody(
+                projection
             )
         )
     }
 
     func render(
-        _ plan: AgentToolPlanResult,
+        _ plan: ToolPlan.Result,
         copiedToClipboard: Bool
     ) -> String {
         var fields: [TerminalField] = [
@@ -155,16 +153,13 @@ private extension TerminalToolHostReceiptRenderer {
     }
 
     func recordBody(
-        _ record: AgentToolPlanRecord
+        _ record: ToolPlan.Record
     ) -> String {
         let invocation = record.invocation
-        let processing =
+        let projection =
             invocation?
                 .execution?
                 .result
-                .processing
-        let projection =
-            processing?
                 .projection
 
         var details: [String] = [
@@ -185,7 +180,7 @@ private extension TerminalToolHostReceiptRenderer {
         }
 
         var lines = [
-            "\(record.call.name)  \(details.joined(separator: " · "))"
+            "\(record.call.tool.rawValue)  \(details.joined(separator: " · "))"
         ]
 
         if let intent = invocation?.review.preflight.summary,
@@ -229,29 +224,6 @@ private extension TerminalToolHostReceiptRenderer {
             )
         }
 
-        if let processing,
-           !processing.observations.isEmpty
-        {
-            lines.append("")
-
-            for (
-                index,
-                observation
-            ) in processing.observations.enumerated() {
-                if index > 0 {
-                    lines.append("")
-                }
-
-                lines.append(
-                    contentsOf:
-                        observationLines(
-                            observation,
-                            prefix: "  "
-                        )
-                )
-            }
-        }
-
         if let error = record.errorDescription,
            !error.isEmpty
         {
@@ -291,54 +263,28 @@ private extension TerminalToolHostReceiptRenderer {
         return invocation.decision.rawValue
     }
 
-    func processingBody(
-        _ processing: AgentToolResultProcessing?
+    func projectionBody(
+        _ projection: ToolCall.ResultProjection?
     ) -> String? {
-        guard let processing else {
+        guard let projection,
+              !projection.facts.isEmpty
+        else {
             return nil
         }
 
-        var sections: [String] = []
-
-        if let projection = processing.projection,
-           !projection.facts.isEmpty
-        {
-            sections.append(
-                projection.facts
-                    .flatMap { fact in
-                        projectionFactLines(
-                            fact
-                        )
-                    }
-                    .joined(
-                        separator: "\n"
-                    )
+        return projection.facts
+            .flatMap { fact in
+                projectionFactLines(
+                    fact
+                )
+            }
+            .joined(
+                separator: "\n"
             )
-        }
-
-        sections.append(
-            contentsOf:
-                processing.observations.map { observation in
-                    observationLines(
-                        observation
-                    )
-                    .joined(
-                        separator: "\n"
-                    )
-                }
-        )
-
-        guard !sections.isEmpty else {
-            return nil
-        }
-
-        return sections.joined(
-            separator: "\n\n"
-        )
     }
 
     func projectionFactLines(
-        _ fact: AgentToolResultProjection.Fact,
+        _ fact: ToolCall.ResultProjection.Fact,
         prefix: String = ""
     ) -> [String] {
         labeledValueLines(
@@ -346,42 +292,6 @@ private extension TerminalToolHostReceiptRenderer {
             value: fact.value,
             prefix: prefix
         )
-    }
-
-    func observationLines(
-        _ observation: AgentToolResultObservation,
-        prefix: String = ""
-    ) -> [String] {
-        labeledValueLines(
-            label:
-                observation.label
-                    ?? observationLabel(
-                        observation.kind
-                    ),
-            value: observation.content,
-            prefix: prefix
-        )
-    }
-
-    func observationLabel(
-        _ kind: AgentToolResultObservation.Kind
-    ) -> String {
-        switch kind {
-        case .standard_output:
-            return "stdout"
-
-        case .standard_error:
-            return "stderr"
-
-        case .diagnostic:
-            return "diagnostic"
-
-        case .log:
-            return "log"
-
-        case .detail:
-            return "detail"
-        }
     }
 
     func labeledValueLines(

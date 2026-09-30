@@ -13,14 +13,15 @@ let package = Package(
             targets: ["AgenticInterfaces"]
         ),
         .executable(
-            name: "aginttest",
+            name: "t_aint_main",
             targets: ["AgenticInterfacesTestFlows"]
         ),
     ],
     dependencies: [
         .package(url: "https://github.com/leviouwendijk/Agentic.git", branch: "master"),
         .package(url: "https://github.com/leviouwendijk/AgenticExecution.git", branch: "master"),
-        .package(url: "https://github.com/leviouwendijk/AgenticPrograms.git", branch: "master"),
+        .package(url: "https://github.com/leviouwendijk/Workspace.git", branch: "master"),
+
         .package(url: "https://github.com/leviouwendijk/Primitives.git", branch: "master"),
         .package(url: "https://github.com/leviouwendijk/Schema.git", branch: "master"),
         .package(url: "https://github.com/leviouwendijk/Macros.git", branch: "master"),
@@ -40,7 +41,8 @@ let package = Package(
             dependencies: [
                 .product(name: "Agentic", package: "Agentic"),
                 .product(name: "AgenticExecution", package: "AgenticExecution"),
-                .product(name: "AgenticPrograms", package: "AgenticPrograms"),
+                .product(name: "Workspace", package: "Workspace"),
+
                 .product(name: "Primitives", package: "Primitives"),
                 .product(name: "Schema", package: "Schema"),
                 .product(name: "Macros", package: "Macros"),
@@ -63,7 +65,35 @@ let package = Package(
                 .product(name: "Agentic", package: "Agentic"),
                 .product(name: "DSL", package: "DSL"),
                 .product(name: "Terminal", package: "Terminal"),
-            ]
+            ],
+            path: "Testing/AgenticInterfacesTestFlows"
         ),
     ]
 )
+
+for target in package.targets {
+    switch target.type {
+    case .regular, .executable, .test, .macro:
+        var settings = target.swiftSettings ?? []
+
+        settings.append(
+            .treatAllWarnings(as: .error)
+        )
+
+        settings.append(
+            .unsafeFlags(
+                [
+                    "-continue-building-after-errors"
+                ]
+            )
+        )
+
+        target.swiftSettings = settings
+
+    case .plugin, .system, .binary:
+        break
+
+    @unknown default:
+        break
+    }
+}

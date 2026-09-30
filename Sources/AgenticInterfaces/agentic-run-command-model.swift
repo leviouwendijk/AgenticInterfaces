@@ -3,7 +3,7 @@ import AgenticExecution
 
 public struct AgenticRunCommandModel: Sendable, Codable, Hashable {
     public var prompt: String
-    public var modeID: AgenticModeIdentifier
+    public var modeID: ModeIdentifier
     public var modeTitle: String
     public var routePurpose: AgentModelRoutePurpose
     public var autonomyMode: AutonomyMode
@@ -16,7 +16,7 @@ public struct AgenticRunCommandModel: Sendable, Codable, Hashable {
 
     public init(
         prompt: String,
-        modeID: AgenticModeIdentifier,
+        modeID: ModeIdentifier,
         modeTitle: String,
         routePurpose: AgentModelRoutePurpose,
         autonomyMode: AutonomyMode,
@@ -90,22 +90,22 @@ public struct AgenticRunScreen: Sendable, Codable, Hashable {
     ) -> String {
         var lines: [String] = [
             "tool preflight",
-            "  tool        \(preflight.toolName)",
+            "  tool        \(preflight.tool.rawValue)",
             "  risk        \(preflight.risk.rawValue)",
             "  summary     \(preflight.summary)"
         ]
 
-        if !preflight.targetPaths.isEmpty {
+        if !preflight.access.targets.isEmpty {
             lines.append(
-                "  targets     \(preflight.targetPaths.joined(separator: ","))"
+                "  targets     \(preflight.access.targets.joined(separator: ","))"
             )
         }
 
         lines.append(
-            "  writes      \(preflight.estimatedWriteCount)"
+            "  writes      \(preflight.estimates.write.count)"
         )
 
-        if let estimatedWriteBytes = preflight.estimatedWriteBytes {
+        if let estimatedWriteBytes = preflight.estimates.write.bytes {
             lines.append(
                 "  bytes       \(estimatedWriteBytes)"
             )

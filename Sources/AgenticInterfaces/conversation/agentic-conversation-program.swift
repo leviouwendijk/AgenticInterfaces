@@ -1,4 +1,4 @@
-import AgenticPrograms
+import Agentic
 import Foundation
 import Primitives
 
@@ -6,11 +6,11 @@ public struct AgenticConversationProgramInvocation:
     Sendable,
     Hashable
 {
-    public var program: AgentProgramIdentifier
+    public var program: ProgramIdentifier
     public var input: JSONValue
 
     public init(
-        program: AgentProgramIdentifier,
+        program: ProgramIdentifier,
         input: JSONValue
     ) {
         self.program = program
@@ -71,10 +71,9 @@ public struct AgenticConversationProgramExecutionPresentation:
     Hashable
 {
     public var id: String
-    public var program: AgentProgramIdentifier
+    public var program: ProgramIdentifier
     public var title: String
     public var summary: String
-    public var realization: AgentProgramRealizationIdentifier?
     public var outcome: AgenticConversationProgramExecutionOutcome
     public var input: String
     public var output: String?
@@ -84,10 +83,9 @@ public struct AgenticConversationProgramExecutionPresentation:
 
     public init(
         id: String,
-        program: AgentProgramIdentifier,
+        program: ProgramIdentifier,
         title: String,
         summary: String,
-        realization: AgentProgramRealizationIdentifier? = nil,
         outcome: AgenticConversationProgramExecutionOutcome,
         input: String,
         output: String? = nil,
@@ -99,7 +97,6 @@ public struct AgenticConversationProgramExecutionPresentation:
         self.program = program
         self.title = title
         self.summary = summary
-        self.realization = realization
         self.outcome = outcome
         self.input = input
         self.output = output
@@ -149,12 +146,6 @@ public struct AgenticConversationProgramExecutionPresentation:
             "outcome      \(outcome.rawValue)",
             "duration     \(durationMilliseconds)ms",
         ]
-
-        if let realization {
-            lines.append(
-                "realization  \(realization.rawValue)"
-            )
-        }
 
         lines.append("")
         lines.append("input")
@@ -290,7 +281,7 @@ public enum AgenticConversationProgramCommand {
             )
 
             return AgenticConversationProgramInvocation(
-                program: AgentProgramIdentifier(
+                program: ProgramIdentifier(
                     rawValue: identifier
                 ),
                 input: input

@@ -12,9 +12,9 @@ public struct AgenticCapabilityManifest:
     public let sessionID: String?
     public let capabilities: [AgentToolCapability]
     public let invocationSchema: JSONSchema
-    public let canonicalPlanExample: AgentToolPlan?
+    public let canonicalPlanExample: ToolPlan?
 
-    public var definitions: [AgentToolDefinition] {
+    public var definitions: [ToolDescriptor] {
         capabilities.map(\.definition)
     }
 
@@ -43,12 +43,10 @@ public extension AgenticToolHost {
     {
         .init(
             workspaceRoot:
-                context.workspace?
-                    .rootURL
-                    .standardizedFileURL
+                workspace?
+                    .absoluteURL
                     .path,
-            sessionID:
-                context.sessionID,
+            sessionID: nil,
             capabilities:
                 registry.capabilities
         )
@@ -122,7 +120,7 @@ public enum AgenticCapabilityManifestRenderer {
 
         lines.append("")
         lines.append(
-            "Canonical AgentToolPlan example:"
+            "Canonical ToolPlan example:"
         )
 
         if let example = manifest.canonicalPlanExample {
@@ -156,9 +154,9 @@ private extension AgenticCapabilityManifestRenderer {
     static func protocolLines() -> [String] {
         [
             "    - Treat the Invocation schema as the authoritative local host-call grammar and the registered tool variants inside it as the authoritative tool surface for this session.",
-            "    - Submit a DirectInvocation, non-empty AgentToolCall array, or AgentToolPlan directly. Do not invent action/request/tool_call/tool_calls wrappers that are not present in the Invocation schema.",
+            "    - Submit a DirectInvocation, non-empty AgentToolCall array, or ToolPlan directly. Do not invent action/request/tool_call/tool_calls wrappers that are not present in the Invocation schema.",
             "    - model_exposure is explicit. model_facing tools have a captured typed parser and semantic_input_schema and appear in the Invocation schema; host_only tools remain registered for trusted host/runtime use but are not model-invokable.",
-            "    - For multi-step or dependent work, prefer one AgentToolPlan with sequence, batch, and outcome branches rather than issuing unrelated invocation envelopes.",
+            "    - For multi-step or dependent work, prefer one ToolPlan with sequence, batch, and outcome branches rather than issuing unrelated invocation envelopes.",
             "    - Use sequence for ordered success-gated dependencies; it stops after the first non-success and skips remaining siblings.",
             "    - Use onSuccess, onFailure, and onDenied when subsequent work differs by call outcome.",
             "    - After pushing an upstream Swift package, when a later step builds or tests a dependent package and swift_package_update is declared, run swift_package_update in that dependent package first so it consumes the new upstream revision.",
@@ -166,7 +164,7 @@ private extension AgenticCapabilityManifestRenderer {
             "    - Normal invocation already performs governed preflight, policy evaluation, and approval handling before execution; do not issue a separate preflight by default.",
             "    - Use explicit preflight only when a tool call should be inspected or reviewed without executing it.",
             "    - Prefer a declared typed Agentic tool over an equivalent shell or process operation.",
-            "    - Treat Agentic invocation and AgentToolPlan results as authoritative execution state.",
+            "    - Treat Agentic invocation and ToolPlan results as authoritative execution state.",
         ]
     }
 

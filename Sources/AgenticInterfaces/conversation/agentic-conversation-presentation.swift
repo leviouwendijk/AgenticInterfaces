@@ -1,5 +1,5 @@
 import Agentic
-import AgenticPrograms
+
 
 public enum AgenticConversationContentKind: String, Sendable, Hashable {
     case pasted = "pasted_content"
@@ -342,13 +342,13 @@ public struct AgenticConversationRunCardPresentation:
 
 public struct AgenticConversationMessagePresentation: Sendable, Hashable {
     public var id: String
-    public var role: AgentRole
+    public var role: MessageRole
     public var body: String
     public var attachments: [AgenticConversationAttachmentPresentation]
 
     public init(
         id: String,
-        role: AgentRole,
+        role: MessageRole,
         body: String,
         attachments: [AgenticConversationAttachmentPresentation] = []
     ) {
@@ -462,7 +462,7 @@ public struct AgenticConversationSnapshot: Sendable, Hashable {
     public var voiceStatus: AgenticConversationVoice.Status?
     public var messages: [AgenticConversationMessagePresentation]
     public var models: [AgenticConversationModelPresentation]
-    public var programs: [AgentProgramDescriptor]
+    public var programs: [ProgramDefinition]
     public var preferredModelProfileID: AgentModelProfileIdentifier
     public var pendingUserInput: AgenticConversationUserInputPresentation?
     public var selectedResponseDelivery: AgentModelResponseDelivery
@@ -484,7 +484,7 @@ public struct AgenticConversationSnapshot: Sendable, Hashable {
         voiceStatus: AgenticConversationVoice.Status? = nil,
         messages: [AgenticConversationMessagePresentation] = [],
         models: [AgenticConversationModelPresentation],
-        programs: [AgentProgramDescriptor] = [],
+        programs: [ProgramDefinition] = [],
         preferredModelProfileID: AgentModelProfileIdentifier,
         pendingUserInput: AgenticConversationUserInputPresentation? = nil,
         selectedResponseDelivery: AgentModelResponseDelivery = .stream,

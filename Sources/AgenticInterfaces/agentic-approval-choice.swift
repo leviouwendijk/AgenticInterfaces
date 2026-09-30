@@ -60,7 +60,7 @@ public enum AgenticApprovalChoice: String, Sendable, Codable, Hashable, CaseIter
 public enum AgenticInterfaceEvent: Sendable, Codable, Hashable {
     case runStarted(prompt: String)
     case modeRunStarted(AgenticRunCommandModel)
-    case toolCallProposed(AgentToolCall)
+    case toolCallProposed(ToolCall)
     case toolPreflight(ToolPreflight)
     case approvalRequested(AgenticApprovalPrompt)
     case approvalChoice(AgenticApprovalChoice)
@@ -279,23 +279,23 @@ private extension TerminalAgenticRunPresenter {
             return block(
                 title: "Tool proposed",
                 fields: [
-                    .init("tool", toolCall.name),
+                    .init("tool", toolCall.tool.rawValue),
                     .init("id", toolCall.id),
                 ]
             )
 
         case .toolPreflight(let preflight):
             var fields: [TerminalField] = [
-                .init("tool", preflight.toolName),
+                .init("tool", preflight.tool.rawValue),
                 .init("risk", preflight.risk.rawValue),
                 .init("summary", preflight.summary),
             ]
 
-            if !preflight.targetPaths.isEmpty {
+            if !preflight.access.targets.isEmpty {
                 fields.append(
                     .init(
                         "targets",
-                        preflight.targetPaths.joined(
+                        preflight.access.targets.joined(
                             separator: ", "
                         )
                     )
@@ -316,7 +316,7 @@ private extension TerminalAgenticRunPresenter {
             ]
 
             if let guidelines = AgenticGuidelinePresentation.summary(
-                prompt.guidelineRelations
+                prompt.guidelineReferences
             ) {
                 fields.append(
                     .init(

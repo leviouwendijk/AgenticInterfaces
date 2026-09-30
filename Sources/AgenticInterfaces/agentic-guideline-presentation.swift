@@ -4,7 +4,7 @@ import Guidelines
 
 enum AgenticGuidelinePresentation {
     static func summary(
-        _ relations: [AgentGuidelineRelation]
+        _ relations: [Reference.Guideline]
     ) -> String? {
         guard !relations.isEmpty else {
             return nil
@@ -14,17 +14,17 @@ enum AgenticGuidelinePresentation {
             guard let guideline = Guideline(
                 reference: relation.reference
             ) else {
-                return "\(relation.relationship.rawValue)  \(relation.reference.rawValue) [unresolved]"
+                return "\(relation.disposition.rawValue)  \(relation.reference.rawValue) [unresolved]"
             }
 
-            return "\(relation.relationship.rawValue)  \(guideline.title)"
+            return "\(relation.disposition.rawValue)  \(guideline.title)"
         }.joined(
             separator: "\n"
         )
     }
 
     static func details(
-        _ relations: [AgentGuidelineRelation]
+        _ relations: [Reference.Guideline]
     ) -> String? {
         guard !relations.isEmpty else {
             return nil
@@ -37,13 +37,13 @@ enum AgenticGuidelinePresentation {
                 reference: relation.reference
             ) {
                 lines = [
-                    "\(relation.relationship.rawValue)  \(guideline.title)",
+                    "\(relation.disposition.rawValue)  \(guideline.title)",
                     "    reference  \(guideline.reference)",
                     "    summary    \(guideline.summary)",
                 ]
             } else {
                 lines = [
-                    "\(relation.relationship.rawValue)  \(relation.reference.rawValue)",
+                    "\(relation.disposition.rawValue)  \(relation.reference.rawValue)",
                     "    status     unresolved current Guideline reference",
                 ]
             }

@@ -12,13 +12,13 @@ public struct AgenticConversationToolPresentation:
     Sendable,
     Hashable
 {
-    public var id: AgentToolIdentifier
+    public var id: ToolIdentifier
     public var title: String
     public var summary: String
     public var selectionRole: AgenticConversationToolSelectionRole
 
     public init(
-        id: AgentToolIdentifier,
+        id: ToolIdentifier,
         title: String,
         summary: String,
         selectionRole: AgenticConversationToolSelectionRole = .selectable
@@ -53,11 +53,11 @@ public struct AgenticConversationToolSelection:
     Sendable,
     Hashable
 {
-    public var identifiers: [AgentToolIdentifier]
+    public var identifiers: [ToolIdentifier]
     public var dynamicDiscovery: Bool
 
     public init(
-        identifiers: [AgentToolIdentifier] = [],
+        identifiers: [ToolIdentifier] = [],
         dynamicDiscovery: Bool = true
     ) {
         self.identifiers = identifiers

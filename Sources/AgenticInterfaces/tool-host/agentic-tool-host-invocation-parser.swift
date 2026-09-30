@@ -104,7 +104,7 @@ public struct AgenticToolHostInvocationParser:
                                         .key("workspace"),
                                     ]
                                 ),
-                                reason: "Tool '\(parsedCall.call.name)' does not support workspace targeting."
+                                reason: "Tool '\(parsedCall.call.tool.rawValue)' does not support workspace targeting."
                             ),
                         ]
                     )
@@ -127,7 +127,7 @@ public struct AgenticToolHostInvocationParser:
                         JSONIssue(
                             kind: .typeMismatch,
                             path: JSONCodingPath(),
-                            reason: "Expected a direct invocation object, non-empty AgentToolCall array, or AgentToolPlan object."
+                            reason: "Expected a direct invocation object, non-empty AgentToolCall array, or ToolPlan object."
                         ),
                     ]
                 )

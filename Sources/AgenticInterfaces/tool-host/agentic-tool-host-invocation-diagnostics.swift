@@ -40,7 +40,7 @@ extension AgenticToolHostInvocationContract {
                                     .key("root"),
                                 ]
                             ),
-                            reason: "Received an AgentToolPlan node as the top-level invocation. Wrap the node in an AgentToolPlan containing id and root."
+                            reason: "Received an ToolPlan node as the top-level invocation. Wrap the node in an ToolPlan containing id and root."
                         ),
                     ]
                 )
@@ -280,7 +280,7 @@ private extension AgenticToolHostInvocationContract {
                 JSONIssue(
                     kind: .typeMismatch,
                     path: path,
-                    reason: "Expected an AgentToolPlan node object."
+                    reason: "Expected an ToolPlan node object."
                 ),
             ]
         }
@@ -337,7 +337,7 @@ private extension AgenticToolHostInvocationContract {
                         .key("kind"),
                         to: path
                     ),
-                    reason: "Unknown AgentToolPlan node kind '\(kind)'."
+                    reason: "Unknown ToolPlan node kind '\(kind)'."
                 ),
             ]
                 + nestedPlanIssues(
@@ -480,7 +480,7 @@ private extension AgenticToolHostInvocationContract {
         capabilities: [AgentToolCapability]
     ) -> JSONSchema? {
         guard let node = contract.definitions[
-            "AgentToolPlanNode"
+            "ToolPlanNode"
         ],
               case .oneOf(let variants) = node.form
         else {

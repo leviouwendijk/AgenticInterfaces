@@ -1,6 +1,7 @@
 import Agentic
 import AgenticExecution
 import Foundation
+import Workspace
 
 public enum AgenticToolHostAction:
     String,
@@ -21,17 +22,17 @@ public struct AgenticToolHostRequest:
 {
     public let action: AgenticToolHostAction
     public let name: String?
-    public let call: AgentToolCall?
-    public let calls: [AgentToolCall]?
-    public let plan: AgentToolPlan?
+    public let call: ToolCall?
+    public let calls: [ToolCall]?
+    public let plan: ToolPlan?
     public let execution: ToolInvocation.Execution?
 
     public init(
         action: AgenticToolHostAction,
         name: String? = nil,
-        call: AgentToolCall? = nil,
-        calls: [AgentToolCall]? = nil,
-        plan: AgentToolPlan? = nil,
+        call: ToolCall? = nil,
+        calls: [ToolCall]? = nil,
+        plan: ToolPlan? = nil,
         execution: ToolInvocation.Execution? = nil
     ) {
         self.action = action
@@ -49,19 +50,19 @@ public struct AgenticToolHostEnvelope:
     Hashable
 {
     public let action: AgenticToolHostAction
-    public let definitions: [AgentToolDefinition]?
-    public let definition: AgentToolDefinition?
+    public let definitions: [ToolDescriptor]?
+    public let definition: ToolDescriptor?
     public let review: ToolInvocation.Review?
     public let invocation: ToolInvocation.Result?
-    public let planResult: AgentToolPlanResult?
+    public let planResult: ToolPlan.Result?
 
     public init(
         action: AgenticToolHostAction,
-        definitions: [AgentToolDefinition]? = nil,
-        definition: AgentToolDefinition? = nil,
+        definitions: [ToolDescriptor]? = nil,
+        definition: ToolDescriptor? = nil,
         review: ToolInvocation.Review? = nil,
         invocation: ToolInvocation.Result? = nil,
-        planResult: AgentToolPlanResult? = nil
+        planResult: ToolPlan.Result? = nil
     ) {
         self.action = action
         self.definitions = definitions
@@ -92,7 +93,7 @@ public enum AgenticToolHostError:
             return "Tool host action '\(action.rawValue)' requires a tool name."
 
         case .missingCall(let action):
-            return "Tool host action '\(action.rawValue)' requires an AgentToolCall."
+            return "Tool host action '\(action.rawValue)' requires an ToolCall."
 
         case .invalidInvocationPayload(let message):
             return message
@@ -103,13 +104,13 @@ public enum AgenticToolHostError:
 public struct AgenticToolHost {
     public let registry: ToolRegistry
     public let invoker: ToolInvoker
-    public let context: AgentToolExecutionContext
+    public let workspace: WorkspaceContext?
     public let approvalHandler: (any ToolApprovalHandler)?
 
     public init(
         registry: ToolRegistry,
         policy: ToolExecutionPolicy,
-        context: AgentToolExecutionContext = .init(),
+        workspace: WorkspaceContext? = nil,
         approvalHandler: (any ToolApprovalHandler)? = nil
     ) {
         self.registry = registry
@@ -117,7 +118,7 @@ public struct AgenticToolHost {
             registry: registry,
             policy: policy
         )
-        self.context = context
+        self.workspace = workspace
         self.approvalHandler = approvalHandler
     }
 
@@ -185,13 +186,13 @@ public struct AgenticToolHost {
     }
 
     public func preflight(
-        _ call: AgentToolCall,
+        _ call: ToolCall,
         execution: ToolInvocation.Execution? = nil
     ) async throws -> AgenticToolHostEnvelope {
         let review = try await invoker.review(
             call,
             execution: execution,
-            context: context
+            workspace: workspace
         )
 
         return .init(
@@ -201,13 +202,13 @@ public struct AgenticToolHost {
     }
 
     public func invoke(
-        _ call: AgentToolCall,
+        _ call: ToolCall,
         execution: ToolInvocation.Execution? = nil
     ) async throws -> AgenticToolHostEnvelope {
         let invocation = try await invoker.invoke(
             call,
             execution: execution,
-            context: context,
+            workspace: workspace,
             approvalHandler: approvalHandler
         )
 
@@ -219,16 +220,16 @@ public struct AgenticToolHost {
     }
 
     public func invoke(
-        _ calls: [AgentToolCall]
+        _ calls: [ToolCall]
     ) async throws -> AgenticToolHostEnvelope {
         guard !calls.isEmpty else {
             throw AgenticToolHostError.invalidInvocationPayload(
-                "Tool host batch invocation requires at least one AgentToolCall."
+                "Tool host batch invocation requires at least one ToolCall."
             )
         }
 
         return try await invoke(
-            AgentToolPlan(
+            ToolPlan(
                 root: .batch(
                     calls.map {
                         .call(
@@ -241,11 +242,11 @@ public struct AgenticToolHost {
     }
 
     public func invoke(
-        _ plan: AgentToolPlan
+        _ plan: ToolPlan
     ) async throws -> AgenticToolHostEnvelope {
         let result = try await invoker.invoke(
             plan,
-            context: context,
+            workspace: workspace,
             approvalHandler: approvalHandler
         )
 
@@ -302,7 +303,7 @@ private extension AgenticToolHost {
         }
 
         throw AgenticToolHostError.invalidInvocationPayload(
-            "Tool host invoke requires an AgentToolCall, call batch, or AgentToolPlan."
+            "Tool host invoke requires an ToolCall, call batch, or ToolPlan."
         )
     }
 }

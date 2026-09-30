@@ -30,10 +30,12 @@ public struct AgenticToolHostCall:
         self.input = input
     }
 
-    public var agentToolCall: AgentToolCall {
+    public var agentToolCall: ToolCall {
         .init(
             id: id,
-            name: name,
+            tool: ToolIdentifier(
+                rawValue: name
+            ),
             input: input
         )
     }
@@ -117,16 +119,18 @@ public struct AgenticToolHostDirectInvocation:
         self.execution = execution
     }
 
-    public var call: AgentToolCall {
+    public var call: ToolCall {
         .init(
             id: id,
-            name: name,
+            tool: ToolIdentifier(
+                rawValue: name
+            ),
             input: input
         )
     }
 }
 
-/// Canonical recursive AgentToolPlan wire payload accepted by the host bridge.
+/// Canonical recursive ToolPlan wire payload accepted by the host bridge.
 public struct AgenticToolHostPlan:
     Sendable,
     Codable,
@@ -134,32 +138,30 @@ public struct AgenticToolHostPlan:
 {
     public let id: String
     public let root: AgenticToolHostPlanNode
-    public let guidelineRelations: [AgentGuidelineRelation]?
+    public let references: [Reference]?
 
     public init(
         id: String,
         root: AgenticToolHostPlanNode,
-        guidelineRelations: [AgentGuidelineRelation]? = nil
+        references: [Reference]? = nil
     ) {
         self.id = id
         self.root = root
-        self.guidelineRelations = guidelineRelations
+        self.references = references
     }
 
     public func agentToolPlan(
         registry: ToolRegistry
-    ) throws -> AgentToolPlan {
-        let plan = AgentToolPlan(
+    ) throws -> ToolPlan {
+        let plan = try ToolPlan(
             id: id,
             root:
                 try root.agentToolPlanNode(
                     registry: registry
                 ),
-            guidelineRelations:
-                guidelineRelations ?? []
+            references:
+                references ?? []
         )
-
-        try plan.validate()
 
         return plan
     }
@@ -171,7 +173,7 @@ public struct AgenticToolHostPlanNode:
     Codable,
     Hashable
 {
-    public let kind: AgentToolPlanNodeKind
+    public let kind: ToolPlan.Node.Kind
     public let call: AgenticToolHostCall?
     public let execution: AgenticToolHostExecution?
     public let children: [AgenticToolHostPlanNode]
@@ -180,7 +182,7 @@ public struct AgenticToolHostPlanNode:
     public let onDenied: [AgenticToolHostPlanNode]
 
     public init(
-        kind: AgentToolPlanNodeKind,
+        kind: ToolPlan.Node.Kind,
         call: AgenticToolHostCall? = nil,
         execution: AgenticToolHostExecution? = nil,
         children: [AgenticToolHostPlanNode] = [],
@@ -199,7 +201,7 @@ public struct AgenticToolHostPlanNode:
 
     public func agentToolPlanNode(
         registry: ToolRegistry
-    ) throws -> AgentToolPlanNode {
+    ) throws -> ToolPlan.Node {
         switch kind {
         case .call:
             guard let call,
@@ -224,7 +226,7 @@ public struct AgenticToolHostPlanNode:
             {
                 throw AgenticToolHostError
                     .invalidInvocationPayload(
-                        "Tool '\(parsedCall.call.name)' does not support execution.workspace.subpath."
+                        "Tool '\(parsedCall.call.tool.rawValue)' does not support execution.workspace.subpath."
                     )
             }
 
@@ -341,7 +343,7 @@ public enum AgenticToolHostInvocationContract {
 
         let batch = JSONSchema.array(
             description:
-                "Non-empty batch of independent AgentToolCall values. Use AgentToolPlan when execution targeting or dependencies are needed.",
+                "Non-empty batch of independent AgentToolCall values. Use ToolPlan when execution targeting or dependencies are needed.",
             items: .reference(
                 "#/$defs/AgentToolCall"
             ),
@@ -370,7 +372,7 @@ public enum AgenticToolHostInvocationContract {
         definitions["AgentToolCall"] = callUnion
         definitions["AgentToolExecution"] =
             executionSchema()
-        definitions["AgentToolPlanNode"] =
+        definitions["ToolPlanNode"] =
             planNode
 
         if !targetable.isEmpty {
@@ -400,7 +402,7 @@ public enum AgenticToolHostInvocationContract {
                 plan,
             ],
             description:
-                "Canonical JSON accepted by agentic host bridge: direct invocation, non-empty call batch, or recursive AgentToolPlan."
+                "Canonical JSON accepted by agentic host bridge: direct invocation, non-empty call batch, or recursive ToolPlan."
         )
         .defining(
             definitions
@@ -409,7 +411,7 @@ public enum AgenticToolHostInvocationContract {
 
     public static func canonicalPlanExample(
         capabilities: [AgentToolCapability]
-    ) -> AgentToolPlan? {
+    ) -> ToolPlan? {
         guard let capability = exampleCapability(
             capabilities
         ) else {
@@ -422,9 +424,9 @@ public enum AgenticToolHostInvocationContract {
             )
         )
 
-        let call = AgentToolCall(
+        let call = ToolCall(
             id: "example-call",
-            name: capability.definition.name,
+            tool: capability.definition.identifier,
             input: input
         )
 
@@ -440,7 +442,7 @@ public enum AgenticToolHostInvocationContract {
             execution = nil
         }
 
-        return AgentToolPlan(
+        return try? ToolPlan(
             id: "example-plan",
             root: .sequence(
                 [
@@ -581,7 +583,7 @@ private extension AgenticToolHostInvocationContract {
 
     static func planSchema() -> JSONSchema {
         JSONSchema.object(
-            description: "Recursive AgentToolPlan. Call-node execution is a sibling of call and is available only on targetable tool variants.",
+            description: "Recursive ToolPlan. Call-node execution is a sibling of call and is available only on targetable tool variants.",
             additionalProperties: .disallowed
         ) {
             JSONSchema.string(
@@ -593,39 +595,16 @@ private extension AgenticToolHostInvocationContract {
             JSONSchema.property(
                 "root",
                 schema: JSONSchema.reference(
-                    "#/$defs/AgentToolPlanNode"
+                    "#/$defs/ToolPlanNode"
                 ),
                 required: true,
                 description: "Root recursive plan node."
             )
 
             JSONSchema.array(
-                "guidelineRelations",
-                description: "Optional guideline relations attached to the plan.",
-                items: guidelineRelationSchema()
-            )
-        }
-    }
-
-    static func guidelineRelationSchema() -> JSONSchema {
-        JSONSchema.object(
-            additionalProperties: .disallowed
-        ) {
-            JSONSchema.string(
-                "reference",
-                required: true,
-                description: "Stable guideline reference."
-            )
-
-            JSONSchema.string(
-                "relationship",
-                required: true,
-                cases: AgentGuidelineRelationship.allCases.map(\.rawValue)
-            )
-
-            JSONSchema.string(
-                "reasoning",
-                description: "Optional rationale for the relation."
+                "references",
+                description: "Optional references attached to the plan.",
+                items: Reference.jsonschema
             )
         }
     }
@@ -640,16 +619,16 @@ private extension AgenticToolHostInvocationContract {
 
         let recursiveArray = JSONSchema.array(
             description:
-                "Recursive AgentToolPlanNode values.",
+                "Recursive ToolPlanNode values.",
             items: .reference(
-                "#/$defs/AgentToolPlanNode"
+                "#/$defs/ToolPlanNode"
             )
         )
         let emptyRecursiveArray = JSONSchema.array(
             description:
                 "This plan-node array must be empty for the selected node kind.",
             items: .reference(
-                "#/$defs/AgentToolPlanNode"
+                "#/$defs/ToolPlanNode"
             ),
             maxItems: 0
         )
@@ -766,7 +745,7 @@ private extension AgenticToolHostInvocationContract {
         return .oneOf(
             variants,
             description:
-                "Recursive AgentToolPlan node. Call nodes specialize tool input and execution capability through shared registered-tool unions."
+                "Recursive ToolPlan node. Call nodes specialize tool input and execution capability through shared registered-tool unions."
         )
     }
 
@@ -780,7 +759,7 @@ private extension AgenticToolHostInvocationContract {
             description:
                 "Call plan nodes cannot contain ordinary children.",
             items: .reference(
-                "#/$defs/AgentToolPlanNode"
+                "#/$defs/ToolPlanNode"
             ),
             maxItems: 0
         )

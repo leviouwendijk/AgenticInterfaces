@@ -38,7 +38,7 @@ struct AgenticConversationSettingsControl: Sendable {
         case custom
         case dynamic_discovery
         case tool_collection(String)
-        case tool(AgentToolIdentifier)
+        case tool(ToolIdentifier)
         case skill(AgentSkillIdentifier)
     }
 
@@ -486,7 +486,7 @@ private extension AgenticConversationSettingsControl {
     }
 
     mutating func toggleTool(
-        _ identifier: AgentToolIdentifier,
+        _ identifier: ToolIdentifier,
         snapshot: inout AgenticConversationSnapshot
     ) -> AgenticConversationSettingsControlEvent {
         guard let collection = snapshot.toolCollections.first(where: {

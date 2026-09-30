@@ -238,8 +238,8 @@ enum AgenticConversationPinnedContentSmoke {
             programs: [
                 .init(
                     identifier: "fixture.conversation_program",
-                    title: "Conversation Program",
-                    summary: "Conversation Program command fixture."
+                    purpose: "Conversation Program command fixture.",
+                    title: "Conversation Program"
                 ),
             ],
             preferredModelProfileID: "pin-model"
