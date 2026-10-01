@@ -46,7 +46,7 @@ public extension AgenticToolHost {
                 workspace?
                     .absoluteURL
                     .path,
-            sessionID: nil,
+            sessionID: sessionID,
             capabilities:
                 registry.capabilities
         )

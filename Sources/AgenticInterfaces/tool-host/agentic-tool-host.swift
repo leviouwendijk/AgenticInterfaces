@@ -105,12 +105,14 @@ public struct AgenticToolHost {
     public let registry: ToolRegistry
     public let invoker: ToolInvoker
     public let workspace: WorkspaceContext?
+    public let sessionID: String?
     public let approvalHandler: (any ToolApprovalHandler)?
 
     public init(
         registry: ToolRegistry,
         policy: ToolExecutionPolicy,
         workspace: WorkspaceContext? = nil,
+        sessionID: String? = nil,
         approvalHandler: (any ToolApprovalHandler)? = nil
     ) {
         self.registry = registry
@@ -119,6 +121,7 @@ public struct AgenticToolHost {
             policy: policy
         )
         self.workspace = workspace
+        self.sessionID = sessionID
         self.approvalHandler = approvalHandler
     }
 
