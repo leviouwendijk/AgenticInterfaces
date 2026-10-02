@@ -1,5 +1,4 @@
 import Agentic
-import AgenticExecution
 
 public struct AgenticRunCommandModel: Sendable, Codable, Hashable {
     public var prompt: String

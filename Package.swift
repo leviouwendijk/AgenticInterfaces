@@ -19,7 +19,6 @@ let package = Package(
     ],
     dependencies: [
         .package(url: "https://github.com/leviouwendijk/Agentic.git", branch: "master"),
-        .package(url: "https://github.com/leviouwendijk/AgenticExecution.git", branch: "master"),
         .package(url: "https://github.com/leviouwendijk/Workspace.git", branch: "master"),
 
         .package(url: "https://github.com/leviouwendijk/Primitives.git", branch: "master"),
@@ -40,7 +39,6 @@ let package = Package(
             name: "AgenticInterfaces",
             dependencies: [
                 .product(name: "Agentic", package: "Agentic"),
-                .product(name: "AgenticExecution", package: "AgenticExecution"),
                 .product(name: "Workspace", package: "Workspace"),
 
                 .product(name: "Primitives", package: "Primitives"),

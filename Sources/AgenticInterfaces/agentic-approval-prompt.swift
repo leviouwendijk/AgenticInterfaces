@@ -1,5 +1,4 @@
 import Agentic
-import AgenticExecution
 
 public struct AgenticApprovalPrompt: Sendable, Codable, Hashable {
     public var title: String

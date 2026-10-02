@@ -1,5 +1,5 @@
 {
-  "originHash" : "4778d9b5f3dc5e433a5ef79a9b24f21b1eeb2f927ce797c44d1663643ae78139",
+  "originHash" : "fd7b2a681c96150573f3dae3407b3a05b72b5d11f45f9cd33087679eb2322abf",
   "pins" : [
     {
       "identity" : "agentic",
@@ -7,16 +7,7 @@
       "location" : "https://github.com/leviouwendijk/Agentic.git",
       "state" : {
         "branch" : "master",
-        "revision" : "cb74747bc51b760b4b2de41966d4d5837c6714d0"
-      }
-    },
-    {
-      "identity" : "agenticexecution",
-      "kind" : "remoteSourceControl",
-      "location" : "https://github.com/leviouwendijk/AgenticExecution.git",
-      "state" : {
-        "branch" : "master",
-        "revision" : "2785e4d27d77352d7452694dc1fad8d827f4da30"
+        "revision" : "b1c553efce8e1f95051f5300c950ededc487be25"
       }
     },
     {
@@ -34,7 +25,7 @@
       "location" : "https://github.com/leviouwendijk/Arguments.git",
       "state" : {
         "branch" : "master",
-        "revision" : "d4ea1ad418c54380fde04cefacf5d59fa90054ba"
+        "revision" : "bb9985bc8225bc5300997ce6378d16ad37f92989"
       }
     },
     {
