@@ -41,7 +41,7 @@ struct AgenticConversationRunReviewControl:
                 return "document:\(kind.rawValue)"
 
             case .action(let action):
-                return "action:\(action.rawValue)"
+                return "action:\(action.id)"
 
             case .openRunConsole:
                 return "run-console"
@@ -292,7 +292,8 @@ private extension AgenticConversationRunReviewControl {
     ) -> Bool {
         switch kind {
         case .approval,
-             .workspace_access:
+             .workspace_access,
+             .run_limit:
             return true
 
         case .recovery:
@@ -330,7 +331,10 @@ private extension AgenticConversationRunReviewControl {
                      .deny,
                      .skip,
                      .grant_for_turn,
-                     .grant_for_session:
+                     .grant_for_session,
+                     .run_limit_continue,
+                     .run_limit_unlimited,
+                     .run_limit_stop:
                     return .action(
                         action
                     )

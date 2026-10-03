@@ -78,6 +78,8 @@ public enum AgenticRunPresentationState: String, Sendable, Codable, Hashable {
     case active
     case awaiting_approval
     case awaiting_user_input
+    case awaiting_run_limit
+    case interrupted
     case completed
 }
 
@@ -207,6 +209,25 @@ private extension TerminalAgenticRunPresenter {
                     .init("session", result.sessionID),
                     .init("awaiting", "user input"),
                 ]
+            )
+
+        case .awaiting_run_limit:
+            return block(
+                title: "Run suspended",
+                fields: [
+                    .init("session", result.sessionID),
+                    .init("awaiting", "run limit"),
+                ],
+                body: result.summary
+            )
+
+        case .interrupted:
+            return block(
+                title: "Run stopped",
+                fields: [
+                    .init("session", result.sessionID),
+                ],
+                body: result.summary
             )
 
         case .completed:

@@ -29,10 +29,17 @@ enum AgenticHostConsoleWorkflowSmoke {
     }
 
     static func run() throws {
-        guard AgenticHostConsoleAction.continueRun.rawValue == "continue_run",
+        guard AgenticHostConsoleAction.continueRun.id == "continue_run",
               AgenticHostConsoleAction.continueRun.title == "Continue ToolPlan",
               AgenticHostConsoleAction.continueRun.summary
-                == "Continue the remaining ToolPlan after the resolved step."
+                == "Continue the remaining ToolPlan after the resolved step.",
+              AgenticHostConsoleAction.run_limit_continue(
+                iterations: 16
+              ).id == "run_limit_continue:16",
+              AgenticHostConsoleAction.run_limit_unlimited.title
+                == "Remove iteration limit",
+              AgenticHostConsoleAction.run_limit_stop.title
+                == "Stop run"
         else {
             throw Failure.unexpectedContinueAction
         }

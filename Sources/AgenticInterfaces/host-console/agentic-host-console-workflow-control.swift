@@ -130,7 +130,7 @@ public struct AgenticHostConsoleWorkflowControl:
         self.actions = TerminalListControl(
             items: [],
             id: {
-                $0.rawValue
+                $0.id
             }
         )
         self.runControls = TerminalListControl(
@@ -566,11 +566,14 @@ private extension AgenticHostConsoleWorkflowControl {
         case .currentChanged:
             return nil
 
-        case .accepted(let rawValue):
-            guard let action = AgenticHostConsoleAction(
-                rawValue: rawValue
-            ),
-                  let interruption = currentInterruption else {
+        case .accepted(let actionID):
+            guard let interruption = currentInterruption,
+                  let action = interruption.actions.first(
+                    where: { candidate in
+                        candidate.id == actionID
+                    }
+                  )
+            else {
                 return nil
             }
 
@@ -1577,13 +1580,16 @@ private extension AgenticHostConsoleWorkflowControl {
              .grant_for_session,
              .retry,
              .continueRun,
-             .createFixBranch:
+             .createFixBranch,
+             .run_limit_continue,
+             .run_limit_unlimited:
             return TerminalStyle.bold.apply(
                 text
             )
 
         case .deny,
-             .stopRun:
+             .stopRun,
+             .run_limit_stop:
             return TerminalStyle(
                 .red
             ).apply(
@@ -1609,6 +1615,9 @@ private extension AgenticHostConsoleInterruptionKind {
 
         case .recovery:
             return "run on hold"
+
+        case .run_limit:
+            return "run limit reached"
         }
     }
 }
