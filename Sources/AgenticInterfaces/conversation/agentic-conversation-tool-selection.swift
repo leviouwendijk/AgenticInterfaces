@@ -53,14 +53,30 @@ public struct AgenticConversationToolSelection:
     Sendable,
     Hashable
 {
-    public var identifiers: [ToolIdentifier]
+    public var availableIdentifiers: [ToolIdentifier]
+    public var visibleIdentifiers: [ToolIdentifier]
     public var dynamicDiscovery: Bool
 
     public init(
-        identifiers: [ToolIdentifier] = [],
+        availableIdentifiers: [ToolIdentifier] = [],
+        visibleIdentifiers: [ToolIdentifier] = [],
         dynamicDiscovery: Bool = true
     ) {
-        self.identifiers = identifiers
+        var seen: Set<ToolIdentifier> = []
+        let available = availableIdentifiers.filter {
+            seen.insert($0).inserted
+        }
+        let availableSet = Set(available)
+
+        seen.removeAll(keepingCapacity: true)
+
+        let visible = visibleIdentifiers.filter {
+            availableSet.contains($0)
+                && seen.insert($0).inserted
+        }
+
+        self.availableIdentifiers = available
+        self.visibleIdentifiers = visible
         self.dynamicDiscovery = dynamicDiscovery
     }
 }

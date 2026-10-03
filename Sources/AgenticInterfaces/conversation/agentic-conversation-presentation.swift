@@ -386,17 +386,23 @@ public struct AgenticConversationSkillPresentation: Sendable, Hashable {
     public var title: String
     public var summary: String
     public var toolNames: [String]
+    public var requiredToolIdentifiers: [ToolIdentifier]
+    public var optionalToolIdentifiers: [ToolIdentifier]
 
     public init(
         id: AgentSkillIdentifier,
         title: String,
         summary: String,
-        toolNames: [String]
+        toolNames: [String],
+        requiredToolIdentifiers: [ToolIdentifier] = [],
+        optionalToolIdentifiers: [ToolIdentifier] = []
     ) {
         self.id = id
         self.title = title
         self.summary = summary
         self.toolNames = toolNames
+        self.requiredToolIdentifiers = requiredToolIdentifiers
+        self.optionalToolIdentifiers = optionalToolIdentifiers
     }
 }
 

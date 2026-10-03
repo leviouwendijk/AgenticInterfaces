@@ -322,7 +322,10 @@ enum AgenticConversationSmoke {
               submission.skillIDs.isEmpty,
               submission.toolExposure == .discovery,
               submission.customToolSelection == AgenticConversationToolSelection(
-                identifiers: [
+                availableIdentifiers: [
+                    "inspect_workspace",
+                ],
+                visibleIdentifiers: [
                     "inspect_workspace",
                 ],
                 dynamicDiscovery: true
@@ -614,7 +617,7 @@ enum AgenticConversationSmoke {
                 "Core"
               ),
               customPickerPresentation.contains(
-                "1 / 2"
+                "A 1/2 · V 1/2"
               ),
               customPickerPresentation.contains(
                 "Intrinsics"
@@ -627,7 +630,10 @@ enum AgenticConversationSmoke {
             .space
         ) == .customToolSelectionChanged(
             AgenticConversationToolSelection(
-                identifiers: [
+                availableIdentifiers: [
+                    "inspect_workspace",
+                ],
+                visibleIdentifiers: [
                     "inspect_workspace",
                 ],
                 dynamicDiscovery: false
@@ -643,9 +649,12 @@ enum AgenticConversationSmoke {
             .space
         ) == .customToolSelectionChanged(
             AgenticConversationToolSelection(
-                identifiers: [
+                availableIdentifiers: [
                     "inspect_workspace",
                     "mutate_files",
+                ],
+                visibleIdentifiers: [
+                    "inspect_workspace",
                 ],
                 dynamicDiscovery: false
             )
@@ -657,12 +666,27 @@ enum AgenticConversationSmoke {
             .enter
         )
         guard customSettingsControl.handle(
+            .enter
+        ) == .customToolSelectionChanged(
+            AgenticConversationToolSelection(
+                availableIdentifiers: [
+                    "inspect_workspace",
+                    "mutate_files",
+                ],
+                visibleIdentifiers: [],
+                dynamicDiscovery: false
+            )
+        ) else {
+            throw Failure.customToolSelectionChanged
+        }
+        guard customSettingsControl.handle(
             .space
         ) == .customToolSelectionChanged(
             AgenticConversationToolSelection(
-                identifiers: [
+                availableIdentifiers: [
                     "mutate_files",
                 ],
+                visibleIdentifiers: [],
                 dynamicDiscovery: false
             )
         ) else {
@@ -1233,7 +1257,10 @@ enum AgenticConversationSmoke {
                 ),
             ],
             customToolSelection: AgenticConversationToolSelection(
-                identifiers: [
+                availableIdentifiers: [
+                    "inspect_workspace",
+                ],
+                visibleIdentifiers: [
                     "inspect_workspace",
                 ],
                 dynamicDiscovery: true

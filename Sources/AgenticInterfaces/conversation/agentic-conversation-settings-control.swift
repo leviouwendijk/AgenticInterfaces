@@ -154,13 +154,13 @@ struct AgenticConversationSettingsControl: Sendable {
                 )
 
             case .tool_collection(let identifier):
-                return toggleToolCollection(
+                return toggleToolCollectionAvailability(
                     identifier,
                     snapshot: &snapshot
                 )
 
             case .tool(let identifier):
-                return toggleTool(
+                return toggleToolAvailability(
                     identifier,
                     snapshot: &snapshot
                 )
@@ -370,7 +370,7 @@ private extension AgenticConversationSettingsControl {
             return nil
 
         case .tool(let identifier):
-            return toggleTool(
+            return toggleToolVisibility(
                 identifier,
                 snapshot: &snapshot
             )
@@ -424,7 +424,7 @@ private extension AgenticConversationSettingsControl {
         )
     }
 
-    mutating func toggleToolCollection(
+    mutating func toggleToolCollectionAvailability(
         _ identifier: String,
         snapshot: inout AgenticConversationSnapshot
     ) -> AgenticConversationSettingsControlEvent {
@@ -439,35 +439,44 @@ private extension AgenticConversationSettingsControl {
             )
         }
 
+        let required = Self.requiredToolIdentifiers(snapshot)
         let toolIdentifiers = Self.selectableTools(
             in: collection
-        ).map(\.id)
+        )
+        .map(\.id)
+        .filter {
+            !required.contains($0)
+        }
 
         guard !toolIdentifiers.isEmpty else {
             return .conversation(
                 .feedbackRequested(
-                    "This collection has no independently selectable tools."
+                    "This collection contains no independently available tools."
                 )
             )
         }
 
         var selection = snapshot.customToolSelection
-        let selected = Set(selection.identifiers)
-        let allSelected = toolIdentifiers.allSatisfy {
-            selected.contains($0)
+        let available = Set(selection.availableIdentifiers)
+        let allAvailable = toolIdentifiers.allSatisfy {
+            available.contains($0)
         }
 
-        if allSelected {
+        if allAvailable {
             let removing = Set(toolIdentifiers)
-            selection.identifiers.removeAll {
+
+            selection.availableIdentifiers.removeAll {
+                removing.contains($0)
+            }
+            selection.visibleIdentifiers.removeAll {
                 removing.contains($0)
             }
         } else {
-            var existing = Set(selection.identifiers)
+            var existing = Set(selection.availableIdentifiers)
 
             for toolIdentifier in toolIdentifiers
             where existing.insert(toolIdentifier).inserted {
-                selection.identifiers.append(
+                selection.availableIdentifiers.append(
                     toolIdentifier
                 )
             }
@@ -485,7 +494,7 @@ private extension AgenticConversationSettingsControl {
         )
     }
 
-    mutating func toggleTool(
+    mutating func toggleToolAvailability(
         _ identifier: ToolIdentifier,
         snapshot: inout AgenticConversationSnapshot
     ) -> AgenticConversationSettingsControlEvent {
@@ -514,14 +523,94 @@ private extension AgenticConversationSettingsControl {
             )
         }
 
+        guard !Self.requiredToolIdentifiers(snapshot).contains(identifier) else {
+            return .conversation(
+                .feedbackRequested(
+                    "Tool '\(tool.title)' is required by a selected skill."
+                )
+            )
+        }
+
         var selection = snapshot.customToolSelection
 
-        if selection.identifiers.contains(identifier) {
-            selection.identifiers.removeAll {
+        if selection.availableIdentifiers.contains(identifier) {
+            selection.availableIdentifiers.removeAll {
+                $0 == identifier
+            }
+            selection.visibleIdentifiers.removeAll {
                 $0 == identifier
             }
         } else {
-            selection.identifiers.append(
+            selection.availableIdentifiers.append(
+                identifier
+            )
+        }
+
+        snapshot.customToolSelection = selection
+        open(
+            .tool_collection(collection.id),
+            snapshot: snapshot,
+            currentID: .tool(identifier)
+        )
+
+        return .conversation(
+            .customToolSelectionChanged(selection)
+        )
+    }
+
+    mutating func toggleToolVisibility(
+        _ identifier: ToolIdentifier,
+        snapshot: inout AgenticConversationSnapshot
+    ) -> AgenticConversationSettingsControlEvent {
+        guard let collection = snapshot.toolCollections.first(where: {
+            collection in
+            collection.tools.contains(where: {
+                $0.id == identifier
+            })
+        }),
+              let tool = collection.tools.first(where: {
+                  $0.id == identifier
+              })
+        else {
+            return .conversation(
+                .feedbackRequested(
+                    "Tool is no longer available."
+                )
+            )
+        }
+
+        guard tool.selectionRole == .selectable else {
+            return .conversation(
+                .feedbackRequested(
+                    "Tool '\(tool.title)' is controlled by Dynamic discovery."
+                )
+            )
+        }
+
+        guard !Self.requiredToolIdentifiers(snapshot).contains(identifier) else {
+            return .conversation(
+                .feedbackRequested(
+                    "Tool '\(tool.title)' is required by a selected skill."
+                )
+            )
+        }
+
+        var selection = snapshot.customToolSelection
+
+        guard selection.availableIdentifiers.contains(identifier) else {
+            return .conversation(
+                .feedbackRequested(
+                    "Tool '\(tool.title)' must be available before it can be visible."
+                )
+            )
+        }
+
+        if selection.visibleIdentifiers.contains(identifier) {
+            selection.visibleIdentifiers.removeAll {
+                $0 == identifier
+            }
+        } else {
+            selection.visibleIdentifiers.append(
                 identifier
             )
         }
@@ -1103,7 +1192,7 @@ private extension AgenticConversationSettingsControl {
             TerminalSettingsRow(
                 id: .custom,
                 title: AgenticConversationToolExposure.custom.title,
-                value: "\(snapshot.customToolSelection.identifiers.count) selected",
+                value: "\(snapshot.customToolSelection.availableIdentifiers.count) available · \(snapshot.customToolSelection.visibleIdentifiers.count) visible",
                 accessory: .radio(
                     selected: snapshot.selectedToolExposure == .custom
                 ),
@@ -1115,9 +1204,13 @@ private extension AgenticConversationSettingsControl {
     private static func customRows(
         _ snapshot: AgenticConversationSnapshot
     ) -> [TerminalSettingsRow<RowID>] {
-        let selected = Set(
-            snapshot.customToolSelection.identifiers
+        let available = Set(
+            snapshot.customToolSelection.availableIdentifiers
         )
+        let visible = Set(
+            snapshot.customToolSelection.visibleIdentifiers
+        )
+        let required = requiredToolIdentifiers(snapshot)
 
         var rows: [TerminalSettingsRow<RowID>] = [
             TerminalSettingsRow(
@@ -1136,11 +1229,11 @@ private extension AgenticConversationSettingsControl {
                         TerminalField(
                             "find_tools",
                             snapshot.customToolSelection.dynamicDiscovery
-                                ? "exposed"
+                                ? "available + visible"
                                 : "not exposed"
                         ),
                     ],
-                    body: "When enabled, find_tools is exposed and may activate additional registered capabilities. When disabled, Custom exposure is fixed to the saved selection plus required skill tools."
+                    body: "When enabled, find_tools may promote already-available tools into model visibility. Discovery never grants tool availability."
                 )
             ),
         ]
@@ -1150,10 +1243,24 @@ private extension AgenticConversationSettingsControl {
                 let selectable = selectableTools(
                     in: collection
                 )
-                let selectedCount = selectable.reduce(
+                let mutable = selectable.filter {
+                    !required.contains($0.id)
+                }
+                let availableCount = selectable.reduce(
                     into: 0
                 ) { count, tool in
-                    if selected.contains(tool.id) {
+                    if required.contains(tool.id)
+                        || available.contains(tool.id)
+                    {
+                        count += 1
+                    }
+                }
+                let visibleCount = selectable.reduce(
+                    into: 0
+                ) { count, tool in
+                    if required.contains(tool.id)
+                        || visible.contains(tool.id)
+                    {
                         count += 1
                     }
                 }
@@ -1161,21 +1268,27 @@ private extension AgenticConversationSettingsControl {
                 return TerminalSettingsRow(
                     id: .tool_collection(collection.id),
                     title: collection.title,
-                    value: "\(selectedCount) / \(selectable.count)",
+                    value: "A \(availableCount)/\(selectable.count) · V \(visibleCount)/\(selectable.count)",
                     isEnabled: !collection.tools.isEmpty,
                     accessory: .checkbox(
-                        selected: !selectable.isEmpty
-                            && selectedCount == selectable.count
+                        selected: !mutable.isEmpty
+                            && mutable.allSatisfy {
+                                available.contains($0.id)
+                            }
                     ),
                     detail: TerminalSettingsDetail(
                         title: collection.title,
                         fields: [
                             TerminalField(
-                                "selected",
-                                "\(selectedCount) / \(selectable.count)"
+                                "available",
+                                "\(availableCount) / \(selectable.count)"
+                            ),
+                            TerminalField(
+                                "visible",
+                                "\(visibleCount) / \(selectable.count)"
                             ),
                         ],
-                        body: "Enter opens individual tools. Space selects or deselects the exact current selectable tool identifiers in this collection."
+                        body: "Enter opens individual tools. Space toggles availability for independently selectable tools; disabling availability also removes visibility."
                     )
                 )
             }
@@ -1188,18 +1301,32 @@ private extension AgenticConversationSettingsControl {
         _ collection: AgenticConversationToolCollectionPresentation,
         snapshot: AgenticConversationSnapshot
     ) -> [TerminalSettingsRow<RowID>] {
-        let selected = Set(
-            snapshot.customToolSelection.identifiers
+        let available = Set(
+            snapshot.customToolSelection.availableIdentifiers
         )
+        let visible = Set(
+            snapshot.customToolSelection.visibleIdentifiers
+        )
+        let required = requiredToolIdentifiers(snapshot)
 
         return collection.tools.map { tool in
             switch tool.selectionRole {
             case .selectable:
+                let isRequired = required.contains(tool.id)
+                let isAvailable = isRequired
+                    || available.contains(tool.id)
+                let isVisible = isRequired
+                    || visible.contains(tool.id)
+
                 return TerminalSettingsRow(
                     id: .tool(tool.id),
                     title: tool.title,
+                    value: "Available \(isAvailable ? "on" : "off") · Visible \(isVisible ? "on" : "off")",
+                    caption: isRequired
+                        ? "Required by selected skill."
+                        : "Enter toggles Visible · Space toggles Available.",
                     accessory: .checkbox(
-                        selected: selected.contains(tool.id)
+                        selected: isAvailable
                     ),
                     detail: TerminalSettingsDetail(
                         title: tool.title,
@@ -1208,21 +1335,35 @@ private extension AgenticConversationSettingsControl {
                                 "identifier",
                                 tool.id.rawValue
                             ),
+                            TerminalField(
+                                "available",
+                                isAvailable ? "yes" : "no"
+                            ),
+                            TerminalField(
+                                "visible",
+                                isVisible ? "yes" : "no"
+                            ),
                         ],
-                        body: tool.summary
+                        body: isRequired
+                            ? "This tool is required by a selected skill and remains available and visible."
+                            : "\(tool.summary)\n\nEnter toggles visibility. Space toggles availability."
                     )
                 )
 
             case .dynamicDiscovery:
+                let enabled =
+                    snapshot.customToolSelection.dynamicDiscovery
+
                 return TerminalSettingsRow(
                     id: .tool(tool.id),
                     title: tool.title,
-                    value: "derived",
+                    value: enabled
+                        ? "Available on · Visible on"
+                        : "Available off · Visible off",
                     caption: "Controlled by Dynamic discovery.",
                     isEnabled: false,
                     accessory: .checkbox(
-                        selected:
-                            snapshot.customToolSelection.dynamicDiscovery
+                        selected: enabled
                     ),
                     detail: TerminalSettingsDetail(
                         title: tool.title,
@@ -1258,6 +1399,18 @@ private extension AgenticConversationSettingsControl {
         collection.tools.filter {
             $0.selectionRole == .selectable
         }
+    }
+
+    private static func requiredToolIdentifiers(
+        _ snapshot: AgenticConversationSnapshot
+    ) -> Set<ToolIdentifier> {
+        Set(
+            snapshot.skills
+                .filter {
+                    snapshot.selectedSkillIDs.contains($0.id)
+                }
+                .flatMap(\.requiredToolIdentifiers)
+        )
     }
 
     private static func exposureRow(
@@ -1321,8 +1474,12 @@ private extension AgenticConversationSettingsControl {
                 title: exposure.title,
                 fields: [
                     TerminalField(
-                        "selected",
-                        "\(snapshot.customToolSelection.identifiers.count) tools"
+                        "available",
+                        "\(snapshot.customToolSelection.availableIdentifiers.count) tools"
+                    ),
+                    TerminalField(
+                        "visible",
+                        "\(snapshot.customToolSelection.visibleIdentifiers.count) tools"
                     ),
                     TerminalField(
                         "dynamic",
@@ -1331,7 +1488,7 @@ private extension AgenticConversationSettingsControl {
                             : "no"
                     ),
                 ],
-                body: "Expose an exact saved tool selection plus required tools from selected skills. Dynamic discovery may be disabled for a fixed explicit posture."
+                body: "Available controls what this agent may use. Visible controls what is advertised to the model. Dynamic discovery may promote only already-available tools into visibility."
             )
         }
     }
