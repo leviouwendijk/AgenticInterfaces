@@ -339,10 +339,10 @@ private extension AgenticConversationRunReviewControl {
                         action
                     )
 
-                case .continueRun,
-                     .stopRun,
+                case .continue_run,
+                     .stop_run,
                      .retry,
-                     .createFixBranch:
+                     .create_fix_branch:
                     return nil
                 }
             }

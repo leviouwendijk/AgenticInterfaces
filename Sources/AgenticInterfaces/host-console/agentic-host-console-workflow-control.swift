@@ -1579,8 +1579,8 @@ private extension AgenticHostConsoleWorkflowControl {
              .grant_for_turn,
              .grant_for_session,
              .retry,
-             .continueRun,
-             .createFixBranch,
+             .continue_run,
+             .create_fix_branch,
              .run_limit_continue,
              .run_limit_unlimited:
             return TerminalStyle.bold.apply(
@@ -1588,7 +1588,7 @@ private extension AgenticHostConsoleWorkflowControl {
             )
 
         case .deny,
-             .stopRun,
+             .stop_run,
              .run_limit_stop:
             return TerminalStyle(
                 .red

@@ -16,8 +16,8 @@ enum AgenticHostConsoleWorkflowFixture {
                 actions: [
                     .retry,
                     .skip,
-                    .createFixBranch,
-                    .stopRun,
+                    .create_fix_branch,
+                    .stop_run,
                 ]
             ),
             AgenticHostConsoleInterruptionPresentation(
@@ -31,7 +31,7 @@ enum AgenticHostConsoleWorkflowFixture {
                     .approve,
                     .deny,
                     .skip,
-                    .stopRun,
+                    .stop_run,
                 ]
             ),
         ]

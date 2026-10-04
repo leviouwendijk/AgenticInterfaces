@@ -29,9 +29,9 @@ enum AgenticHostConsoleWorkflowSmoke {
     }
 
     static func run() throws {
-        guard AgenticHostConsoleAction.continueRun.id == "continue_run",
-              AgenticHostConsoleAction.continueRun.title == "Continue ToolPlan",
-              AgenticHostConsoleAction.continueRun.summary
+        guard AgenticHostConsoleAction.continue_run.id == "continue_run",
+              AgenticHostConsoleAction.continue_run.title == "Continue ToolPlan",
+              AgenticHostConsoleAction.continue_run.summary
                 == "Continue the remaining ToolPlan after the resolved step.",
               AgenticHostConsoleAction.run_limit_continue(
                 iterations: 16
@@ -154,7 +154,7 @@ enum AgenticHostConsoleWorkflowSmoke {
             .char("j")
         )
 
-        guard console.currentAction == .createFixBranch,
+        guard console.currentAction == .create_fix_branch,
               renderedText(
                 &console,
                 columns: 64

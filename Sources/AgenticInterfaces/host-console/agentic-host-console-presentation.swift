@@ -124,10 +124,10 @@ public enum AgenticHostConsoleAction:
     case skip
     case grant_for_turn
     case grant_for_session
-    case continueRun
-    case stopRun
+    case continue_run
+    case stop_run
     case retry
-    case createFixBranch
+    case create_fix_branch
     case run_limit_continue(iterations: Int)
     case run_limit_unlimited
     case run_limit_stop
@@ -144,13 +144,13 @@ public enum AgenticHostConsoleAction:
             return "grant_for_turn"
         case .grant_for_session:
             return "grant_for_session"
-        case .continueRun:
+        case .continue_run:
             return "continue_run"
-        case .stopRun:
+        case .stop_run:
             return "stop_run"
         case .retry:
             return "retry"
-        case .createFixBranch:
+        case .create_fix_branch:
             return "create_fix_branch"
         case .run_limit_continue(let iterations):
             return "run_limit_continue:\(iterations)"
@@ -177,13 +177,13 @@ public enum AgenticHostConsoleAction:
 
         case .grant_for_session:
             return "This session"
-        case .continueRun:
+        case .continue_run:
             return "Continue ToolPlan"
-        case .stopRun:
+        case .stop_run:
             return "Stop"
         case .retry:
             return "Retry"
-        case .createFixBranch:
+        case .create_fix_branch:
             return "Create Fix Branch"
         case .run_limit_continue(let iterations):
             return "Continue to \(iterations) iterations"
@@ -206,13 +206,13 @@ public enum AgenticHostConsoleAction:
             return "Grant the requested workspace access until the current turn ends."
         case .grant_for_session:
             return "Grant the requested workspace access for the current session."
-        case .continueRun:
+        case .continue_run:
             return "Continue the remaining ToolPlan after the resolved step."
-        case .stopRun:
+        case .stop_run:
             return "Stop this run."
         case .retry:
             return "Retry the failed step."
-        case .createFixBranch:
+        case .create_fix_branch:
             return "Create a nested recovery branch for repairing the failed step."
         case .run_limit_continue(let iterations):
             return "Replace the run iteration limit with \(iterations) and continue the same checkpoint."
