@@ -9,29 +9,25 @@ public struct AgenticCapabilityManifest:
 {
     public let workspaceRoot: String?
     public let sessionID: String?
-    public let capabilities: [AgentToolCapability]
+    public let capabilities: [ToolRegistryInspectionEntry]
     public let invocationSchema: JSONSchema
     public let canonicalPlanExample: ToolPlan?
-
-    public var definitions: [ToolDescriptor] {
-        capabilities.map(\.definition)
-    }
 
     public init(
         workspaceRoot: String? = nil,
         sessionID: String? = nil,
-        capabilities: [AgentToolCapability]
+        capabilities: [ToolRegistryInspectionEntry]
     ) {
         self.workspaceRoot = workspaceRoot
         self.sessionID = sessionID
         self.capabilities = capabilities
         self.invocationSchema =
             AgenticToolHostInvocationContract.schema(
-                capabilities: capabilities
+                registryInspection: capabilities
             )
         self.canonicalPlanExample =
             AgenticToolHostInvocationContract.canonicalPlanExample(
-                capabilities: capabilities
+                registryInspection: capabilities
             )
     }
 }
@@ -47,7 +43,7 @@ public extension AgenticToolHost {
                     .path,
             sessionID: sessionID,
             capabilities:
-                registry.capabilities
+                registry.inspect().tools
         )
     }
 
@@ -78,13 +74,10 @@ public enum AgenticCapabilityManifestRenderer {
         for capability in manifest.capabilities {
             lines.append("")
             lines.append(
-                capability.definition.identifier.rawValue
+                capability.identifier.rawValue
             )
             lines.append(
-                "    risk: \(capability.definition.risk.rawValue)"
-            )
-            lines.append(
-                "    working_location: \(capability.execution.workingLocation.rawValue)"
+                "    risk: \(capability.risk.rawValue)"
             )
             lines.append(
                 "    model_exposure: \(capability.isModelFacing ? "model_facing" : "host_only")"
@@ -97,7 +90,7 @@ public enum AgenticCapabilityManifestRenderer {
             )
             lines.append(
                 contentsOf: indentedLines(
-                    capability.definition.description,
+                    capability.description,
                     spaces: 8
                 )
             )
@@ -159,7 +152,7 @@ private extension AgenticCapabilityManifestRenderer {
             "    - Use sequence for ordered success-gated dependencies; it stops after the first non-success and skips remaining siblings.",
             "    - Use onSuccess, onFailure, and onDenied when subsequent work differs by call outcome.",
             "    - After pushing an upstream Swift package, when a later step builds or tests a dependent package and swift_package_update is declared, run swift_package_update in that dependent package first so it consumes the new upstream revision.",
-            "    - Use execution.workspace.subpath only on tool variants whose Invocation schema advertises execution. It selects a working location beneath the workspace authority root; it does not narrow or rebase authority.",
+            "    - execution.workspace.subpath is ordinary optional invocation metadata for every model-facing tool. It selects a working location beneath the workspace authority root; Workspace decides whether the target is permitted and it does not narrow or rebase authority.",
             "    - Normal invocation already performs governed preflight, policy evaluation, and approval handling before execution; do not issue a separate preflight by default.",
             "    - Use explicit preflight only when a tool call should be inspected or reviewed without executing it.",
             "    - Prefer a declared typed Agentic tool over an equivalent shell or process operation.",

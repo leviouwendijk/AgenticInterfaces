@@ -40,52 +40,22 @@ public struct AgenticToolHostCall:
     }
 }
 
-/// Workspace working-location selection for one targetable invocation.
-@JSONSchema
-public struct AgenticToolHostWorkspaceTarget:
-    Sendable,
-    Codable,
-    Hashable
-{
-    /// Existing directory beneath the host workspace authority root.
-    public let subpath: String
-
-    public init(
-        subpath: String
-    ) {
-        self.subpath = subpath
-    }
-}
-
 /// Execution metadata that remains outside semantic tool input.
-@JSONSchema
-public struct AgenticToolHostExecution:
-    Sendable,
-    Codable,
-    Hashable
-{
-    /// Optional working location beneath the host workspace authority root.
-    public let workspace: AgenticToolHostWorkspaceTarget?
-
-    public init(
-        workspace: AgenticToolHostWorkspaceTarget? = nil
-    ) {
-        self.workspace = workspace
-    }
-
-    public func toolExecution() throws
-        -> ToolInvocation.Execution
-    {
-        try JSONToolBridge.decode(
-            ToolInvocation.Execution.self,
-            from: JSONToolBridge.encode(self)
-        )
-    }
-
-    public var jsonvalue: JSONValue? {
-        try? JSONToolBridge.encode(self)
-    }
-}
+///
+/// The host consumes Agentic's canonical `ToolInvocation.Execution` and
+/// `WorkspaceTarget` directly rather than owning a parallel execution DTO or
+/// JSON-decode bridge. `execution.workspace.subpath` is ordinary optional
+/// invocation metadata for every model-facing tool; Workspace decides whether a
+/// requested target is permitted. There is no per-tool targetable contract to
+/// advertise here, so the host never encodes one.
+///
+/// Schema authority: the host's flattened wire grammar is `{ name, input,
+/// execution }` (or `AgentToolCall { id, name, input }`), which intentionally
+/// differs from Agentic's `{ arguments, execution? }` model-facing envelope. The
+/// host therefore derives its `input` property from Agentic's authoritative
+/// `semanticInputSchema`, and its `execution` property from Agentic's canonical
+/// `ToolInvocation.Execution.jsonschema`. No model-facing execution policy is
+/// reconstructed by the host.
 
 /// Canonical flattened direct invocation accepted by `agentic host bridge`.
 @JSONSchema
@@ -103,14 +73,15 @@ public struct AgenticToolHostDirectInvocation:
     /// Input payload conforming to the selected tool's semantic input schema.
     public let input: JSONValue
 
-    /// Optional execution metadata. Workspace targeting is admitted only for tools that advertise it.
-    public let execution: AgenticToolHostExecution?
+    /// Optional invocation execution metadata. Workspace selects whether the
+    /// requested target is permitted; every model-facing tool may carry it.
+    public let execution: ToolInvocation.Execution?
 
     public init(
         id: String,
         name: String,
         input: JSONValue,
-        execution: AgenticToolHostExecution? = nil
+        execution: ToolInvocation.Execution? = nil
     ) {
         self.id = id
         self.name = name
@@ -174,7 +145,7 @@ public struct AgenticToolHostPlanNode:
 {
     public let kind: ToolPlan.Node.Kind
     public let call: AgenticToolHostCall?
-    public let execution: AgenticToolHostExecution?
+    public let execution: ToolInvocation.Execution?
     public let children: [AgenticToolHostPlanNode]
     public let onSuccess: [AgenticToolHostPlanNode]
     public let onFailure: [AgenticToolHostPlanNode]
@@ -183,7 +154,7 @@ public struct AgenticToolHostPlanNode:
     public init(
         kind: ToolPlan.Node.Kind,
         call: AgenticToolHostCall? = nil,
-        execution: AgenticToolHostExecution? = nil,
+        execution: ToolInvocation.Execution? = nil,
         children: [AgenticToolHostPlanNode] = [],
         onSuccess: [AgenticToolHostPlanNode] = [],
         onFailure: [AgenticToolHostPlanNode] = [],
@@ -212,27 +183,17 @@ public struct AgenticToolHostPlanNode:
                     )
             }
 
-            let parsedCall = try registry
-                .parseModelCall(
-                    call.agentToolCall
+            guard registry.modelFacingDefinition(
+                identifiedBy: call.agentToolCall.tool
+            ) != nil else {
+                throw AgenticToolHostError.invalidInvocationPayload(
+                    "Tool '\(call.name)' is not registered as model-facing."
                 )
-
-            if execution != nil,
-               parsedCall
-                    .capability
-                    .execution
-                    .workingLocation != .targetable
-            {
-                throw AgenticToolHostError
-                    .invalidInvocationPayload(
-                        "Tool '\(parsedCall.call.tool.rawValue)' does not support execution.workspace.subpath."
-                    )
             }
 
             return .call(
-                parsedCall.call,
-                execution:
-                    execution?.jsonvalue,
+                call.agentToolCall,
+                execution: execution,
                 onSuccess:
                     try onSuccess.map {
                         try $0.agentToolPlanNode(
@@ -292,7 +253,7 @@ private struct AgenticToolHostPlanNodeSchemaShape:
 {
     let kind: String
     let call: JSONValue?
-    let execution: AgenticToolHostExecution?
+    let execution: ToolInvocation.Execution?
     let children: [JSONValue]
     let onSuccess: [JSONValue]
     let onFailure: [JSONValue]
@@ -302,7 +263,7 @@ private struct AgenticToolHostPlanNodeSchemaShape:
 /// Runtime-specialized host invocation contract generated from the registered ToolRegistry.
 public enum AgenticToolHostInvocationContract {
     public static func schema(
-        capabilities: [AgentToolCapability]
+        registryInspection capabilities: [ToolRegistryInspectionEntry]
     ) -> JSONSchema {
         let modelCapabilities = capabilities.filter(
             \.isModelFacing
@@ -349,22 +310,10 @@ public enum AgenticToolHostInvocationContract {
             minItems: 1
         )
 
-        let targetable =
-            modelCapabilities.filter {
-                $0.execution.workingLocation == .targetable
-            }
-
-        let nonTargetable =
-            modelCapabilities.filter {
-                $0.execution.workingLocation != .targetable
-            }
-
         let plan = planSchema()
         let planNode = planNodeSchema(
-            hasTargetableCalls:
-                !targetable.isEmpty,
-            hasNonTargetableCalls:
-                !nonTargetable.isEmpty
+            hasCalls:
+                !modelCapabilities.isEmpty
         )
 
         var definitions = callDefinitions
@@ -373,26 +322,6 @@ public enum AgenticToolHostInvocationContract {
             executionSchema()
         definitions["ToolPlanNode"] =
             planNode
-
-        if !targetable.isEmpty {
-            definitions[
-                "WorkspaceTargetableAgentToolCall"
-            ] = callUnionSchema(
-                targetable,
-                description:
-                    "Registered calls that admit execution.workspace.subpath."
-            )
-        }
-
-        if !nonTargetable.isEmpty {
-            definitions[
-                "NonWorkspaceTargetableAgentToolCall"
-            ] = callUnionSchema(
-                nonTargetable,
-                description:
-                    "Registered calls that do not admit execution.workspace.subpath."
-            )
-        }
 
         return JSONSchema.oneOf(
             [
@@ -409,7 +338,7 @@ public enum AgenticToolHostInvocationContract {
     }
 
     public static func canonicalPlanExample(
-        capabilities: [AgentToolCapability]
+        registryInspection capabilities: [ToolRegistryInspectionEntry]
     ) -> ToolPlan? {
         guard let capability = exampleCapability(
             capabilities
@@ -425,21 +354,15 @@ public enum AgenticToolHostInvocationContract {
 
         let call = ToolCall(
             id: "example-call",
-            tool: capability.definition.identifier,
+            tool: capability.identifier,
             input: input
         )
 
-        let execution: JSONValue?
-
-        if capability.execution.workingLocation == .targetable {
-            execution = AgenticToolHostExecution(
-                workspace: .init(
-                    subpath: "DependentPackage"
-                )
-            ).jsonvalue
-        } else {
-            execution = nil
-        }
+        let execution = ToolInvocation.Execution(
+            workspace: WorkspaceTarget(
+                subpath: "DependentPackage"
+            )
+        )
 
         return try? ToolPlan(
             id: "example-plan",
@@ -457,21 +380,19 @@ public enum AgenticToolHostInvocationContract {
 
 private extension AgenticToolHostInvocationContract {
     static func modelCapabilities(
-        _ capabilities: [AgentToolCapability]
-    ) -> [AgentToolCapability] {
+        _ capabilities: [ToolRegistryInspectionEntry]
+    ) -> [ToolRegistryInspectionEntry] {
         capabilities.filter(
             \.isModelFacing
         )
     }
 
     static func semanticInputSchema(
-        for capability: AgentToolCapability
+        for capability: ToolRegistryInspectionEntry
     ) -> JSONSchema {
-        guard case .modelFacing(
-            let inputSchema
-        ) = capability.modelContract else {
+        guard let inputSchema = capability.semanticInputSchema else {
             preconditionFailure(
-                "Host invocation schema requested for host-only tool '\(capability.definition.name)'."
+                "Host invocation schema requested for host-only tool '\(capability.identifier.rawValue)'."
             )
         }
 
@@ -479,13 +400,13 @@ private extension AgenticToolHostInvocationContract {
     }
 
     static func callDefinitionName(
-        _ capability: AgentToolCapability
+        _ capability: ToolRegistryInspectionEntry
     ) -> String {
-        "toolcall_\(capability.definition.name)"
+        "toolcall_\(capability.identifier.rawValue)"
     }
 
     static func callUnionSchema(
-        _ capabilities: [AgentToolCapability],
+        _ capabilities: [ToolRegistryInspectionEntry],
         description: String
     ) -> JSONSchema {
         JSONSchema.oneOf(
@@ -499,12 +420,12 @@ private extension AgenticToolHostInvocationContract {
     }
 
     static func callSchema(
-        for capability: AgentToolCapability
+        for capability: ToolRegistryInspectionEntry
     ) -> JSONSchema {
         specializeObject(
             AgenticToolHostCall.jsonschema,
             description:
-                capability.definition.description
+                capability.description
         ) { property in
             switch property.name {
             case "name":
@@ -512,7 +433,7 @@ private extension AgenticToolHostInvocationContract {
                     property,
                     schema: .constant(
                         .string(
-                            capability.definition.name
+                            capability.identifier.rawValue
                         )
                     )
                 )
@@ -533,12 +454,12 @@ private extension AgenticToolHostInvocationContract {
     }
 
     static func directInvocationSchema(
-        for capability: AgentToolCapability
+        for capability: ToolRegistryInspectionEntry
     ) -> JSONSchema {
         specializeObject(
             AgenticToolHostDirectInvocation.jsonschema,
             description:
-                capability.definition.description
+                capability.description
         ) { property in
             switch property.name {
             case "name":
@@ -546,7 +467,7 @@ private extension AgenticToolHostInvocationContract {
                     property,
                     schema: .constant(
                         .string(
-                            capability.definition.name
+                            capability.identifier.rawValue
                         )
                     )
                 )
@@ -561,13 +482,6 @@ private extension AgenticToolHostInvocationContract {
                 )
 
             case "execution":
-                guard capability
-                    .execution
-                    .workingLocation == .targetable
-                else {
-                    return nil
-                }
-
                 return property
 
             default:
@@ -577,12 +491,12 @@ private extension AgenticToolHostInvocationContract {
     }
 
     static func executionSchema() -> JSONSchema {
-        AgenticToolHostExecution.jsonschema
+        ToolInvocation.Execution.jsonschema
     }
 
     static func planSchema() -> JSONSchema {
         JSONSchema.object(
-            description: "Recursive ToolPlan. Call-node execution is a sibling of call and is available only on targetable tool variants.",
+            description: "Recursive ToolPlan plan. Call-node execution is a sibling of call; `execution.workspace.subpath` is optional invocation metadata available to every model-facing tool, and Workspace decides whether the target is permitted.",
             additionalProperties: .disallowed
         ) {
             JSONSchema.string(
@@ -609,8 +523,7 @@ private extension AgenticToolHostInvocationContract {
     }
 
     static func planNodeSchema(
-        hasTargetableCalls: Bool,
-        hasNonTargetableCalls: Bool
+        hasCalls: Bool
     ) -> JSONSchema {
         let shape =
             AgenticToolHostPlanNodeSchemaShape
@@ -717,25 +630,10 @@ private extension AgenticToolHostInvocationContract {
             batch,
         ]
 
-        if hasTargetableCalls {
+        if hasCalls {
             variants.append(
                 callPlanNodeSchema(
                     shape: shape,
-                    callReference:
-                        "#/$defs/WorkspaceTargetableAgentToolCall",
-                    allowsExecution: true,
-                    recursiveArray: recursiveArray
-                )
-            )
-        }
-
-        if hasNonTargetableCalls {
-            variants.append(
-                callPlanNodeSchema(
-                    shape: shape,
-                    callReference:
-                        "#/$defs/NonWorkspaceTargetableAgentToolCall",
-                    allowsExecution: false,
                     recursiveArray: recursiveArray
                 )
             )
@@ -744,14 +642,12 @@ private extension AgenticToolHostInvocationContract {
         return .oneOf(
             variants,
             description:
-                "Recursive ToolPlan node. Call nodes specialize tool input and execution capability through shared registered-tool unions."
+                "Recursive ToolPlan node. Call nodes carry ordinary optional execution metadata through the shared canonical execution union."
         )
     }
 
     static func callPlanNodeSchema(
         shape: JSONSchema,
-        callReference: String,
-        allowsExecution: Bool,
         recursiveArray: JSONSchema
     ) -> JSONSchema {
         let emptyRecursiveArray = JSONSchema.array(
@@ -766,9 +662,7 @@ private extension AgenticToolHostInvocationContract {
         return specializeObject(
             shape,
             description:
-                allowsExecution
-                    ? "Invoke one workspace-targetable registered tool and optionally branch on outcome."
-                    : "Invoke one non-workspace-targetable registered tool and optionally branch on outcome."
+                "Invoke one registered tool and optionally branch on outcome."
         ) { property in
             switch property.name {
             case "kind":
@@ -784,20 +678,18 @@ private extension AgenticToolHostInvocationContract {
                 replacing(
                     property,
                     schema: .reference(
-                        callReference
+                        "#/$defs/AgentToolCall"
                     ),
                     isRequired: true
                 )
 
             case "execution":
-                allowsExecution
-                    ? replacing(
-                        property,
-                        schema: .reference(
-                            "#/$defs/AgentToolExecution"
-                        )
+                replacing(
+                    property,
+                    schema: .reference(
+                        "#/$defs/AgentToolExecution"
                     )
-                    : nil
+                )
 
             case "children":
                 replacing(
@@ -862,15 +754,13 @@ private extension AgenticToolHostInvocationContract {
     }
 
     static func exampleCapability(
-        _ capabilities: [AgentToolCapability]
-    ) -> AgentToolCapability? {
+        _ capabilities: [ToolRegistryInspectionEntry]
+    ) -> ToolRegistryInspectionEntry? {
         let modelFacing = modelCapabilities(
             capabilities
         )
 
-        return modelFacing.first {
-            $0.execution.workingLocation == .targetable
-        } ?? modelFacing.first
+        return modelFacing.first
     }
 
     static func exampleValue(

@@ -15,8 +15,9 @@ public enum AgenticToolHostJSON {
     /// Legacy structural decoder for trusted/internal callers.
     ///
     /// Model-facing invocation input should use AgenticToolHostInvocationParser
-    /// through AgenticToolHost.decodeInvocationRequest so every call crosses
-    /// the live registry's captured typed parser.
+    /// through AgenticToolHost.decodeInvocationRequest. The parser owns the host
+    /// wire grammar and model-facing admission; semantic `input` remains JSONValue
+    /// until the registered Tool boundary decodes its concrete `T.Input`.
     public static func decodeInvocationRequest(
         _ data: Data,
         registry: ToolRegistry

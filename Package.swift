@@ -63,6 +63,7 @@ let package = Package(
                 .product(name: "Agentic", package: "Agentic"),
                 .product(name: "DSL", package: "DSL"),
                 .product(name: "Terminal", package: "Terminal"),
+                .product(name: "Schema", package: "Schema"),
             ],
             path: "Testing/AgenticInterfacesTestFlows"
         ),

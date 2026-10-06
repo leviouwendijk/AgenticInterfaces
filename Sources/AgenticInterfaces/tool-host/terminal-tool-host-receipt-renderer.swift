@@ -103,7 +103,7 @@ private extension TerminalToolHostReceiptRenderer {
         )
 
         return block(
-            title: invocation.review.call.tool.rawValue,
+            title: invocation.review.invocation.tool.rawValue,
             fields: fields,
             body: projectionBody(
                 projection

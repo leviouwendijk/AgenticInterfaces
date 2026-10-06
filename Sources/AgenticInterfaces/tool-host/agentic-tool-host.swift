@@ -164,16 +164,22 @@ public struct AgenticToolHost {
     public func list() -> AgenticToolHostEnvelope {
         .init(
             action: .list,
-            definitions: registry.definitions
+            definitions: registry.inspect().tools.map {
+                ToolDescriptor(
+                    identifier: $0.identifier,
+                    description: $0.description,
+                    risk: $0.risk
+                )
+            }
         )
     }
 
     public func describe(
         _ name: String
     ) throws -> AgenticToolHostEnvelope {
-        guard let definition = registry.definitions.first(
+        guard let entry = registry.inspect().tools.first(
             where: {
-                $0.name == name
+                $0.identifier.rawValue == name
             }
         ) else {
             throw AgenticToolHostError.missingTool(
@@ -183,7 +189,11 @@ public struct AgenticToolHost {
 
         return .init(
             action: .describe,
-            definition: definition
+            definition: ToolDescriptor(
+                identifier: entry.identifier,
+                description: entry.description,
+                risk: entry.risk
+            )
         )
     }
 
@@ -192,9 +202,13 @@ public struct AgenticToolHost {
         execution: ToolInvocation.Execution? = nil
     ) async throws -> AgenticToolHostEnvelope {
         let review = try await invoker.review(
-            call,
-            execution: execution,
-            workspace: workspace
+            ToolInvocation(
+                id: call.id,
+                tool: call.tool,
+                arguments: call.input,
+                execution: execution
+            ),
+            context: context()
         )
 
         return .init(
@@ -208,9 +222,13 @@ public struct AgenticToolHost {
         execution: ToolInvocation.Execution? = nil
     ) async throws -> AgenticToolHostEnvelope {
         let invocation = try await invoker.invoke(
-            call,
-            execution: execution,
-            workspace: workspace,
+            ToolInvocation(
+                id: call.id,
+                tool: call.tool,
+                arguments: call.input,
+                execution: execution
+            ),
+            context: context(),
             approvalHandler: approvalHandler
         )
 
@@ -248,7 +266,7 @@ public struct AgenticToolHost {
     ) async throws -> AgenticToolHostEnvelope {
         let result = try await invoker.invoke(
             plan,
-            workspace: workspace,
+            in: context(),
             approvalHandler: approvalHandler
         )
 
@@ -260,6 +278,11 @@ public struct AgenticToolHost {
 }
 
 private extension AgenticToolHost {
+    func context() -> ToolContext {
+        .init(
+            workspace: workspace
+        )
+    }
     func invokePayload(
         _ request: AgenticToolHostRequest
     ) async throws -> AgenticToolHostEnvelope {

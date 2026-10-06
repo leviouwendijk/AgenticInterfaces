@@ -31,7 +31,11 @@ public struct AgenticApprovalPrompt: Sendable, Codable, Hashable {
     ) {
         self.init(
             title: title,
-            toolCall: review.call,
+            toolCall: ToolCall(
+                id: review.invocation.id,
+                tool: review.invocation.tool,
+                input: review.invocation.arguments
+            ),
             preflight: review.preflight,
             requirement: review.requirement,
             review: review,

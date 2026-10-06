@@ -5,8 +5,10 @@ import Primitives
 /// Parses untrusted invocation JSON through the live registered tool universe.
 ///
 /// The raw JSON shape is classified and diagnosed before Codable construction.
-/// Every admitted model-facing call is then resolved through ToolRegistry and
-/// crosses the typed input parser captured when that tool was registered.
+/// The host grammar already carries semantic tool input under `input`, so parsing
+/// preserves that JSONValue rather than reinterpreting it as Agentic's raw
+/// provider/model `{ arguments, execution? }` envelope. Concrete `T.Input`
+/// decoding remains owned by the registered Tool boundary during preflight/call.
 public struct AgenticToolHostInvocationParser:
     Sendable
 {
@@ -36,7 +38,7 @@ public struct AgenticToolHostInvocationParser:
 
         let diagnostics = AgenticToolHostInvocationContract.diagnostics(
             value,
-            capabilities: registry.capabilities
+            capabilities: registry.inspect().tools
         )
 
         guard diagnostics.isEmpty else {
@@ -54,14 +56,7 @@ public struct AgenticToolHostInvocationParser:
 
             return AgenticToolHostRequest(
                 action: .invoke,
-                calls:
-                    try calls.map {
-                        try registry
-                            .parseModelCall(
-                                $0.agentToolCall
-                            )
-                            .call
-                    }
+                calls: calls.map(\.agentToolCall)
             )
 
         case .object(let object):
@@ -84,39 +79,11 @@ public struct AgenticToolHostInvocationParser:
                 AgenticToolHostDirectInvocation.self,
                 from: data
             )
-            let parsedCall = try registry.parseModelCall(
-                invocation.call
-            )
-
-            if invocation.execution != nil,
-               parsedCall.capability.execution.workingLocation
-                    != .targetable
-            {
-                throw AgenticToolHostJSONError.invalidInvocation(
-                    JSONDiagnostics(
-                        [
-                            JSONIssue(
-                                kind: .invalidValue,
-                                path: JSONCodingPath(
-                                    [
-                                        .key("execution"),
-                                        .key("workspace"),
-                                    ]
-                                ),
-                                reason: "Tool '\(parsedCall.call.tool.rawValue)' does not support workspace targeting."
-                            ),
-                        ]
-                    )
-                )
-            }
 
             return AgenticToolHostRequest(
                 action: .invoke,
-                call: parsedCall.call,
-                execution:
-                    try invocation
-                        .execution?
-                        .toolExecution()
+                call: invocation.call,
+                execution: invocation.execution
             )
 
         default:

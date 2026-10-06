@@ -5,10 +5,10 @@ import Schema
 extension AgenticToolHostInvocationContract {
     static func diagnostics(
         _ value: JSONValue,
-        capabilities: [AgentToolCapability]
+        capabilities: [ToolRegistryInspectionEntry]
     ) -> JSONDiagnostics {
         let contract = schema(
-            capabilities: capabilities
+            registryInspection: capabilities
         )
 
         guard case .oneOf(let forms) = contract.form,
@@ -77,7 +77,7 @@ private extension AgenticToolHostInvocationContract {
         object: [String: JSONValue],
         direct: JSONSchema,
         contract: JSONSchema,
-        capabilities: [AgentToolCapability]
+        capabilities: [ToolRegistryInspectionEntry]
     ) -> JSONDiagnostics {
         let structural = AgenticToolHostDirectInvocation
             .jsonschema
@@ -132,7 +132,7 @@ private extension AgenticToolHostInvocationContract {
         _ values: [JSONValue],
         contract: JSONSchema,
         batch: JSONSchema,
-        capabilities: [AgentToolCapability]
+        capabilities: [ToolRegistryInspectionEntry]
     ) -> JSONDiagnostics {
         if values.isEmpty {
             return batch
@@ -174,7 +174,7 @@ private extension AgenticToolHostInvocationContract {
     static func callDiagnostics(
         _ value: JSONValue,
         contract: JSONSchema,
-        capabilities: [AgentToolCapability]
+        capabilities: [ToolRegistryInspectionEntry]
     ) -> JSONDiagnostics {
         let structural = AgenticToolHostCall
             .jsonschema
@@ -232,7 +232,7 @@ private extension AgenticToolHostInvocationContract {
         object: [String: JSONValue],
         plan: JSONSchema,
         contract: JSONSchema,
-        capabilities: [AgentToolCapability]
+        capabilities: [ToolRegistryInspectionEntry]
     ) -> JSONDiagnostics {
         let structural = plan
             .defining(
@@ -272,7 +272,7 @@ private extension AgenticToolHostInvocationContract {
         in value: JSONValue,
         path: JSONCodingPath,
         contract: JSONSchema,
-        capabilities: [AgentToolCapability]
+        capabilities: [ToolRegistryInspectionEntry]
     ) -> [JSONIssue] {
         guard case .object(let object) = value else {
             return [
@@ -414,7 +414,7 @@ private extension AgenticToolHostInvocationContract {
         kind: String?,
         path: JSONCodingPath,
         contract: JSONSchema,
-        capabilities: [AgentToolCapability]
+        capabilities: [ToolRegistryInspectionEntry]
     ) -> [JSONIssue] {
         let keys: [String]
 
@@ -476,7 +476,7 @@ private extension AgenticToolHostInvocationContract {
         kind: String,
         object: [String: JSONValue],
         contract: JSONSchema,
-        capabilities: [AgentToolCapability]
+        capabilities: [ToolRegistryInspectionEntry]
     ) -> JSONSchema? {
         guard let node = contract.definitions[
             "ToolPlanNode"
@@ -508,33 +508,7 @@ private extension AgenticToolHostInvocationContract {
             ) == "call"
         }
 
-        if case .object(let call) = object["call"],
-           case .string(let name) = call["name"],
-           let capability = capability(
-            named: name,
-            in: capabilities
-           )
-        {
-            return callVariants.first {
-                hasProperty(
-                    "execution",
-                    in: $0
-                ) == (
-                    capability.execution.workingLocation
-                        == .targetable
-                )
-            }
-        }
-
-        let carriesExecution = object["execution"] != nil
-
-        return callVariants.first {
-            hasProperty(
-                "execution",
-                in: $0
-            ) == carriesExecution
-        }
-            ?? callVariants.first
+        return callVariants.first
     }
 
     static func callSchema(
@@ -600,11 +574,11 @@ private extension AgenticToolHostInvocationContract {
 
     static func capability(
         named name: String,
-        in capabilities: [AgentToolCapability]
-    ) -> AgentToolCapability? {
+        in capabilities: [ToolRegistryInspectionEntry]
+    ) -> ToolRegistryInspectionEntry? {
         capabilities.first {
             $0.isModelFacing
-                && $0.definition.name == name
+                && $0.identifier.rawValue == name
         }
     }
 
