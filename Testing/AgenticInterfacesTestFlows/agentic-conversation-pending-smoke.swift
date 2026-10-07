@@ -7,8 +7,9 @@ enum AgenticConversationPendingSmoke {
         case pendingStateMissing
         case pendingPresentationMissing
         case pendingSpinnerChanged
-        case pendingComposerMutated
+        case pendingComposerDidNotRemainEditable
         case pendingNavigationBlocked
+        case pendingSupersedeGateMissing
         case pendingStateDidNotClear
     }
 
@@ -109,15 +110,20 @@ enum AgenticConversationPendingSmoke {
             .char("x")
         )
 
-        guard control.draftText.isEmpty else {
-            throw Failure.pendingComposerMutated
+        guard control.draftText == "x",
+              control.isResponsePending else {
+            throw Failure.pendingComposerDidNotRemainEditable
         }
 
         _ = control.handle(
-            .escape
+            .control("C")
+        )
+        _ = control.handle(
+            .tab
         )
 
-        guard control.focus.current == .transcript else {
+        guard control.focus.current == .transcript,
+              control.isResponsePending else {
             throw Failure.pendingNavigationBlocked
         }
 
@@ -129,9 +135,34 @@ enum AgenticConversationPendingSmoke {
         )
 
         guard control.focus.current == .composer,
+              control.draftText == "x",
               control.isResponsePending
         else {
             throw Failure.pendingNavigationBlocked
+        }
+
+        guard control.handle(
+            TerminalKeyStroke(
+                key: .enter,
+                modifiers: .control
+            )
+        ) == nil,
+              control.focus.current == .confirmation,
+              control.draftText == "x",
+              control.isResponsePending
+        else {
+            throw Failure.pendingSupersedeGateMissing
+        }
+
+        _ = control.handle(
+            .escape
+        )
+
+        guard control.focus.current == .composer,
+              control.draftText == "x",
+              control.isResponsePending
+        else {
+            throw Failure.pendingSupersedeGateMissing
         }
 
         control.endPendingTurn()

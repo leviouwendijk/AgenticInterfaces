@@ -62,7 +62,8 @@ enum AgenticConversationLab {
                 switch event {
                 case .exitRequested:
                     return
-                case .submissionRequested(let submission):
+                case .submissionRequested(let submission),
+                     .supersedingSubmissionRequested(let submission):
                     let userID = "lab-user-\(nextMessageOrdinal)"
                     let assistantID = "lab-assistant-\(nextMessageOrdinal)"
                     nextMessageOrdinal += 1

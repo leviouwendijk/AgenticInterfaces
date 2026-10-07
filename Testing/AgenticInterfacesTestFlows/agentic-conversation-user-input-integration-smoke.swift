@@ -42,7 +42,8 @@ enum AgenticConversationUserInputIntegrationSmoke {
         )
         let reply = control.handle(
             TerminalKeyStroke(
-                key: .enter
+                key: .enter,
+                modifiers: .control
             )
         )
 
@@ -59,7 +60,8 @@ enum AgenticConversationUserInputIntegrationSmoke {
         )
         guard control.handle(
             TerminalKeyStroke(
-                key: .enter
+                key: .enter,
+                modifiers: .control
             )
         ) == nil else {
             throw Failure.duplicateReplyWasNotBlocked

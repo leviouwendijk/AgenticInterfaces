@@ -192,7 +192,8 @@ public struct AgenticConversationRunCardPresentation:
             interruption.runID == run.id
         }
         let isTerminal =
-            run.state == .completed
+            run.state == .interrupted
+                || run.state == .completed
                 || run.state == .failed
         let step: AgenticHostConsoleStepPresentation?
 
@@ -218,6 +219,12 @@ public struct AgenticConversationRunCardPresentation:
         }
 
         var body: [String] = []
+
+        if let iteration = run.iteration {
+            body.append(
+                "Iteration \(iteration)"
+            )
+        }
 
         if isTerminal,
            !run.steps.isEmpty
@@ -307,6 +314,9 @@ public struct AgenticConversationRunCardPresentation:
         case .completed:
             return .success
 
+        case .interrupted:
+            return .neutral
+
         case .failed:
             return .failure
         }
@@ -334,6 +344,9 @@ public struct AgenticConversationRunCardPresentation:
         case .onHold:
             return "Run · recovery required"
 
+        case .interrupted:
+            return "Run · interrupted"
+
         case .completed:
             return "Run · completed"
 
@@ -351,7 +364,8 @@ public struct AgenticConversationRunCardPresentation:
         }
 
         switch state {
-        case .completed,
+        case .interrupted,
+             .completed,
              .failed:
             return "Enter for run details"
 

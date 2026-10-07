@@ -373,8 +373,19 @@ enum AgenticHostConsoleWorkflowSmoke {
 
         guard pending.handle(
             .char("x")
-        ) == .feedbackRequested(
-            message: "No run controls available."
+        ) == .runControlsOpened(
+            runID: "pending-run"
+        ),
+              pending.focus.current == .runControls,
+              pending.currentRunControl == .stop_urgent else {
+            throw Failure.unexpectedUnavailableRunControl
+        }
+
+        guard pending.handle(
+            .enter
+        ) == .runControlRequested(
+            runID: "pending-run",
+            control: .stop_urgent
         ),
               pending.focus.current == .base else {
             throw Failure.unexpectedUnavailableRunControl

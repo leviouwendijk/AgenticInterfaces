@@ -15,6 +15,7 @@ public enum AgenticConversationFocus: Sendable, Hashable {
     case runReview
     case userInput
     case run
+    case confirmation
 }
 
 public enum AgenticConversationEvent: Sendable, Hashable {
@@ -24,6 +25,7 @@ public enum AgenticConversationEvent: Sendable, Hashable {
     case voiceCancelRequested
     case contentPinned(AgenticConversationContentPresentation)
     case submissionRequested(AgenticConversationSubmission)
+    case supersedingSubmissionRequested(AgenticConversationSubmission)
     case programInvocationRequested(
         invocation: AgenticConversationProgramInvocation,
         submission: AgenticConversationSubmission
@@ -53,6 +55,18 @@ private enum AgenticConversationTranscriptReveal: Sendable {
     case end
 }
 
+private enum AgenticConversationConfirmationPurpose:
+    Sendable
+{
+    case supersede(
+        AgenticConversationSubmission
+    )
+    case stop(
+        runID: String,
+        control: AgenticHostConsoleRunControl
+    )
+}
+
 public struct AgenticConversationControl: Sendable {
     public private(set) var snapshot: AgenticConversationSnapshot
     public private(set) var focus: TerminalFocusStack<AgenticConversationFocus>
@@ -79,6 +93,8 @@ public struct AgenticConversationControl: Sendable {
     private var userInput: AgenticConversationUserInputControl?
     private var resolvingUserInputID: String?
     private var hostConsole: AgenticHostConsoleWorkflowControl?
+    private var confirmation: AgenticConversationConfirmationControl?
+    private var confirmationPurpose: AgenticConversationConfirmationPurpose?
 
     public init(snapshot: AgenticConversationSnapshot) {
         let pendingUserInput = snapshot.pendingUserInput
@@ -123,6 +139,8 @@ public struct AgenticConversationControl: Sendable {
         }
         self.resolvingUserInputID = nil
         self.hostConsole = nil
+        self.confirmation = nil
+        self.confirmationPurpose = nil
 
         if pendingUserInput != nil {
             self.focus.push(
@@ -300,8 +318,7 @@ public struct AgenticConversationControl: Sendable {
                 )
             }
 
-            guard focus.current == .composer,
-                  pendingSubmission == nil else {
+            guard focus.current == .composer else {
                 return nil
             }
 
@@ -332,6 +349,12 @@ public struct AgenticConversationControl: Sendable {
     public mutating func handle(
         _ keyStroke: TerminalKeyStroke
     ) -> AgenticConversationEvent? {
+        if focus.current == .confirmation {
+            return handleConfirmation(
+                keyStroke.key
+            )
+        }
+
         if focus.current == .userInput {
             let userInputStroke = keyStroke.key == .control("C")
                 ? TerminalKeyStroke(
@@ -391,7 +414,8 @@ public struct AgenticConversationControl: Sendable {
                  .settings,
                  .runReview,
                  .userInput,
-                 .run:
+                 .run,
+                 .confirmation:
                 break
             }
         }
@@ -436,6 +460,8 @@ public struct AgenticConversationControl: Sendable {
             )
         case .run:
             return handleRun(key)
+        case .confirmation:
+            return handleConfirmation(key)
         }
     }
 
@@ -485,6 +511,16 @@ public struct AgenticConversationControl: Sendable {
 
         renderConversation(into: &frame, in: region)
 
+        if focus.current == .confirmation,
+           let confirmation
+        {
+            confirmation.render(
+                into: &frame,
+                in: region
+            )
+            return
+        }
+
         if focus.current == .voice {
             renderVoice(
                 into: &frame,
@@ -528,7 +564,8 @@ public struct AgenticConversationControl: Sendable {
 
         case .voice,
              .transcript,
-             .run:
+             .run,
+             .confirmation:
             break
         }
     }
@@ -585,22 +622,6 @@ private extension AgenticConversationControl {
     mutating func handleComposer(
         _ keyStroke: TerminalKeyStroke
     ) -> AgenticConversationEvent? {
-        if pendingSubmission != nil {
-            switch keyStroke.key {
-            case .escape,
-                 .control("C"),
-                 .tab:
-                focus.replace(
-                    .transcript
-                )
-
-            default:
-                break
-            }
-
-            return nil
-        }
-
         switch composer.handle(
             keyStroke
         ) {
@@ -645,6 +666,22 @@ private extension AgenticConversationControl {
             invocationoptions: snapshot.selectedInvocationOptions,
             autonomyMode: snapshot.selectedAutonomyMode
         )
+
+        if hasUnsettledRun {
+            confirmation = AgenticConversationConfirmationControl(
+                title: "Replace current run?",
+                message: "Sending this message will stop the current run at the earliest safe boundary, preserve already-streamed assistant output, then start this message as the next turn.",
+                confirmTitle: "Stop and send",
+                cancelTitle: "Keep current run"
+            )
+            confirmationPurpose = .supersede(
+                submission
+            )
+            focus.push(
+                .confirmation
+            )
+            return nil
+        }
 
         do {
             if let invocation = try AgenticConversationProgramCommand.parse(
@@ -796,9 +833,6 @@ private extension AgenticConversationControl {
     mutating func handleTranscript(_ key: TerminalKey) -> AgenticConversationEvent? {
         switch key {
         case .tab, .escape:
-            guard snapshot.pendingUserInput == nil else {
-                return nil
-            }
             focus.replace(.composer)
         case .char("j"), .down:
             moveMessage(by: 1)
@@ -837,6 +871,8 @@ private extension AgenticConversationControl {
             )
         case .char("r"):
             return openCurrentRun()
+        case .char("x"):
+            return openCurrentRunActions()
         case .enter:
             return openCurrentMessage()
         default:
@@ -935,8 +971,47 @@ private extension AgenticConversationControl {
             return .runClosed(runID: runID)
         }
 
+        if (key == .char("a") || key == .enter),
+           hostConsole.focus.current == .base,
+           let runID = openedRunID,
+           let review = AgenticConversationRunReviewControl(
+               snapshot: snapshot.hostConsole,
+               runID: runID
+           )
+        {
+            runReview = review
+            focus.push(
+                .runReview
+            )
+            self.hostConsole = hostConsole
+            return nil
+        }
+
         let event = hostConsole.handle(key)
         self.hostConsole = hostConsole
+
+        if case .runControlRequested(
+            runID: let runID,
+            control: let control
+        )? = event,
+           control.isStopControl
+        {
+            confirmation = AgenticConversationConfirmationControl(
+                title: control.title + "?",
+                message: control.summary,
+                confirmTitle: control.title,
+                cancelTitle: "Cancel"
+            )
+            confirmationPurpose = .stop(
+                runID: runID,
+                control: control
+            )
+            focus.push(
+                .confirmation
+            )
+            return nil
+        }
+
         guard event?.requestsExit == true else {
             return event.map { .run($0) }
         }
@@ -1000,6 +1075,126 @@ private extension AgenticConversationControl {
                 )
             )
         }
+    }
+
+    var hasUnsettledRun: Bool {
+        pendingSubmission != nil
+            || snapshot.pendingUserInput != nil
+            || snapshot.hostConsole.runs.contains { run in
+                switch run.state {
+                case .interrupted,
+                     .completed,
+                     .failed:
+                    return false
+
+                case .ready,
+                     .active,
+                     .pause_pending,
+                     .paused,
+                     .awaitingApproval,
+                     .onHold:
+                    return true
+                }
+            }
+    }
+
+    mutating func handleConfirmation(
+        _ key: TerminalKey
+    ) -> AgenticConversationEvent? {
+        guard var confirmation,
+              let purpose = confirmationPurpose else {
+            self.confirmation = nil
+            self.confirmationPurpose = nil
+            _ = focus.pop()
+            return nil
+        }
+
+        let event = confirmation.handle(
+            key
+        )
+        self.confirmation = confirmation
+
+        guard let event else {
+            return nil
+        }
+
+        self.confirmation = nil
+        self.confirmationPurpose = nil
+        _ = focus.pop()
+
+        switch event {
+        case .cancelled:
+            return nil
+
+        case .confirmed:
+            switch purpose {
+            case .supersede(let submission):
+                composer.clearAfterSubmission()
+                draftOrigin = .typed
+
+                let submittedContentIDs = Set(
+                    submission.contents.map(\.id)
+                )
+                pendingContents.removeAll { content in
+                    submittedContentIDs.contains(content.id)
+                }
+                excludedPendingContentIDs.formIntersection(
+                    Set(
+                        pendingContents.map(\.id)
+                    )
+                )
+                pinnedContent.update(
+                    contents: pendingContents
+                )
+
+                return .supersedingSubmissionRequested(
+                    submission
+                )
+
+            case .stop(
+                runID: let runID,
+                control: let control
+            ):
+                return .run(
+                    .runControlRequested(
+                        runID: runID,
+                        control: control
+                    )
+                )
+            }
+        }
+    }
+
+    mutating func openCurrentRunActions() -> AgenticConversationEvent? {
+        guard let currentMessage,
+              let attachment = currentMessage.attachments.first(
+                  where: { attachment in
+                      if case .run = attachment {
+                          return true
+                      }
+
+                      return false
+                  }
+              ),
+              case .run(let runID) = attachment else {
+            return .feedbackRequested(
+                "Selected message has no attached run."
+            )
+        }
+
+        let opened = openRun(
+            runID: runID
+        )
+
+        guard var hostConsole else {
+            return opened
+        }
+
+        _ = hostConsole.handle(
+            .char("x")
+        )
+        self.hostConsole = hostConsole
+        return opened
     }
 
     mutating func openPendingUserInput(
@@ -1814,17 +2009,18 @@ private extension AgenticConversationControl {
         if pendingSubmission != nil {
             switch focus.current {
             case .composer:
-                return "response pending  tab/esc transcript"
+                return "response pending  enter newline  ctrl-enter stop+send  ctrl-c normal  :q quit  ctrl-f expand"
             case .voice:
                 return "response pending  esc back"
             case .transcript:
-                return "j/k message  enter inspect  tab composer  response pending"
+                return "j/k message  enter inspect  tab composer  x run actions  response pending"
             case .pinnedContent,
                  .attachment,
                  .settings,
                  .runReview,
                  .userInput,
-                 .run:
+                 .run,
+                 .confirmation:
                 break
             }
         }
@@ -1839,7 +2035,9 @@ private extension AgenticConversationControl {
         case .transcript:
             return "j/k message  enter inspect  m model  s settings"
                 + (pendingContents.isEmpty ? "" : "  p pins")
-                + (snapshot.pendingUserInput == nil ? "  tab composer  ctrl-c composer" : "  u answer  r run")
+                + "  tab composer  ctrl-c composer"
+                + (snapshot.pendingUserInput == nil ? "" : "  u answer  r run")
+                + "  x run actions"
                 + voiceFooter
         case .pinnedContent:
             return pinnedContent.footer
@@ -1857,7 +2055,9 @@ private extension AgenticConversationControl {
             return userInput?.footer
                 ?? "esc conversation"
         case .run:
-            return "q conversation"
+            return "q conversation  x run actions  a review"
+        case .confirmation:
+            return "←/→ choose  enter confirm  esc cancel"
         }
     }
 }
@@ -1901,7 +2101,8 @@ private extension AgenticConversationControl {
              .settings,
              .runReview,
              .userInput,
-             .run:
+             .run,
+             .confirmation:
             break
         }
 

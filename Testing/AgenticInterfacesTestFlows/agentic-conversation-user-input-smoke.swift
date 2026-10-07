@@ -110,13 +110,22 @@ enum AgenticConversationUserInputSmoke {
             .paste("AgenticFoo")
         )
 
+        guard control.handle(
+            TerminalKeyStroke(
+                key: .enter
+            )
+        ) == nil else {
+            throw Failure.textReplyChanged
+        }
+
         guard case .submitted(
             .answer(
-                .text("AgenticFoo")
+                .text("AgenticFoo\n")
             )
         )? = control.handle(
             TerminalKeyStroke(
-                key: .enter
+                key: .enter,
+                modifiers: .control
             )
         ) else {
             throw Failure.textReplyChanged

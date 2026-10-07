@@ -623,14 +623,9 @@ private extension AgenticConversationUserInputControl {
         _ keyStroke: TerminalKeyStroke,
         state: inout TextState
     ) -> AgenticConversationUserInputEvent? {
-        if keyStroke.key == .enter {
-            if state.specification.multiline,
-               !keyStroke.modifiers.contains(.control)
-            {
-                state.input.insertNewline()
-                return nil
-            }
-
+        if keyStroke.key == .enter,
+           keyStroke.modifiers.contains(.control)
+        {
             return .submitted(
                 .text(
                     state.input.text

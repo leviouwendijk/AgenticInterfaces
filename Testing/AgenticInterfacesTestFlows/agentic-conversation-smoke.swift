@@ -206,6 +206,7 @@ enum AgenticConversationSmoke {
             (.paused, .neutral),
             (.awaitingApproval, .warning),
             (.onHold, .warning),
+            (.interrupted, .neutral),
             (.completed, .success),
             (.failed, .failure),
         ]

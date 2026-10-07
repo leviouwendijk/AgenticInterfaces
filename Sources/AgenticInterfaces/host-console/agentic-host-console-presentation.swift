@@ -12,6 +12,7 @@ public enum AgenticHostConsoleRunState:
     case paused
     case awaitingApproval
     case onHold
+    case interrupted
     case completed
     case failed
 }
@@ -85,6 +86,7 @@ public struct AgenticHostConsoleRunPresentation:
     public var title: String
     public var summary: String?
     public var state: AgenticHostConsoleRunState
+    public var iteration: Int?
     public var steps: [AgenticHostConsoleStepPresentation]
 
     public init(
@@ -92,12 +94,14 @@ public struct AgenticHostConsoleRunPresentation:
         title: String,
         summary: String? = nil,
         state: AgenticHostConsoleRunState,
+        iteration: Int? = nil,
         steps: [AgenticHostConsoleStepPresentation] = []
     ) {
         self.id = id
         self.title = title
         self.summary = summary
         self.state = state
+        self.iteration = iteration
         self.steps = steps
     }
 }

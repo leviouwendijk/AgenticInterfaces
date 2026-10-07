@@ -744,6 +744,20 @@ private extension AgenticHostConsoleControl {
             ),
         ]
 
+        if let iteration = run.iteration {
+            var progress = "iteration \(iteration)"
+
+            if !run.steps.isEmpty {
+                progress += " · stages \(run.steps.count)"
+            }
+
+            heading.append(
+                TerminalStyle.dim.apply(
+                    progress
+                )
+            )
+        }
+
         if let summary = run.summary,
            !summary.isEmpty {
             heading.append(
@@ -1098,6 +1112,9 @@ private extension AgenticHostConsoleControl {
                 .green
             )
 
+        case .interrupted:
+            return .dim
+
         case .failed:
             return TerminalStyle(
                 .bold,
@@ -1130,7 +1147,8 @@ private extension AgenticHostConsoleControl {
                      .onHold:
                     return true
 
-                case .completed,
+                case .interrupted,
+                     .completed,
                      .failed:
                     return false
                 }
@@ -1194,6 +1212,9 @@ private extension AgenticHostConsoleRunState {
         case .completed:
             return "✓"
 
+        case .interrupted:
+            return "■"
+
         case .failed:
             return "×"
         }
@@ -1221,6 +1242,9 @@ private extension AgenticHostConsoleRunState {
 
         case .completed:
             return "completed"
+
+        case .interrupted:
+            return "interrupted"
 
         case .failed:
             return "failed"

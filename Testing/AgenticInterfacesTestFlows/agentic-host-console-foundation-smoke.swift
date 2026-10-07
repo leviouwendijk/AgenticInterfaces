@@ -99,14 +99,24 @@ enum AgenticHostConsoleFoundationSmoke {
               ],
               AgenticHostConsoleRunState.active.executionControls == [
                 .pause,
+                .stop_after_iteration,
+                .stop_urgent,
               ],
               AgenticHostConsoleRunState.paused.executionControls == [
                 .execute_run,
                 .execute_step_and_wait,
+                .stop_urgent,
               ],
-              AgenticHostConsoleRunState.pause_pending.executionControls.isEmpty,
-              AgenticHostConsoleRunState.awaitingApproval.executionControls.isEmpty,
-              AgenticHostConsoleRunState.onHold.executionControls.isEmpty,
+              AgenticHostConsoleRunState.pause_pending.executionControls == [
+                .stop_urgent,
+              ],
+              AgenticHostConsoleRunState.awaitingApproval.executionControls == [
+                .stop_urgent,
+              ],
+              AgenticHostConsoleRunState.onHold.executionControls == [
+                .stop_urgent,
+              ],
+              AgenticHostConsoleRunState.interrupted.executionControls.isEmpty,
               AgenticHostConsoleRunState.completed.executionControls.isEmpty,
               AgenticHostConsoleRunState.failed.executionControls.isEmpty
         else {

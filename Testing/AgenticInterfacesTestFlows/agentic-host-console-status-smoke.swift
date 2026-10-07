@@ -114,9 +114,20 @@ enum AgenticHostConsoleStatusSmoke {
 
         guard workflow.handle(
             .char("x")
-        ) == .feedbackRequested(
-            message: "No run controls available."
-        ) else {
+        ) == .runControlsOpened(
+            runID: "status-run"
+        ),
+              workflow.focus.current == .runControls,
+              workflow.currentRunControl == .stop_urgent else {
+            throw Failure.unexpectedRunControlFeedback
+        }
+
+        guard workflow.handle(
+            .char("q")
+        ) == .runControlsClosed(
+            runID: "status-run"
+        ),
+              workflow.focus.current == .base else {
             throw Failure.unexpectedRunControlFeedback
         }
 
