@@ -15,9 +15,12 @@ enum AgenticConversationUserInputSmoke {
         case optionalSkipChanged
         case requiredSkipChanged
         case escapeChanged
+        case promptLayoutOverflow
+        case promptLayoutDidNotWrap
     }
 
     static func run() throws {
+        try layout()
         try text()
         try multiline()
         try singleChoice()
@@ -27,6 +30,68 @@ enum AgenticConversationUserInputSmoke {
         try form()
         try skip()
         try escape()
+    }
+
+    private static func layout() throws {
+        var control = AgenticConversationUserInputControl(
+            request: try UserInputRequest(
+                prompt: "Which package workspace task would you like to perform? (e.g., inspect package graph, update dependencies, lint package)",
+                input: .text(
+                    TextUserInput(
+                        placeholder: "Enter your choice"
+                    )
+                )
+            )
+        )
+        let columns = 28
+        var frame = TerminalFrame(
+            rows: 12,
+            columns: columns
+        )
+
+        control.render(
+            into: &frame,
+            in: TerminalRegion(
+                rows: 12,
+                columns: columns
+            )
+        )
+
+        let resolved = frame.resolved()
+        let lines = (0..<resolved.rows).map { row in
+            stripANSI(
+                resolved.spans(
+                    inRow: row
+                )
+                .sorted {
+                    $0.leading < $1.leading
+                }
+                .map(\.content)
+                .joined()
+            )
+        }
+
+        guard lines.allSatisfy({
+            TerminalDisplay.width(
+                of: $0
+            ) <= columns
+        }) else {
+            throw Failure.promptLayoutOverflow
+        }
+
+        let rendered = lines.joined(
+            separator: "\n"
+        )
+
+        guard rendered.contains(
+            "Which package workspace"
+        ),
+              rendered.contains(
+                "lint package"
+              )
+        else {
+            throw Failure.promptLayoutDidNotWrap
+        }
     }
 
     private static func text() throws {

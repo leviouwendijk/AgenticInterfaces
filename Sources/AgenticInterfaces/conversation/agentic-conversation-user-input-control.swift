@@ -1,5 +1,7 @@
 import Agentic
 import Foundation
+import Swim
+import SwimTerminal
 import Terminal
 
 package enum AgenticConversationUserInputEvent:
@@ -22,9 +24,130 @@ package struct AgenticConversationUserInputControl:
         case form(FormState)
     }
 
+    private struct TextEditor: Sendable {
+        var surface: SwimTerminalSurface
+
+        init(
+            text: String = "",
+            placeholder: String = "",
+            maximumRows: Int = 6
+        ) {
+            let presentation = SwimTerminalPresentation(
+                lineNumbers: TerminalLineNumberPresentation(
+                    mode: .hybrid
+                ),
+                indentationGuides: TerminalIndentationGuideOptions(
+                    isEnabled: true,
+                    width: 4,
+                    glyph: "│"
+                )
+            )
+            self.surface = SwimTerminalSurface(
+                editor: SwimEditor(
+                    text: text,
+                    mode: .insert
+                ),
+                sizePolicy: SwimTerminalSurfaceSizePolicy(
+                    minimumRows: 1,
+                    maximumRows: maximumRows
+                ),
+                compactPresentation: presentation,
+                expandedPresentation: presentation,
+                placeholder: placeholder
+            )
+        }
+
+        var text: String {
+            surface.text
+        }
+
+        func resolvedRows(
+            in region: TerminalRegion
+        ) -> Int {
+            surface.resolvedRows(
+                columns: region.columns,
+                availableRows: region.rows
+            )
+        }
+
+        @discardableResult
+        mutating func handle(
+            _ event: TerminalInputEvent
+        ) -> Bool {
+            let previous = surface.text
+
+            switch event {
+            case .keyStroke(let keyStroke):
+                _ = handle(
+                    keyStroke
+                )
+
+            case .key(let key):
+                _ = surface.handle(
+                    key
+                )
+
+            case .paste(_):
+                _ = surface.handle(
+                    event
+                )
+            }
+
+            return surface.text != previous
+        }
+
+        @discardableResult
+        mutating func handle(
+            _ keyStroke: TerminalKeyStroke
+        ) -> Bool {
+            let previous = surface.text
+            let key: TerminalKey =
+                keyStroke.key == .control("C")
+                ? .escape
+                : keyStroke.key
+
+            _ = surface.handle(
+                key
+            )
+
+            return surface.text != previous
+        }
+
+        mutating func insertNewline() {
+            _ = surface.handle(
+                .enter
+            )
+        }
+
+        mutating func render(
+            into frame: inout TerminalFrame,
+            in region: TerminalRegion,
+            isFocused: Bool
+        ) {
+            let rows = resolvedRows(
+                in: region
+            )
+
+            guard rows > 0 else {
+                return
+            }
+
+            surface.render(
+                into: &frame,
+                in: TerminalRegion(
+                    top: region.top,
+                    leading: region.leading,
+                    rows: rows,
+                    columns: region.columns
+                ),
+                isFocused: isFocused
+            )
+        }
+    }
+
     private struct TextState: Sendable {
         let specification: TextUserInput
-        var input: TerminalTextInputControl
+        var input: TextEditor
     }
 
     private enum SingleChoiceItem:
@@ -68,7 +191,7 @@ package struct AgenticConversationUserInputControl:
     private struct SingleChoiceState: Sendable {
         let specification: SingleChoiceUserInput
         var list: TerminalListControl<SingleChoiceItem, String>
-        var customInput: TerminalTextInputControl?
+        var customInput: TextEditor?
     }
 
     private struct MultiChoiceState: Sendable {
@@ -88,7 +211,7 @@ package struct AgenticConversationUserInputControl:
 
     private struct FormState: Sendable {
         let specification: FormUserInput
-        var inputs: [String: TerminalTextInputControl]
+        var inputs: [String: TextEditor]
         var includedFieldIDs: Set<String>
         var focus: TerminalFocusState<String>
 
@@ -100,12 +223,12 @@ package struct AgenticConversationUserInputControl:
                 uniqueKeysWithValues: specification.fields.map { field in
                     (
                         field.id,
-                        TerminalTextInputControl(
-                            input: TerminalTextInput(
-                                text: field.defaultText ?? ""
-                            ),
-                            prompt: "> ",
-                            placeholder: field.placeholder ?? ""
+                        TextEditor(
+                            text: field.defaultText ?? "",
+                            placeholder: field.placeholder ?? "",
+                            maximumRows: field.multiline
+                                ? 4
+                                : 1
                         )
                     )
                 }
@@ -137,12 +260,12 @@ package struct AgenticConversationUserInputControl:
             self.state = .text(
                 TextState(
                     specification: specification,
-                    input: TerminalTextInputControl(
-                        input: TerminalTextInput(
-                            text: specification.defaultText ?? ""
-                        ),
-                        prompt: "> ",
-                        placeholder: specification.placeholder ?? ""
+                    input: TextEditor(
+                        text: specification.defaultText ?? "",
+                        placeholder: specification.placeholder ?? "",
+                        maximumRows: specification.multiline
+                            ? 6
+                            : 1
                     )
                 )
             )
@@ -236,13 +359,13 @@ package struct AgenticConversationUserInputControl:
         switch state {
         case .text(let text):
             base = text.specification.multiline
-                ? "enter newline  ctrl-enter submit  esc back"
-                : "enter submit  esc back"
+                ? "enter newline  ctrl-enter submit  ctrl-c normal  esc back"
+                : "enter submit  ctrl-c normal  esc back"
 
         case .single_choice(let single):
             base = single.customInput == nil
                 ? "j/k choose  enter select  esc back"
-                : "enter submit custom  esc choices"
+                : "enter submit custom  ctrl-c normal  esc choices"
 
         case .multi_choice:
             base = "j/k choose  space toggle  enter submit  esc back"
@@ -381,23 +504,24 @@ package struct AgenticConversationUserInputControl:
         }
 
         switch state {
-        case .text(let text):
+        case .text(var text):
             text.input.render(
                 into: &frame,
-                in: TerminalRegion(
-                    top: body.top,
-                    leading: body.leading,
-                    rows: min(1, body.rows),
-                    columns: body.columns
-                ),
+                in: body,
                 isFocused: true
             )
+            state = .text(
+                text
+            )
 
-        case .single_choice(let single):
+        case .single_choice(var single):
             renderSingleChoice(
-                single,
+                &single,
                 into: &frame,
                 in: body
+            )
+            state = .single_choice(
+                single
             )
 
         case .multi_choice(let multi):
@@ -414,11 +538,14 @@ package struct AgenticConversationUserInputControl:
                 in: body
             )
 
-        case .form(let form):
+        case .form(var form):
             renderForm(
-                form,
+                &form,
                 into: &frame,
                 in: body
+            )
+            state = .form(
+                form
             )
         }
     }
@@ -471,7 +598,9 @@ private extension AgenticConversationUserInputControl {
                 return nil
             }
 
-            if input.handle(.paste(text)) == .changed {
+            if input.handle(
+                .paste(text)
+            ) {
                 value.includedFieldIDs.insert(
                     fieldID
                 )
@@ -498,21 +627,19 @@ private extension AgenticConversationUserInputControl {
             if state.specification.multiline,
                !keyStroke.modifiers.contains(.control)
             {
-                _ = state.input.insert(
-                    "\n"
-                )
+                state.input.insertNewline()
                 return nil
             }
 
             return .submitted(
                 .text(
-                    state.input.input.text
+                    state.input.text
                 )
             )
         }
 
         _ = state.input.handle(
-            keyStroke.key
+            keyStroke
         )
         return nil
     }
@@ -526,14 +653,14 @@ private extension AgenticConversationUserInputControl {
                 return .submitted(
                     .single_choice(
                         .custom(
-                            custom.input.text
+                            custom.text
                         )
                     )
                 )
             }
 
             _ = custom.handle(
-                keyStroke.key
+                keyStroke
             )
             state.customInput = custom
             return nil
@@ -561,9 +688,9 @@ private extension AgenticConversationUserInputControl {
             )
 
         case .custom:
-            state.customInput = TerminalTextInputControl(
-                prompt: "> ",
-                placeholder: "custom value"
+            state.customInput = TextEditor(
+                placeholder: "custom value",
+                maximumRows: 1
             )
             return nil
         }
@@ -666,9 +793,7 @@ private extension AgenticConversationUserInputControl {
 
         if keyStroke.key == .enter {
             if field.multiline {
-                _ = input.insert(
-                    "\n"
-                )
+                input.insertNewline()
                 state.inputs[fieldID] = input
                 state.includedFieldIDs.insert(
                     fieldID
@@ -680,7 +805,9 @@ private extension AgenticConversationUserInputControl {
             return nil
         }
 
-        if input.handle(keyStroke.key) == .changed {
+        if input.handle(
+            keyStroke
+        ) {
             state.includedFieldIDs.insert(
                 fieldID
             )
@@ -702,7 +829,7 @@ private extension AgenticConversationUserInputControl {
                 continue
             }
 
-            values[field.id] = input.input.text
+            values[field.id] = input.text
         }
 
         return .form(
@@ -716,41 +843,75 @@ private extension AgenticConversationUserInputControl {
         into frame: inout TerminalFrame,
         in region: TerminalRegion
     ) -> TerminalRegion {
+        let width = max(
+            1,
+            region.columns
+        )
         var lines: [String] = []
 
         if let title = request.presentation?.title,
            !title.isEmpty {
             lines.append(
-                title
+                contentsOf: TerminalTextWrap.lines(
+                    title,
+                    width: width
+                ).map {
+                    TerminalStyle.bold.apply(
+                        $0
+                    )
+                }
             )
         }
 
         lines.append(
-            request.prompt
+            contentsOf: TerminalTextWrap.lines(
+                request.prompt,
+                width: width
+            )
         )
 
         if let reason = request.reason,
            !reason.isEmpty {
             lines.append(
-                reason
+                contentsOf: TerminalTextWrap.lines(
+                    reason,
+                    width: width
+                ).map {
+                    TerminalStyle.dim.apply(
+                        $0
+                    )
+                }
             )
         }
 
         if let help = request.presentation?.help,
            !help.isEmpty {
             lines.append(
-                help
+                contentsOf: TerminalTextWrap.lines(
+                    help,
+                    width: width
+                ).map {
+                    TerminalStyle.dim.apply(
+                        $0
+                    )
+                }
             )
         }
 
+        let visibleLines = Array(
+            lines.prefix(
+                region.rows
+            )
+        )
         frame.write(
-            lines,
+            visibleLines,
             in: region
         )
 
         let consumed = min(
             region.rows,
-            lines.count + 1
+            visibleLines.count
+                + (visibleLines.isEmpty ? 0 : 1)
         )
 
         return TerminalRegion(
@@ -765,21 +926,17 @@ private extension AgenticConversationUserInputControl {
     }
 
     private func renderSingleChoice(
-        _ state: SingleChoiceState,
+        _ state: inout SingleChoiceState,
         into frame: inout TerminalFrame,
         in region: TerminalRegion
     ) {
-        if let custom = state.customInput {
+        if var custom = state.customInput {
             custom.render(
                 into: &frame,
-                in: TerminalRegion(
-                    top: region.top,
-                    leading: region.leading,
-                    rows: min(1, region.rows),
-                    columns: region.columns
-                ),
+                in: region,
                 isFocused: true
             )
+            state.customInput = custom
             return
         }
 
@@ -794,7 +951,18 @@ private extension AgenticConversationUserInputControl {
                 "  \($0)"
             } ?? ""
 
-            return "\(marker) \(row.item.title)\(detail)"
+            let value = TerminalDisplay.fitted(
+                "\(marker) \(row.item.title)\(detail)",
+                columns: region.columns
+            )
+
+            return row.isCurrent
+                ? TerminalStyle(
+                    .inverse
+                ).apply(
+                    value
+                )
+                : value
         }
     }
 
@@ -817,7 +985,18 @@ private extension AgenticConversationUserInputControl {
                 "  \($0)"
             } ?? ""
 
-            return "\(marker) \(selection) \(row.item.label)\(detail)"
+            let value = TerminalDisplay.fitted(
+                "\(marker) \(selection) \(row.item.label)\(detail)",
+                columns: region.columns
+            )
+
+            return row.isCurrent
+                ? TerminalStyle(
+                    .inverse
+                ).apply(
+                    value
+                )
+                : value
         }
     }
 
@@ -834,12 +1013,23 @@ private extension AgenticConversationUserInputControl {
                 ? ">"
                 : " "
 
-            return "\(marker) \(row.item.title)"
+            let value = TerminalDisplay.fitted(
+                "\(marker) \(row.item.title)",
+                columns: region.columns
+            )
+
+            return row.isCurrent
+                ? TerminalStyle(
+                    .inverse
+                ).apply(
+                    value
+                )
+                : value
         }
     }
 
     private func renderForm(
-        _ state: FormState,
+        _ state: inout FormState,
         into frame: inout TerminalFrame,
         in region: TerminalRegion
     ) {
@@ -861,8 +1051,18 @@ private extension AgenticConversationUserInputControl {
                     ? "optional, included"
                     : "optional, omitted"
 
-            frame.write(
+            let label = TerminalDisplay.fitted(
                 "\(focusMarker) \(field.label)  [\(requirement)]",
+                columns: region.columns
+            )
+            frame.write(
+                isFocused
+                    ? TerminalStyle(
+                        .inverse
+                    ).apply(
+                        label
+                    )
+                    : label,
                 in: TerminalRegion(
                     top: row,
                     leading: region.leading,
@@ -873,24 +1073,33 @@ private extension AgenticConversationUserInputControl {
             row += 1
 
             guard row < end,
-                  let input = state.inputs[field.id] else {
+                  var input = state.inputs[field.id] else {
                 continue
             }
 
+            let inputRegion = TerminalRegion(
+                top: row,
+                leading: region.leading + 2,
+                rows: max(
+                    0,
+                    end - row
+                ),
+                columns: max(
+                    0,
+                    region.columns - 2
+                )
+            )
+            let inputRows = input.resolvedRows(
+                in: inputRegion
+            )
+
             input.render(
                 into: &frame,
-                in: TerminalRegion(
-                    top: row,
-                    leading: region.leading + 2,
-                    rows: 1,
-                    columns: max(
-                        0,
-                        region.columns - 2
-                    )
-                ),
+                in: inputRegion,
                 isFocused: isFocused
             )
-            row += 1
+            state.inputs[field.id] = input
+            row += inputRows
         }
     }
 }

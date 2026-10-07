@@ -160,8 +160,34 @@ public struct AgenticConversationRunCardPresentation:
 
     public static func project(
         run: AgenticHostConsoleRunPresentation,
-        hostConsole: AgenticHostConsoleSnapshot
+        hostConsole: AgenticHostConsoleSnapshot,
+        pendingUserInput: AgenticConversationUserInputPresentation? = nil
     ) -> Self {
+        if let pendingUserInput,
+           pendingUserInput.runID == run.id
+        {
+            var body = [
+                pendingUserInput.request.prompt,
+            ]
+
+            if let reason = pendingUserInput.request.reason,
+               !reason.isEmpty
+            {
+                body.append(
+                    reason
+                )
+            }
+
+            return Self(
+                title: "Run · awaiting input",
+                body: body.joined(
+                    separator: "\n"
+                ),
+                hint: "Enter to answer · r run details",
+                tone: .warning
+            )
+        }
+
         let interruption = hostConsole.interruptions.first { interruption in
             interruption.runID == run.id
         }

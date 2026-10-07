@@ -448,7 +448,37 @@ public struct AgenticConversationControl: Sendable {
         }
 
         if focus.current == .run, var hostConsole {
-            hostConsole.render(into: &frame, in: region)
+            if snapshot.pendingUserInput?.runID == openedRunID,
+               region.rows > 1
+            {
+                let consoleRegion = TerminalRegion(
+                    top: region.top,
+                    leading: region.leading,
+                    rows: region.rows - 1,
+                    columns: region.columns
+                )
+                hostConsole.render(
+                    into: &frame,
+                    in: consoleRegion
+                )
+                frame.write(
+                    TerminalStyle.dim.apply(
+                        "u answer  q conversation"
+                    ),
+                    in: TerminalRegion(
+                        top: region.top + region.rows - 1,
+                        leading: region.leading,
+                        rows: 1,
+                        columns: region.columns
+                    )
+                )
+            } else {
+                hostConsole.render(
+                    into: &frame,
+                    in: region
+                )
+            }
+
             self.hostConsole = hostConsole
             return
         }
@@ -805,6 +835,8 @@ private extension AgenticConversationControl {
             focus.push(
                 .userInput
             )
+        case .char("r"):
+            return openCurrentRun()
         case .enter:
             return openCurrentMessage()
         default:
@@ -840,7 +872,16 @@ private extension AgenticConversationControl {
             guard case .run(let runID)? = currentAttachment else {
                 return nil
             }
-            return openRun(runID: runID)
+
+            if openPendingUserInput(
+                runID: runID
+            ) {
+                return nil
+            }
+
+            return openRun(
+                runID: runID
+            )
         default:
             break
         }
@@ -871,6 +912,16 @@ private extension AgenticConversationControl {
         guard var hostConsole else {
             focus.reset(to: .transcript)
             return .feedbackRequested("Run is no longer available.")
+        }
+
+        if key == .char("u"),
+           snapshot.pendingUserInput?.runID == openedRunID,
+           userInput != nil
+        {
+            focus.push(
+                .userInput
+            )
+            return nil
         }
 
         if key == .char("q"),
@@ -951,6 +1002,47 @@ private extension AgenticConversationControl {
         }
     }
 
+    mutating func openPendingUserInput(
+        runID: String
+    ) -> Bool {
+        guard snapshot.pendingUserInput?.runID == runID,
+              userInput != nil else {
+            return false
+        }
+
+        focus.push(
+            .userInput
+        )
+        return true
+    }
+
+    mutating func openCurrentRun() -> AgenticConversationEvent? {
+        guard let currentMessage else {
+            return .feedbackRequested(
+                "No message selected."
+            )
+        }
+
+        guard let attachment = currentMessage.attachments.first(
+            where: { attachment in
+                if case .run = attachment {
+                    return true
+                }
+
+                return false
+            }
+        ),
+              case .run(let runID) = attachment else {
+            return .feedbackRequested(
+                "Selected message has no attached run."
+            )
+        }
+
+        return openRun(
+            runID: runID
+        )
+    }
+
     mutating func openCurrentMessage() -> AgenticConversationEvent? {
         guard let currentMessage else {
             return .feedbackRequested("No message selected.")
@@ -959,6 +1051,12 @@ private extension AgenticConversationControl {
         if currentMessage.attachments.count == 1,
            case .run(let runID) = currentMessage.attachments[0]
         {
+            if openPendingUserInput(
+                runID: runID
+            ) {
+                return nil
+            }
+
             if let review = AgenticConversationRunReviewControl(
                 snapshot: snapshot.hostConsole,
                 runID: runID
@@ -1321,7 +1419,8 @@ private extension AgenticConversationControl {
                     let presentation =
                         AgenticConversationRunCardPresentation.project(
                             run: run,
-                            hostConsole: snapshot.hostConsole
+                            hostConsole: snapshot.hostConsole,
+                            pendingUserInput: snapshot.pendingUserInput
                         )
                     let block = TerminalInteractiveBlock(
                         title: presentation.title,
@@ -1740,7 +1839,7 @@ private extension AgenticConversationControl {
         case .transcript:
             return "j/k message  enter inspect  m model  s settings"
                 + (pendingContents.isEmpty ? "" : "  p pins")
-                + (snapshot.pendingUserInput == nil ? "  tab composer  ctrl-c composer" : "  u input")
+                + (snapshot.pendingUserInput == nil ? "  tab composer  ctrl-c composer" : "  u answer  r run")
                 + voiceFooter
         case .pinnedContent:
             return pinnedContent.footer
