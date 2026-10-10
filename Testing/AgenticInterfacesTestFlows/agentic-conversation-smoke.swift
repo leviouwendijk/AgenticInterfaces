@@ -547,6 +547,34 @@ enum AgenticConversationSmoke {
             throw Failure.capabilitySelectionChanged
         }
         // Search is user-facing and must filter the *same* catalog.
+        // Domain and Type metadata are searchable, not inferred from IDs.
+        let catalog = fixture().capabilityEntries
+        let domainMatches = AgenticConversationCapabilityEntry.search(
+            "core",
+            in: catalog
+        )
+        guard domainMatches.contains(where: { $0.identifier == "mutate_files" }),
+              domainMatches.allSatisfy({ $0.domain == "Core" })
+        else {
+            throw Failure.capabilityBrowserPresentationMissing
+        }
+        let compoundMatches = AgenticConversationCapabilityEntry.search(
+            "core mutate",
+            in: catalog
+        )
+        guard compoundMatches.first?.identifier == "mutate_files",
+              !compoundMatches.contains(where: { $0.identifier == "inspect_workspace" })
+        else {
+            throw Failure.capabilityBrowserPresentationMissing
+        }
+        let fuzzyMatches = AgenticConversationCapabilityEntry.search(
+            "mtat",
+            in: catalog
+        )
+        guard fuzzyMatches.contains(where: { $0.identifier == "mutate_files" })
+        else {
+            throw Failure.capabilityBrowserPresentationMissing
+        }
         _ = browserControl.handle(.char("/"))
         for character in "mutate" { _ = browserControl.handle(.char(String(character))) }
         _ = browserControl.handle(.enter)

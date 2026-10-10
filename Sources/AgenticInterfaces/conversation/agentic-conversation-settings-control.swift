@@ -299,7 +299,7 @@ private extension AgenticConversationSettingsControl {
     {
         var path: [String] = []
         let rows: [TerminalSettingsRow<RowID>]
-        var hint = "j/k move  enter select  q back"
+        var hint = "j/k move  enter select  / search  q back"
         switch page {
         case .root:
             rows = rootRows(snapshot)
@@ -363,12 +363,16 @@ private extension AgenticConversationSettingsControl {
             hint = "j/k move  enter visible  space available  / search  q back"
         case .search:
             path = ["Capabilities", "Search: /\(query)"]
-            rows = snapshot.capabilityEntries.filter { $0.matches(query) }
-                .map { capabilityRow($0, snapshot: snapshot) }
+            rows = AgenticConversationCapabilityEntry.search(
+                query,
+                in: snapshot.capabilityEntries
+            ).map { capabilityRow($0, snapshot: snapshot) }
             hint = "type to search  enter visible  space available  q back"
         }
         return TerminalSettingsMenuControl(
-            title: page == .search ? "Search capabilities  /\(query)▏" : "Conversation settings",
+            title: page == .search
+                ? "Search capabilities  /\(query)▏"
+                : (page.isBrowser ? "Capabilities  [ / search ]" : "Conversation settings"),
             path: path, rows: rows,
             currentID: currentID, instructions: hint
         )

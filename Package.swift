@@ -33,6 +33,7 @@ let package = Package(
         .package(url: "https://github.com/leviouwendijk/SwimTerminal.git", branch: "master"),
         .package(url: "https://github.com/leviouwendijk/Parsers.git", branch: "master"),
         .package(url: "https://github.com/leviouwendijk/Arguments.git", branch: "master"),
+        .package(url: "https://github.com/leviouwendijk/Search.git", branch: "master"),
     ],
     targets: [
         .target(
@@ -54,6 +55,7 @@ let package = Package(
                 .product(name: "ParsersStructuredContent", package: "Parsers"),
                 .product(name: "Difference", package: "Difference"),
                 .product(name: "Arguments", package: "Arguments"),
+                .product(name: "Search", package: "Search"),
             ]
         ),
         .executableTarget(
