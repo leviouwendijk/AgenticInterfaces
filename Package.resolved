@@ -1,5 +1,5 @@
 {
-  "originHash" : "fd7b2a681c96150573f3dae3407b3a05b72b5d11f45f9cd33087679eb2322abf",
+  "originHash" : "f9a2307f656d7801690978158a5d79520ac3c75a77093b6514b8ae36eb01d807",
   "pins" : [
     {
       "identity" : "agentic",
@@ -7,7 +7,7 @@
       "location" : "https://github.com/leviouwendijk/Agentic.git",
       "state" : {
         "branch" : "master",
-        "revision" : "64bec65f0b8cde00e7ec2cab4d1c65b7982bc04f"
+        "revision" : "e2df3ec573dad9e24f514f0ca65a14ddc1d8f7ef"
       }
     },
     {
@@ -97,7 +97,7 @@
       "location" : "https://github.com/leviouwendijk/Fuzzy.git",
       "state" : {
         "branch" : "master",
-        "revision" : "b51fd4d53899dcfd0150bd8b8215c12acb25910f"
+        "revision" : "1e85de71c36f7414511320584ea7373af4334019"
       }
     },
     {
@@ -124,7 +124,7 @@
       "location" : "https://github.com/leviouwendijk/IO.git",
       "state" : {
         "branch" : "master",
-        "revision" : "f747ba45546f4ac597f6ffc08f376d37ce48b4ef"
+        "revision" : "5e88720439dc8f782034b6f9f8374c61ef1707f0"
       }
     },
     {
@@ -160,7 +160,7 @@
       "location" : "https://github.com/leviouwendijk/Parsers.git",
       "state" : {
         "branch" : "master",
-        "revision" : "f2f979c3d2e3b85533dd887bcd90bd0f40d53028"
+        "revision" : "854c581a8ebe33c0d7a731ada37d7cc387819ced"
       }
     },
     {
@@ -169,7 +169,7 @@
       "location" : "https://github.com/leviouwendijk/Parsing.git",
       "state" : {
         "branch" : "master",
-        "revision" : "b415cec83b0499158df5d0faeb760a2d4943d236"
+        "revision" : "6c72ab2423ec71ce2e30fb473d088e328f7b7d65"
       }
     },
     {
@@ -187,7 +187,7 @@
       "location" : "https://github.com/leviouwendijk/Position.git",
       "state" : {
         "branch" : "master",
-        "revision" : "491376735af3ef7417b989e38c508577fb72637a"
+        "revision" : "f4b2a54d00898e52111ac452b851cb00cf9538aa"
       }
     },
     {
@@ -196,7 +196,7 @@
       "location" : "https://github.com/leviouwendijk/Primitives.git",
       "state" : {
         "branch" : "master",
-        "revision" : "43d0c47686146a260187a32ba3fa3c920770ebcd"
+        "revision" : "7f1da40806dd20e07be0635bf7a2bff461e54b2a"
       }
     },
     {
@@ -214,7 +214,7 @@
       "location" : "https://github.com/leviouwendijk/Ranking.git",
       "state" : {
         "branch" : "master",
-        "revision" : "5180cfb8c8e0ff6ec6224b3430507cccd83995a4"
+        "revision" : "2ef45291376aa3b4e868d963acde506891be4769"
       }
     },
     {
@@ -223,7 +223,7 @@
       "location" : "https://github.com/leviouwendijk/Readers.git",
       "state" : {
         "branch" : "master",
-        "revision" : "f4ccd7d7e47a334625ad6b4604f64e926396f9fc"
+        "revision" : "e9b967413538320ef2cae3bcecfc2edc6f11933b"
       }
     },
     {
@@ -241,7 +241,7 @@
       "location" : "https://github.com/leviouwendijk/Search.git",
       "state" : {
         "branch" : "master",
-        "revision" : "eba51288c71cf69d2f8463beb105e708a6d553af"
+        "revision" : "0ad0d4d49e7a6ef5edb1ccfc1b4b1aaa5a9548f0"
       }
     },
     {
@@ -317,15 +317,6 @@
       }
     },
     {
-      "identity" : "testflows",
-      "kind" : "remoteSourceControl",
-      "location" : "https://github.com/leviouwendijk/TestFlows.git",
-      "state" : {
-        "branch" : "master",
-        "revision" : "be40ad2a6a45d56b0065cdf7754b9709ef960b09"
-      }
-    },
-    {
       "identity" : "testing",
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/leviouwendijk/Testing.git",
@@ -367,7 +358,7 @@
       "location" : "https://github.com/leviouwendijk/Writers.git",
       "state" : {
         "branch" : "master",
-        "revision" : "12088e81e35fb79ee19336adecd2f15f5af27708"
+        "revision" : "ac5fb57fb5089b8375f6586f1865cca9b122bb5e"
       }
     }
   ],

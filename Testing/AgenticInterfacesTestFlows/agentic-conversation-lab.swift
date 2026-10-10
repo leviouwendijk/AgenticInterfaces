@@ -124,17 +124,14 @@ enum AgenticConversationLab {
                     snapshot.selectedAutonomyMode = mode
                     snapshot.activity = "\(mode.rawValue) autonomy selected"
                     control.update(snapshot)
-                case .toolExposureSelectionChanged(let exposure):
-                    snapshot.selectedToolExposure = exposure
-                    snapshot.activity = "\(exposure.title.lowercased()) tool exposure selected"
+                case .capabilitySelectionChanged(let available, let visible):
+                    snapshot.availableCapabilities = available
+                    snapshot.visibleCapabilities = visible.intersecting(available)
+                    snapshot.activity = "capability selection changed"
                     control.update(snapshot)
-                case .customToolSelectionChanged(let selection):
-                    snapshot.customToolSelection = selection
-                    snapshot.activity = "custom tool selection changed"
-                    control.update(snapshot)
-                case .skillSelectionChanged(let ids):
-                    snapshot.selectedSkillIDs = ids
-                    snapshot.activity = "skills selected"
+                case .instructionSelectionChanged(let ids):
+                    snapshot.selectedInstructionIDs = ids
+                    snapshot.activity = "instructions selected"
                     control.update(snapshot)
                 case .voiceStartRequested,
                      .voiceStopRequested,

@@ -281,11 +281,11 @@ private extension TerminalAgenticRunPresenter {
                 )
             }
 
-            if !command.loadedSkillIDs.isEmpty {
+            if !command.loadedInstructionIDs.isEmpty {
                 fields.append(
                     .init(
-                        "skills",
-                        command.loadedSkillIDs.map(\.rawValue).joined(separator: ",")
+                        "instructions",
+                        command.loadedInstructionIDs.map(\.rawValue).joined(separator: ",")
                     )
                 )
             }

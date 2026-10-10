@@ -1,918 +1,429 @@
 import Agentic
 import Terminal
 
+/// The browser is only a projection of the Host's installed catalog.
+/// Selection is expressed as Core AgentCapabilitySet values, not UI policies.
 enum AgenticConversationSettingsControlEvent: Sendable, Hashable {
     case closeRequested
     case conversation(AgenticConversationEvent)
 }
 
 struct AgenticConversationSettingsControl: Sendable {
-    private enum Page: Sendable, Hashable {
-        case root
-        case model
-        case response
-        case invocationoptions
-        case requesttimeout
-        case autonomy
-        case exposure
-        case custom
-        case tool_collection(String)
-        case skills
+    fileprivate enum Page: Sendable, Hashable {
+        case root, model, response, invocationoptions, requesttimeout, autonomy
+        case capabilities, domains, types
+        case domain(String)
+        case type(AgenticConversationCapabilityEntry.Kind)
+        case items(domain: String, type: AgenticConversationCapabilityEntry.Kind)
+        case search
     }
-
-    private enum RowID: Sendable, Hashable {
-        case model
-        case response
-        case invocationoptions
-        case requesttimeout
-        case autonomy
-        case exposure
-        case skills
+    fileprivate enum RowID: Sendable, Hashable {
+        case model, response, invocationoptions, requesttimeout, autonomy, capabilities
         case modelProfile(AgentModelProfileIdentifier)
         case responseDelivery(AgentModelResponseDelivery)
         case timeoutseconds(Int?)
         case autonomyMode(AutonomyMode)
-        case discovery
-        case allTools
-        case skill_seeded
-        case custom
-        case dynamic_discovery
-        case tool_collection(String)
-        case tool(ToolIdentifier)
-        case skill(AgentSkillIdentifier)
+        case domains, types, search
+        case domain(String)
+        case type(AgenticConversationCapabilityEntry.Kind)
+        case capability(String)
     }
 
-    private var page: Page
-    private var rootSelection: RowID
+    private var page: Page = .root
+    private var rootSelection: RowID = .model
     private var menu: TerminalSettingsMenuControl<RowID>
+    private var searchQuery = ""
+    private var isEditingSearch = false
+    private var returnFromSearch: Page = .capabilities
+    private var itemParentIsDomain = true
 
     init(snapshot: AgenticConversationSnapshot) {
-        page = .root
-        rootSelection = .model
-        menu = Self.menu(
-            snapshot: snapshot,
-            page: .root,
-            currentID: .model
-        )
+        menu = Self.menu(snapshot: snapshot, page: .root, currentID: .model, query: "")
     }
 
     mutating func update(_ snapshot: AgenticConversationSnapshot) {
-        menu = Self.menu(
-            snapshot: snapshot,
-            page: page,
-            currentID: menu.currentID
-        )
+        refresh(snapshot, currentID: menu.currentID)
     }
-
     mutating func openRoot(_ snapshot: AgenticConversationSnapshot) {
+        page = .root
         rootSelection = .model
-        open(.root, snapshot: snapshot, currentID: rootSelection)
+        refresh(snapshot, currentID: rootSelection)
     }
-
     mutating func openModel(_ snapshot: AgenticConversationSnapshot) {
-        open(
-            .model,
-            snapshot: snapshot,
-            currentID: .modelProfile(snapshot.preferredModelProfileID)
-        )
+        page = .model
+        refresh(snapshot, currentID: .modelProfile(snapshot.preferredModelProfileID))
     }
 
-    mutating func handle(
-        _ key: TerminalKey,
-        snapshot: inout AgenticConversationSnapshot
-    ) -> AgenticConversationSettingsControlEvent? {
-        guard let event = menu.handle(key) else {
-            return nil
+    mutating func handle(_ key: TerminalKey, snapshot: inout AgenticConversationSnapshot)
+        -> AgenticConversationSettingsControlEvent?
+    {
+        if page.isBrowser {
+            if isEditingSearch {
+                switch key {
+                case .enter:
+                    isEditingSearch = false
+                case .escape:
+                    isEditingSearch = false
+                case .backspace:
+                    if !searchQuery.isEmpty { searchQuery.removeLast() }
+                case .space:
+                    searchQuery.append(" ")
+                case .char(let character):
+                    searchQuery.append(contentsOf: String(character))
+                default:
+                    break
+                }
+                refresh(snapshot, currentID: nil)
+                return nil
+            }
+            if key == .char("/") {
+                returnFromSearch = page == .search ? returnFromSearch : page
+                page = .search
+                searchQuery = ""
+                isEditingSearch = true
+                refresh(snapshot, currentID: nil)
+                return nil
+            }
         }
-
+        guard let event = menu.handle(key) else { return nil }
         switch event {
         case .currentChanged:
             return nil
-
         case .cancelRequested:
             switch page {
-            case .root:
-                return .closeRequested
-
-            case .requesttimeout:
-                open(
-                    .invocationoptions,
-                    snapshot: snapshot,
-                    currentID: .requesttimeout
-                )
-                return nil
-
-            case .custom:
-                open(
-                    .exposure,
-                    snapshot: snapshot,
-                    currentID: .custom
-                )
-                return nil
-
-            case .tool_collection(let identifier):
-                open(
-                    .custom,
-                    snapshot: snapshot,
-                    currentID: .tool_collection(identifier)
-                )
-                return nil
-
-            case .model,
-                 .response,
-                 .invocationoptions,
-                 .autonomy,
-                 .exposure,
-                 .skills:
-                open(
-                    .root,
-                    snapshot: snapshot,
-                    currentID: rootSelection
-                )
-                return nil
+            case .root: return .closeRequested
+            case .requesttimeout: page = .invocationoptions
+            case .model, .response, .invocationoptions, .autonomy, .capabilities:
+                page = .root
+            case .domains, .types:
+                page = .capabilities
+            case .domain: page = .domains
+            case .type: page = .types
+            case .items(let domain, let type):
+                // Path shape determines which parent should receive focus.
+                page = itemParentIsDomain ? .domain(domain) : .type(type)
+            case .search:
+                page = returnFromSearch
+                searchQuery = ""
             }
-
+            refresh(snapshot, currentID: page == .root ? rootSelection : nil)
+            return nil
         case .unavailable(let id):
-            return .conversation(
-                .feedbackRequested(unavailableMessage(id, snapshot: snapshot))
-            )
-
+            let message: String
+            switch id {
+            case .responseDelivery(.stream):
+                message = "Streaming is unavailable for the selected model."
+            case .modelProfile(let identifier):
+                let title = snapshot.models.first(where: { $0.id == identifier })?.title
+                    ?? identifier.rawValue
+                message = "Model '\(title)' is unavailable."
+            default:
+                message = "Selection is unavailable."
+            }
+            return .conversation(.feedbackRequested(message))
         case .accepted(let id):
             return accept(id, snapshot: &snapshot)
-
         case .toggled(let id):
-            switch id {
-            case .skill(let identifier):
-                return toggleSkill(
-                    identifier,
-                    snapshot: &snapshot
-                )
-
-            case .dynamic_discovery:
-                return toggleDynamicDiscovery(
-                    snapshot: &snapshot
-                )
-
-            case .tool_collection(let identifier):
-                return toggleToolCollectionAvailability(
-                    identifier,
-                    snapshot: &snapshot
-                )
-
-            case .tool(let identifier):
-                return toggleToolAvailability(
-                    identifier,
-                    snapshot: &snapshot
-                )
-
-            default:
-                return nil
+            if case .capability(let id) = id {
+                return toggle(id, availability: true, snapshot: &snapshot)
             }
+            return nil
         }
     }
 
-    func render(
-        into frame: inout TerminalFrame,
-        in region: TerminalRegion
-    ) {
+    func render(into frame: inout TerminalFrame, in region: TerminalRegion) {
         menu.render(
             into: &frame,
             in: region,
             theme: .agentic,
-            columns: min(86, max(48, region.columns - 4)),
-            rows: min(24, max(12, region.rows - 2))
+            columns: min(100, max(48, region.columns - 4)),
+            rows: min(30, max(12, region.rows - 2))
         )
+    }
+
+    private mutating func accept(_ id: RowID, snapshot: inout AgenticConversationSnapshot)
+        -> AgenticConversationSettingsControlEvent?
+    {
+        var selectedRow: RowID?
+        switch id {
+        case .model:
+            rootSelection = .model
+            page = .model
+            selectedRow = .modelProfile(snapshot.preferredModelProfileID)
+        case .response:
+            rootSelection = .response
+            page = .response
+            selectedRow = .responseDelivery(snapshot.selectedResponseDelivery)
+        case .invocationoptions:
+            rootSelection = .invocationoptions
+            page = .invocationoptions
+            selectedRow = .requesttimeout
+        case .requesttimeout:
+            page = .requesttimeout
+            selectedRow = .timeoutseconds(snapshot.selectedInvocationOptions.timeoutseconds)
+        case .autonomy:
+            rootSelection = .autonomy
+            page = .autonomy
+            selectedRow = .autonomyMode(snapshot.selectedAutonomyMode)
+        case .capabilities:
+            rootSelection = .capabilities
+            page = .capabilities
+        case .domains:
+            page = .domains
+            returnFromSearch = .domain("")
+        case .types:
+            page = .types
+            returnFromSearch = .type(.tool)
+        case .domain(let domain):
+            if case .type(let type) = page {
+                itemParentIsDomain = false
+                page = .items(domain: domain, type: type)
+            } else {
+                page = .domain(domain)
+            }
+        case .type(let type):
+            if case .domain(let domain) = page {
+                itemParentIsDomain = true
+                page = .items(domain: domain, type: type)
+            } else {
+                page = .type(type)
+            }
+        case .search:
+            returnFromSearch = page
+            page = .search
+            searchQuery = ""
+            isEditingSearch = true
+        case .capability(let identifier):
+            return toggle(identifier, availability: false, snapshot: &snapshot)
+        case .modelProfile(let identifier):
+            guard snapshot.models.first(where: { $0.id == identifier })?.isAvailable == true else {
+                return .conversation(.feedbackRequested("Preferred model is unavailable."))
+            }
+            snapshot.preferredModelProfileID = identifier
+            if Self.preferredModelSupportsStreaming(snapshot) == false {
+                snapshot.selectedResponseDelivery = .buffered
+            }
+            page = .root
+            refresh(snapshot, currentID: rootSelection)
+            return .conversation(.modelPreferenceChanged(identifier))
+        case .responseDelivery(let delivery):
+            if delivery == .stream && !Self.preferredModelSupportsStreaming(snapshot) {
+                return .conversation(.feedbackRequested("Streaming is unavailable for the selected model."))
+            }
+            snapshot.selectedResponseDelivery = delivery
+            page = .root
+            refresh(snapshot, currentID: rootSelection)
+            return .conversation(.responseDeliverySelectionChanged(delivery))
+        case .timeoutseconds(let seconds):
+            var options = snapshot.selectedInvocationOptions
+            options.timeoutseconds = seconds
+            snapshot.selectedInvocationOptions = options
+            page = .invocationoptions
+            refresh(snapshot, currentID: .requesttimeout)
+            return .conversation(.invocationOptionsSelectionChanged(options))
+        case .autonomyMode(let mode):
+            snapshot.selectedAutonomyMode = mode
+            page = .root
+            refresh(snapshot, currentID: rootSelection)
+            return .conversation(.autonomySelectionChanged(mode))
+        }
+        refresh(snapshot, currentID: selectedRow)
+        return nil
+    }
+
+    private mutating func toggle(_ identifier: String, availability: Bool,
+                                  snapshot: inout AgenticConversationSnapshot)
+        -> AgenticConversationSettingsControlEvent
+    {
+        guard let entry = snapshot.capabilityEntries.first(where: { $0.id == identifier }) else {
+            return .conversation(.feedbackRequested("Capability is no longer installed."))
+        }
+        if entry.kind == .instruction {
+            let id = InstructionIdentifier(rawValue: entry.identifier)
+            var selected = Set(snapshot.selectedInstructionIDs)
+            if !selected.insert(id).inserted { selected.remove(id) }
+            snapshot.selectedInstructionIDs = snapshot.capabilityEntries.compactMap { item in
+                guard item.kind == .instruction else { return nil }
+                let id = InstructionIdentifier(rawValue: item.identifier)
+                return selected.contains(id) ? id : nil
+            }
+            refresh(snapshot, currentID: .capability(identifier))
+            return .conversation(.instructionSelectionChanged(snapshot.selectedInstructionIDs))
+        }
+        let member = entry.capability
+        var available = snapshot.availableCapabilities
+        var visible = snapshot.visibleCapabilities
+        if availability {
+            if member.intersecting(available) != .none {
+                available = available.subtracting(member)
+                visible = visible.subtracting(member)
+            } else {
+                available = available.union(member)
+            }
+        } else {
+            guard member.intersecting(available) != .none else {
+                return .conversation(.feedbackRequested("Enable availability before exposing this capability."))
+            }
+            if member.intersecting(visible) != .none {
+                visible = visible.subtracting(member)
+            } else {
+                visible = visible.union(member)
+            }
+        }
+        snapshot.availableCapabilities = available
+        snapshot.visibleCapabilities = visible.intersecting(available)
+        refresh(snapshot, currentID: .capability(identifier))
+        return .conversation(.capabilitySelectionChanged(
+            available: snapshot.availableCapabilities,
+            visible: snapshot.visibleCapabilities
+        ))
+    }
+
+    private mutating func refresh(_ snapshot: AgenticConversationSnapshot, currentID: RowID?) {
+        menu = Self.menu(snapshot: snapshot, page: page, currentID: currentID, query: searchQuery)
+    }
+}
+
+private extension AgenticConversationSettingsControl.Page {
+    var isBrowser: Bool {
+        switch self {
+        case .capabilities, .domains, .types, .domain, .type, .items, .search: return true
+        default: return false
+        }
     }
 }
 
 private extension AgenticConversationSettingsControl {
-    private mutating func accept(
-        _ id: RowID,
-        snapshot: inout AgenticConversationSnapshot
-    ) -> AgenticConversationSettingsControlEvent? {
-        switch id {
-        case .model:
-            rootSelection = .model
-            open(
-                .model,
-                snapshot: snapshot,
-                currentID: .modelProfile(snapshot.preferredModelProfileID)
-            )
-            return nil
-
-        case .response:
-            rootSelection = .response
-            open(
-                .response,
-                snapshot: snapshot,
-                currentID: .responseDelivery(
-                    snapshot.selectedResponseDelivery
-                )
-            )
-            return nil
-
-        case .invocationoptions:
-            rootSelection = .invocationoptions
-            open(
-                .invocationoptions,
-                snapshot: snapshot,
-                currentID: .requesttimeout
-            )
-            return nil
-
-        case .requesttimeout:
-            open(
-                .requesttimeout,
-                snapshot: snapshot,
-                currentID: .timeoutseconds(
-                    snapshot.selectedInvocationOptions.timeoutseconds
-                )
-            )
-            return nil
-
-        case .autonomy:
-            rootSelection = .autonomy
-            open(
-                .autonomy,
-                snapshot: snapshot,
-                currentID: .autonomyMode(snapshot.selectedAutonomyMode)
-            )
-            return nil
-
-        case .exposure:
-            rootSelection = .exposure
-            open(
-                .exposure,
-                snapshot: snapshot,
-                currentID: Self.exposureRowID(snapshot.selectedToolExposure)
-            )
-            return nil
-
-        case .skills:
-            guard !snapshot.skills.isEmpty else {
-                return .conversation(
-                    .feedbackRequested("No skills are registered.")
-                )
-            }
-            rootSelection = .skills
-            open(
-                .skills,
-                snapshot: snapshot,
-                currentID: snapshot.skills.first.map { .skill($0.id) }
-            )
-            return nil
-
-        case .modelProfile(let identifier):
-            guard let model = snapshot.models.first(where: {
-                $0.id == identifier
-            }),
-                  model.isAvailable
-            else {
-                return .conversation(
-                    .feedbackRequested("Preferred model is unavailable.")
-                )
-            }
-
-            snapshot.preferredModelProfileID = identifier
-
-            if !model.supportsStreaming {
-                snapshot.selectedResponseDelivery = .buffered
-            }
-
-            open(.root, snapshot: snapshot, currentID: rootSelection)
-            return .conversation(.modelPreferenceChanged(identifier))
-
-        case .responseDelivery(let delivery):
-            if delivery == .stream,
-               !Self.preferredModelSupportsStreaming(snapshot)
-            {
-                return .conversation(
-                    .feedbackRequested(
-                        "Streaming is unavailable for the selected model."
-                    )
-                )
-            }
-
-            return selectResponseDelivery(
-                delivery,
-                snapshot: &snapshot
-            )
-
-        case .timeoutseconds(let timeoutseconds):
-            var options = snapshot.selectedInvocationOptions
-            options.timeoutseconds = timeoutseconds
-            snapshot.selectedInvocationOptions = options
-            open(
-                .invocationoptions,
-                snapshot: snapshot,
-                currentID: .requesttimeout
-            )
-            return .conversation(
-                .invocationOptionsSelectionChanged(options)
-            )
-
-        case .autonomyMode(let mode):
-            return selectAutonomy(mode, snapshot: &snapshot)
-
-        case .discovery:
-            return selectExposure(.discovery, snapshot: &snapshot)
-
-        case .allTools:
-            return selectExposure(.all, snapshot: &snapshot)
-
-        case .skill_seeded:
-            guard !snapshot.selectedSkillIDs.isEmpty
-                    || snapshot.selectedToolExposure == .skill_seeded
-            else {
-                return .conversation(
-                    .feedbackRequested(
-                        "Select at least one skill before using skill-seeded exposure."
-                    )
-                )
-            }
-            return selectExposure(.skill_seeded, snapshot: &snapshot)
-
-        case .custom:
-            snapshot.selectedToolExposure = .custom
-            open(
-                .custom,
-                snapshot: snapshot,
-                currentID: .dynamic_discovery
-            )
-            return .conversation(
-                .toolExposureSelectionChanged(.custom)
-            )
-
-        case .dynamic_discovery:
-            return toggleDynamicDiscovery(
-                snapshot: &snapshot
-            )
-
-        case .tool_collection(let identifier):
-            guard let collection = Self.toolCollection(
-                identifiedBy: identifier,
-                snapshot: snapshot
-            ) else {
-                return .conversation(
-                    .feedbackRequested(
-                        "Tool collection is no longer available."
-                    )
-                )
-            }
-
-            open(
-                .tool_collection(identifier),
-                snapshot: snapshot,
-                currentID: collection.tools.first.map {
-                    .tool($0.id)
-                }
-            )
-            return nil
-
-        case .tool(let identifier):
-            return toggleToolVisibility(
-                identifier,
-                snapshot: &snapshot
-            )
-
-        case .skill(let identifier):
-            return toggleSkill(identifier, snapshot: &snapshot)
-        }
-    }
-
-    mutating func toggleSkill(
-        _ identifier: AgentSkillIdentifier,
-        snapshot: inout AgenticConversationSnapshot
-    ) -> AgenticConversationSettingsControlEvent {
-        var selected = Set(snapshot.selectedSkillIDs)
-
-        if selected.contains(identifier) {
-            selected.remove(identifier)
-        } else {
-            selected.insert(identifier)
-        }
-
-        snapshot.selectedSkillIDs = snapshot.skills.compactMap {
-            selected.contains($0.id) ? $0.id : nil
-        }
-        open(
-            .skills,
-            snapshot: snapshot,
-            currentID: .skill(identifier)
-        )
-
-        return .conversation(
-            .skillSelectionChanged(snapshot.selectedSkillIDs)
-        )
-    }
-
-    mutating func toggleDynamicDiscovery(
-        snapshot: inout AgenticConversationSnapshot
-    ) -> AgenticConversationSettingsControlEvent {
-        var selection = snapshot.customToolSelection
-        selection.dynamicDiscovery.toggle()
-        snapshot.customToolSelection = selection
-
-        open(
-            .custom,
-            snapshot: snapshot,
-            currentID: .dynamic_discovery
-        )
-
-        return .conversation(
-            .customToolSelectionChanged(selection)
-        )
-    }
-
-    mutating func toggleToolCollectionAvailability(
-        _ identifier: String,
-        snapshot: inout AgenticConversationSnapshot
-    ) -> AgenticConversationSettingsControlEvent {
-        guard let collection = Self.toolCollection(
-            identifiedBy: identifier,
-            snapshot: snapshot
-        ) else {
-            return .conversation(
-                .feedbackRequested(
-                    "Tool collection is no longer available."
-                )
-            )
-        }
-
-        let required = Self.requiredToolIdentifiers(snapshot)
-        let toolIdentifiers = Self.selectableTools(
-            in: collection
-        )
-        .map(\.id)
-        .filter {
-            !required.contains($0)
-        }
-
-        guard !toolIdentifiers.isEmpty else {
-            return .conversation(
-                .feedbackRequested(
-                    "This collection contains no independently available tools."
-                )
-            )
-        }
-
-        var selection = snapshot.customToolSelection
-        let available = Set(selection.availableIdentifiers)
-        let allAvailable = toolIdentifiers.allSatisfy {
-            available.contains($0)
-        }
-
-        if allAvailable {
-            let removing = Set(toolIdentifiers)
-
-            selection.availableIdentifiers.removeAll {
-                removing.contains($0)
-            }
-            selection.visibleIdentifiers.removeAll {
-                removing.contains($0)
-            }
-        } else {
-            var existing = Set(selection.availableIdentifiers)
-
-            for toolIdentifier in toolIdentifiers
-            where existing.insert(toolIdentifier).inserted {
-                selection.availableIdentifiers.append(
-                    toolIdentifier
-                )
-            }
-        }
-
-        snapshot.customToolSelection = selection
-        open(
-            .custom,
-            snapshot: snapshot,
-            currentID: .tool_collection(identifier)
-        )
-
-        return .conversation(
-            .customToolSelectionChanged(selection)
-        )
-    }
-
-    mutating func toggleToolAvailability(
-        _ identifier: ToolIdentifier,
-        snapshot: inout AgenticConversationSnapshot
-    ) -> AgenticConversationSettingsControlEvent {
-        guard let collection = snapshot.toolCollections.first(where: {
-            collection in
-            collection.tools.contains(where: {
-                $0.id == identifier
-            })
-        }),
-              let tool = collection.tools.first(where: {
-                  $0.id == identifier
-              })
-        else {
-            return .conversation(
-                .feedbackRequested(
-                    "Tool is no longer available."
-                )
-            )
-        }
-
-        guard tool.selectionRole == .selectable else {
-            return .conversation(
-                .feedbackRequested(
-                    "Tool '\(tool.title)' is controlled by Dynamic discovery."
-                )
-            )
-        }
-
-        guard !Self.requiredToolIdentifiers(snapshot).contains(identifier) else {
-            return .conversation(
-                .feedbackRequested(
-                    "Tool '\(tool.title)' is required by a selected skill."
-                )
-            )
-        }
-
-        var selection = snapshot.customToolSelection
-
-        if selection.availableIdentifiers.contains(identifier) {
-            selection.availableIdentifiers.removeAll {
-                $0 == identifier
-            }
-            selection.visibleIdentifiers.removeAll {
-                $0 == identifier
-            }
-        } else {
-            selection.availableIdentifiers.append(
-                identifier
-            )
-        }
-
-        snapshot.customToolSelection = selection
-        open(
-            .tool_collection(collection.id),
-            snapshot: snapshot,
-            currentID: .tool(identifier)
-        )
-
-        return .conversation(
-            .customToolSelectionChanged(selection)
-        )
-    }
-
-    mutating func toggleToolVisibility(
-        _ identifier: ToolIdentifier,
-        snapshot: inout AgenticConversationSnapshot
-    ) -> AgenticConversationSettingsControlEvent {
-        guard let collection = snapshot.toolCollections.first(where: {
-            collection in
-            collection.tools.contains(where: {
-                $0.id == identifier
-            })
-        }),
-              let tool = collection.tools.first(where: {
-                  $0.id == identifier
-              })
-        else {
-            return .conversation(
-                .feedbackRequested(
-                    "Tool is no longer available."
-                )
-            )
-        }
-
-        guard tool.selectionRole == .selectable else {
-            return .conversation(
-                .feedbackRequested(
-                    "Tool '\(tool.title)' is controlled by Dynamic discovery."
-                )
-            )
-        }
-
-        guard !Self.requiredToolIdentifiers(snapshot).contains(identifier) else {
-            return .conversation(
-                .feedbackRequested(
-                    "Tool '\(tool.title)' is required by a selected skill."
-                )
-            )
-        }
-
-        var selection = snapshot.customToolSelection
-
-        guard selection.availableIdentifiers.contains(identifier) else {
-            return .conversation(
-                .feedbackRequested(
-                    "Tool '\(tool.title)' must be available before it can be visible."
-                )
-            )
-        }
-
-        if selection.visibleIdentifiers.contains(identifier) {
-            selection.visibleIdentifiers.removeAll {
-                $0 == identifier
-            }
-        } else {
-            selection.visibleIdentifiers.append(
-                identifier
-            )
-        }
-
-        snapshot.customToolSelection = selection
-        open(
-            .tool_collection(collection.id),
-            snapshot: snapshot,
-            currentID: .tool(identifier)
-        )
-
-        return .conversation(
-            .customToolSelectionChanged(selection)
-        )
-    }
-
-    mutating func selectResponseDelivery(
-        _ delivery: AgentModelResponseDelivery,
-        snapshot: inout AgenticConversationSnapshot
-    ) -> AgenticConversationSettingsControlEvent {
-        snapshot.selectedResponseDelivery = delivery
-        open(.root, snapshot: snapshot, currentID: rootSelection)
-        return .conversation(
-            .responseDeliverySelectionChanged(delivery)
-        )
-    }
-
-    mutating func selectAutonomy(
-        _ mode: AutonomyMode,
-        snapshot: inout AgenticConversationSnapshot
-    ) -> AgenticConversationSettingsControlEvent {
-        snapshot.selectedAutonomyMode = mode
-        open(.root, snapshot: snapshot, currentID: rootSelection)
-        return .conversation(.autonomySelectionChanged(mode))
-    }
-
-    mutating func selectExposure(
-        _ exposure: AgenticConversationToolExposure,
-        snapshot: inout AgenticConversationSnapshot
-    ) -> AgenticConversationSettingsControlEvent {
-        snapshot.selectedToolExposure = exposure
-        open(.root, snapshot: snapshot, currentID: rootSelection)
-        return .conversation(.toolExposureSelectionChanged(exposure))
-    }
-
-    private mutating func open(
-        _ page: Page,
-        snapshot: AgenticConversationSnapshot,
-        currentID: RowID?
-    ) {
-        self.page = page
-        menu = Self.menu(
-            snapshot: snapshot,
-            page: page,
-            currentID: currentID
-        )
-    }
-
-    private func unavailableMessage(
-        _ id: RowID,
-        snapshot: AgenticConversationSnapshot
-    ) -> String {
-        switch id {
-        case .tool(let identifier):
-            if let tool = snapshot.toolCollections
-                .flatMap(\.tools)
-                .first(where: { $0.id == identifier }),
-               tool.selectionRole == .dynamicDiscovery
-            {
-                return "Tool '\(tool.title)' is controlled by Dynamic discovery."
-            }
-            return "Tool is unavailable."
-
-        case .skill_seeded:
-            return "Select at least one skill before using skill-seeded exposure."
-        case .skills:
-            return "No skills are registered."
-        case .modelProfile(let identifier):
-            let title = snapshot.models.first {
-                $0.id == identifier
-            }?.title ?? identifier.rawValue
-            return "Model '\(title)' is unavailable."
-        case .responseDelivery(.stream):
-            return "Streaming is unavailable for the selected model."
-        default:
-            return "Selection is unavailable."
-        }
-    }
-
-    private static func menu(
-        snapshot: AgenticConversationSnapshot,
-        page: Page,
-        currentID: RowID?
-    ) -> TerminalSettingsMenuControl<RowID> {
-        let path: [String]
+    static func menu(snapshot: AgenticConversationSnapshot, page: Page,
+                     currentID: RowID?, query: String) -> TerminalSettingsMenuControl<RowID>
+    {
+        var path: [String] = []
         let rows: [TerminalSettingsRow<RowID>]
-        let instructions: String
-
+        var hint = "j/k move  enter select  q back"
         switch page {
         case .root:
-            path = []
             rows = rootRows(snapshot)
-            instructions = "j/k move  enter open  q close"
-
         case .model:
             path = ["Model"]
             rows = snapshot.models.map { model in
-                TerminalSettingsRow(
-                    id: .modelProfile(model.id),
-                    title: model.title,
+                TerminalSettingsRow(id: .modelProfile(model.id), title: model.title,
                     value: model.isAvailable ? nil : "unavailable",
                     isEnabled: model.isAvailable,
-                    accessory: .radio(
-                        selected: model.id == snapshot.preferredModelProfileID
-                    ),
-                    detail: TerminalSettingsDetail(
-                        title: model.title,
-                        fields: [
-                            TerminalField("profile", model.id.rawValue),
-                        ],
-                        body: model.detail
-                    )
-                )
+                    accessory: .radio(selected: model.id == snapshot.preferredModelProfileID),
+                    detail: .init(title: model.title, body: model.detail))
             }
-            instructions = "j/k move  enter select  q back"
-
         case .response:
             path = ["Response"]
             rows = responseDeliveryRows(snapshot)
-            instructions = "j/k move  enter select  q back"
-
         case .invocationoptions:
             path = ["Invocation options"]
             rows = invocationOptionsRows(snapshot)
-            instructions = "j/k move  enter open  q back"
-
         case .requesttimeout:
             path = ["Invocation options", "Request timeout"]
             rows = requestTimeoutRows(snapshot)
-            instructions = "j/k move  enter select  q back"
-
         case .autonomy:
             path = ["Autonomy"]
             rows = autonomyRows(snapshot)
-            instructions = "j/k move  enter select  q back"
-
-        case .exposure:
-            path = ["Tool exposure"]
-            rows = exposureRows(snapshot)
-            instructions = "j/k move  enter select  q back"
-
-        case .custom:
-            path = [
-                "Tool exposure",
-                "Custom",
+        case .capabilities:
+            path = ["Capabilities"]
+            rows = [
+                .init(id: .search, title: "Search", value: "Press / to search", accessory: .disclosure),
+                .init(id: .domains, title: "Domain first", accessory: .disclosure),
+                .init(id: .types, title: "Type first", accessory: .disclosure),
             ]
-            rows = customRows(snapshot)
-            instructions = "j/k move  enter open/toggle  space toggle  q back"
-
-        case .tool_collection(let identifier):
-            if let collection = toolCollection(
-                identifiedBy: identifier,
-                snapshot: snapshot
-            ) {
-                path = [
-                    "Tool exposure",
-                    "Custom",
-                    collection.title,
-                ]
-                rows = toolRows(
-                    collection,
-                    snapshot: snapshot
-                )
-            } else {
-                path = [
-                    "Tool exposure",
-                    "Custom",
-                    identifier,
-                ]
-                rows = []
+        case .domains:
+            path = ["Capabilities", "Domain first"]
+            rows = domains(snapshot).map { domain in
+                .init(id: .domain(domain), title: domain, accessory: .disclosure)
             }
-            instructions = "j/k move  enter/space toggle  q back"
-
-        case .skills:
-            path = ["Skills"]
-            rows = snapshot.skills.map { skill in
-                TerminalSettingsRow(
-                    id: .skill(skill.id),
-                    title: skill.title,
-                    accessory: .checkbox(
-                        selected: snapshot.selectedSkillIDs.contains(skill.id)
-                    ),
-                    detail: TerminalSettingsDetail(
-                        title: skill.title,
-                        fields: [
-                            TerminalField(
-                                "tools",
-                                skill.toolNames.isEmpty
-                                    ? "none"
-                                    : skill.toolNames.joined(separator: ", ")
-                            ),
-                        ],
-                        body: skill.summary
-                    )
-                )
+        case .types:
+            path = ["Capabilities", "Type first"]
+            rows = AgenticConversationCapabilityEntry.Kind.allCases.map { kind in
+                .init(id: .type(kind), title: kind.title, accessory: .disclosure)
             }
-            instructions = "j/k move  space toggle  q back"
+        case .domain(let domain):
+            path = ["Capabilities", "Domain first", domain]
+            rows = AgenticConversationCapabilityEntry.Kind.allCases.filter { kind in
+                snapshot.capabilityEntries.contains { $0.domain == domain && $0.kind == kind }
+            }.map { kind in
+                .init(id: .type(kind), title: kind.title, accessory: .disclosure)
+            }
+        case .type(let kind):
+            path = ["Capabilities", "Type first", kind.title]
+            rows = domains(snapshot).filter { domain in
+                snapshot.capabilityEntries.contains { $0.domain == domain && $0.kind == kind }
+            }.map { domain in
+                .init(id: .domain(domain), title: domain, accessory: .disclosure)
+            }
+        case .items(let domain, let kind):
+            path = ["Capabilities", domain, kind.title]
+            rows = snapshot.capabilityEntries.filter {
+                $0.domain == domain && $0.kind == kind
+            }.map { capabilityRow($0, snapshot: snapshot) }
+            hint = "j/k move  enter visible  space available  / search  q back"
+        case .search:
+            path = ["Capabilities", "Search: /\(query)"]
+            rows = snapshot.capabilityEntries.filter { $0.matches(query) }
+                .map { capabilityRow($0, snapshot: snapshot) }
+            hint = "type to search  enter visible  space available  q back"
         }
-
         return TerminalSettingsMenuControl(
-            title: "Conversation settings",
-            path: path,
-            rows: rows,
-            currentID: currentID,
-            instructions: instructions
+            title: page == .search ? "Search capabilities  /\(query)▏" : "Conversation settings",
+            path: path, rows: rows,
+            currentID: currentID, instructions: hint
         )
     }
 
-    private static func rootRows(
-        _ snapshot: AgenticConversationSnapshot
-    ) -> [TerminalSettingsRow<RowID>] {
-        let model = snapshot.models.first {
-            $0.id == snapshot.preferredModelProfileID
+    static func domains(_ snapshot: AgenticConversationSnapshot) -> [String] {
+        Array(Set(snapshot.capabilityEntries.map(\.domain))).sorted()
+    }
+    static func capabilityRow(_ entry: AgenticConversationCapabilityEntry,
+                              snapshot: AgenticConversationSnapshot) -> TerminalSettingsRow<RowID>
+    {
+        if entry.kind == .instruction {
+            let isSelected = snapshot.selectedInstructionIDs.contains(.init(rawValue: entry.identifier))
+            return .init(id: .capability(entry.id), title: entry.title,
+                value: isSelected ? "Selected" : "Not selected",
+                accessory: .checkbox(selected: isSelected),
+                detail: .init(title: entry.title,
+                    fields: [.init("identifier", entry.identifier), .init("domain", entry.domain)],
+                    body: entry.summary))
         }
-
+        let enabled = entry.capability.intersecting(snapshot.availableCapabilities) != .none
+        let visible = entry.capability.intersecting(snapshot.visibleCapabilities) != .none
+        return .init(id: .capability(entry.id), title: entry.title,
+            value: "Available \(enabled ? "on" : "off") · Visible \(visible ? "on" : "off")",
+            caption: "Enter toggles visibility · Space toggles availability",
+            accessory: .checkbox(selected: enabled),
+            detail: .init(title: entry.title,
+                fields: [.init("identifier", entry.identifier),
+                         .init("domain", entry.domain),
+                         .init("type", entry.kind.rawValue)],
+                body: entry.summary))
+    }
+    static func rootRows(_ snapshot: AgenticConversationSnapshot) -> [TerminalSettingsRow<RowID>] {
+        let model = snapshot.models.first { $0.id == snapshot.preferredModelProfileID }
+        let visibleCount = snapshot.visibleCapabilities.tools.count
+            + snapshot.visibleCapabilities.programs.count
+            + snapshot.visibleCapabilities.inferences.count
+            + snapshot.visibleCapabilities.agents.count
         return [
-            TerminalSettingsRow(
-                id: .model,
-                title: "Model",
-                value: model?.title ?? snapshot.preferredModelProfileID.rawValue,
-                accessory: .disclosure,
-                detail: TerminalSettingsDetail(
-                    title: model?.title ?? snapshot.preferredModelProfileID.rawValue,
-                    body: model?.detail
-                )
-            ),
-            TerminalSettingsRow(
-                id: .response,
-                title: "Response",
-                value: responseDeliveryTitle(
-                    snapshot.selectedResponseDelivery
-                ),
-                accessory: .disclosure,
-                detail: responseDeliveryDetail(
-                    snapshot.selectedResponseDelivery,
-                    snapshot: snapshot
-                )
-            ),
-            TerminalSettingsRow(
-                id: .invocationoptions,
-                title: "Invocation options",
-                value: requestTimeoutTitle(
-                    snapshot.selectedInvocationOptions.timeoutseconds
-                ),
-                accessory: .disclosure,
-                detail: TerminalSettingsDetail(
-                    title: "Invocation options",
-                    fields: [
-                        TerminalField(
-                            "request timeout",
-                            requestTimeoutTitle(
-                                snapshot.selectedInvocationOptions.timeoutseconds
-                            )
-                        ),
-                    ],
-                    body: "Configure provider invocation behavior for subsequent conversation turns."
-                )
-            ),
-            TerminalSettingsRow(
-                id: .autonomy,
-                title: "Autonomy",
-                value: autonomyTitle(snapshot.selectedAutonomyMode),
-                accessory: .disclosure,
-                detail: autonomyDetail(snapshot.selectedAutonomyMode)
-            ),
-            TerminalSettingsRow(
-                id: .exposure,
-                title: "Tool exposure",
-                value: snapshot.selectedToolExposure.title,
-                accessory: .disclosure,
-                detail: exposureDetail(
-                    snapshot.selectedToolExposure,
-                    snapshot: snapshot
-                )
-            ),
-            TerminalSettingsRow(
-                id: .skills,
-                title: "Skills",
-                value: skillValue(snapshot),
-                isEnabled: !snapshot.skills.isEmpty,
-                accessory: .disclosure,
-                detail: TerminalSettingsDetail(
-                    title: "Skills",
-                    fields: [
-                        TerminalField("selected", skillValue(snapshot)),
-                    ],
-                    body: "Skills provide task context independently of tool exposure."
-                )
-            ),
+            .init(id: .model, title: "Model", value: model?.title,
+                  accessory: .disclosure),
+            .init(id: .response, title: "Response",
+                  value: responseDeliveryTitle(snapshot.selectedResponseDelivery),
+                  accessory: .disclosure),
+            .init(id: .invocationoptions, title: "Invocation options",
+                  value: requestTimeoutTitle(snapshot.selectedInvocationOptions.timeoutseconds),
+                  accessory: .disclosure),
+            .init(id: .autonomy, title: "Autonomy",
+                  value: autonomyTitle(snapshot.selectedAutonomyMode),
+                  accessory: .disclosure),
+            .init(id: .capabilities, title: "Capabilities",
+                  value: "\(visibleCount) visible · \(snapshot.selectedInstructionIDs.count) instructions",
+                  accessory: .disclosure),
         ]
     }
-
     private static func invocationOptionsRows(
         _ snapshot: AgenticConversationSnapshot
     ) -> [TerminalSettingsRow<RowID>] {
@@ -1162,379 +673,5 @@ private extension AgenticConversationSettingsControl {
         }?.supportsStreaming ?? true
     }
 
-    private static func exposureRows(
-        _ snapshot: AgenticConversationSnapshot
-    ) -> [TerminalSettingsRow<RowID>] {
-        [
-            exposureRow(
-                id: .discovery,
-                exposure: .discovery,
-                snapshot: snapshot
-            ),
-            exposureRow(
-                id: .allTools,
-                exposure: .all,
-                snapshot: snapshot
-            ),
-            TerminalSettingsRow(
-                id: .skill_seeded,
-                title: AgenticConversationToolExposure.skill_seeded.title,
-                caption: snapshot.selectedSkillIDs.isEmpty
-                    ? "Select a skill first."
-                    : nil,
-                isEnabled: !snapshot.selectedSkillIDs.isEmpty
-                    || snapshot.selectedToolExposure == .skill_seeded,
-                accessory: .radio(
-                    selected: snapshot.selectedToolExposure == .skill_seeded
-                ),
-                detail: exposureDetail(.skill_seeded, snapshot: snapshot)
-            ),
-            TerminalSettingsRow(
-                id: .custom,
-                title: AgenticConversationToolExposure.custom.title,
-                value: "\(snapshot.customToolSelection.availableIdentifiers.count) available · \(snapshot.customToolSelection.visibleIdentifiers.count) visible",
-                accessory: .radio(
-                    selected: snapshot.selectedToolExposure == .custom
-                ),
-                detail: exposureDetail(.custom, snapshot: snapshot)
-            ),
-        ]
-    }
 
-    private static func customRows(
-        _ snapshot: AgenticConversationSnapshot
-    ) -> [TerminalSettingsRow<RowID>] {
-        let available = Set(
-            snapshot.customToolSelection.availableIdentifiers
-        )
-        let visible = Set(
-            snapshot.customToolSelection.visibleIdentifiers
-        )
-        let required = requiredToolIdentifiers(snapshot)
-
-        var rows: [TerminalSettingsRow<RowID>] = [
-            TerminalSettingsRow(
-                id: .dynamic_discovery,
-                title: "Dynamic discovery",
-                value: snapshot.customToolSelection.dynamicDiscovery
-                    ? "On"
-                    : "Off",
-                accessory: .checkbox(
-                    selected:
-                        snapshot.customToolSelection.dynamicDiscovery
-                ),
-                detail: TerminalSettingsDetail(
-                    title: "Dynamic discovery",
-                    fields: [
-                        TerminalField(
-                            "find_tools",
-                            snapshot.customToolSelection.dynamicDiscovery
-                                ? "available + visible"
-                                : "not exposed"
-                        ),
-                    ],
-                    body: "When enabled, find_tools may promote already-available tools into model visibility. Discovery never grants tool availability."
-                )
-            ),
-        ]
-
-        rows.append(
-            contentsOf: snapshot.toolCollections.map { collection in
-                let selectable = selectableTools(
-                    in: collection
-                )
-                let mutable = selectable.filter {
-                    !required.contains($0.id)
-                }
-                let availableCount = selectable.reduce(
-                    into: 0
-                ) { count, tool in
-                    if required.contains(tool.id)
-                        || available.contains(tool.id)
-                    {
-                        count += 1
-                    }
-                }
-                let visibleCount = selectable.reduce(
-                    into: 0
-                ) { count, tool in
-                    if required.contains(tool.id)
-                        || visible.contains(tool.id)
-                    {
-                        count += 1
-                    }
-                }
-
-                return TerminalSettingsRow(
-                    id: .tool_collection(collection.id),
-                    title: collection.title,
-                    value: "A \(availableCount)/\(selectable.count) · V \(visibleCount)/\(selectable.count)",
-                    isEnabled: !collection.tools.isEmpty,
-                    accessory: .checkbox(
-                        selected: !mutable.isEmpty
-                            && mutable.allSatisfy {
-                                available.contains($0.id)
-                            }
-                    ),
-                    detail: TerminalSettingsDetail(
-                        title: collection.title,
-                        fields: [
-                            TerminalField(
-                                "available",
-                                "\(availableCount) / \(selectable.count)"
-                            ),
-                            TerminalField(
-                                "visible",
-                                "\(visibleCount) / \(selectable.count)"
-                            ),
-                        ],
-                        body: "Enter opens individual tools. Space toggles availability for independently selectable tools; disabling availability also removes visibility."
-                    )
-                )
-            }
-        )
-
-        return rows
-    }
-
-    private static func toolRows(
-        _ collection: AgenticConversationToolCollectionPresentation,
-        snapshot: AgenticConversationSnapshot
-    ) -> [TerminalSettingsRow<RowID>] {
-        let available = Set(
-            snapshot.customToolSelection.availableIdentifiers
-        )
-        let visible = Set(
-            snapshot.customToolSelection.visibleIdentifiers
-        )
-        let required = requiredToolIdentifiers(snapshot)
-
-        return collection.tools.map { tool in
-            switch tool.selectionRole {
-            case .selectable:
-                let isRequired = required.contains(tool.id)
-                let isAvailable = isRequired
-                    || available.contains(tool.id)
-                let isVisible = isRequired
-                    || visible.contains(tool.id)
-
-                return TerminalSettingsRow(
-                    id: .tool(tool.id),
-                    title: tool.title,
-                    value: "Available \(isAvailable ? "on" : "off") · Visible \(isVisible ? "on" : "off")",
-                    caption: isRequired
-                        ? "Required by selected skill."
-                        : "Enter toggles Visible · Space toggles Available.",
-                    accessory: .checkbox(
-                        selected: isAvailable
-                    ),
-                    detail: TerminalSettingsDetail(
-                        title: tool.title,
-                        fields: [
-                            TerminalField(
-                                "identifier",
-                                tool.id.rawValue
-                            ),
-                            TerminalField(
-                                "available",
-                                isAvailable ? "yes" : "no"
-                            ),
-                            TerminalField(
-                                "visible",
-                                isVisible ? "yes" : "no"
-                            ),
-                        ],
-                        body: isRequired
-                            ? "This tool is required by a selected skill and remains available and visible."
-                            : "\(tool.summary)\n\nEnter toggles visibility. Space toggles availability."
-                    )
-                )
-
-            case .dynamicDiscovery:
-                let enabled =
-                    snapshot.customToolSelection.dynamicDiscovery
-
-                return TerminalSettingsRow(
-                    id: .tool(tool.id),
-                    title: tool.title,
-                    value: enabled
-                        ? "Available on · Visible on"
-                        : "Available off · Visible off",
-                    caption: "Controlled by Dynamic discovery.",
-                    isEnabled: false,
-                    accessory: .checkbox(
-                        selected: enabled
-                    ),
-                    detail: TerminalSettingsDetail(
-                        title: tool.title,
-                        fields: [
-                            TerminalField(
-                                "identifier",
-                                tool.id.rawValue
-                            ),
-                            TerminalField(
-                                "controlled by",
-                                "Dynamic discovery"
-                            ),
-                        ],
-                        body: tool.summary
-                    )
-                )
-            }
-        }
-    }
-
-    private static func toolCollection(
-        identifiedBy identifier: String,
-        snapshot: AgenticConversationSnapshot
-    ) -> AgenticConversationToolCollectionPresentation? {
-        snapshot.toolCollections.first {
-            $0.id == identifier
-        }
-    }
-
-    private static func selectableTools(
-        in collection: AgenticConversationToolCollectionPresentation
-    ) -> [AgenticConversationToolPresentation] {
-        collection.tools.filter {
-            $0.selectionRole == .selectable
-        }
-    }
-
-    private static func requiredToolIdentifiers(
-        _ snapshot: AgenticConversationSnapshot
-    ) -> Set<ToolIdentifier> {
-        Set(
-            snapshot.skills
-                .filter {
-                    snapshot.selectedSkillIDs.contains($0.id)
-                }
-                .flatMap(\.requiredToolIdentifiers)
-        )
-    }
-
-    private static func exposureRow(
-        id: RowID,
-        exposure: AgenticConversationToolExposure,
-        snapshot: AgenticConversationSnapshot
-    ) -> TerminalSettingsRow<RowID> {
-        TerminalSettingsRow(
-            id: id,
-            title: exposure.title,
-            accessory: .radio(
-                selected: snapshot.selectedToolExposure == exposure
-            ),
-            detail: exposureDetail(exposure, snapshot: snapshot)
-        )
-    }
-
-    static func exposureDetail(
-        _ exposure: AgenticConversationToolExposure,
-        snapshot: AgenticConversationSnapshot
-    ) -> TerminalSettingsDetail {
-        switch exposure {
-        case .discovery:
-            return TerminalSettingsDetail(
-                title: exposure.title,
-                fields: [
-                    TerminalField("initial tools", "find_tools"),
-                    TerminalField("dynamic", "yes"),
-                ],
-                body: "Start small and activate registered capabilities as needed."
-            )
-
-        case .all:
-            return TerminalSettingsDetail(
-                title: exposure.title,
-                fields: [
-                    TerminalField("initial tools", "all model-facing"),
-                    TerminalField("dynamic", "no"),
-                ],
-                body: "Advertise every registered model-facing tool immediately."
-            )
-
-        case .skill_seeded:
-            let tools = selectedSkillTools(snapshot)
-            return TerminalSettingsDetail(
-                title: exposure.title,
-                fields: [
-                    TerminalField(
-                        "initial tools",
-                        (["find_tools"] + tools).joined(separator: ", ")
-                    ),
-                    TerminalField("dynamic", "yes"),
-                ],
-                body: tools.isEmpty
-                    ? "No required tools from selected skills are currently seeded."
-                    : "Seed required tools from selected skills and keep other capabilities discoverable."
-            )
-
-        case .custom:
-            return TerminalSettingsDetail(
-                title: exposure.title,
-                fields: [
-                    TerminalField(
-                        "available",
-                        "\(snapshot.customToolSelection.availableIdentifiers.count) tools"
-                    ),
-                    TerminalField(
-                        "visible",
-                        "\(snapshot.customToolSelection.visibleIdentifiers.count) tools"
-                    ),
-                    TerminalField(
-                        "dynamic",
-                        snapshot.customToolSelection.dynamicDiscovery
-                            ? "yes"
-                            : "no"
-                    ),
-                ],
-                body: "Available controls what this agent may use. Visible controls what is advertised to the model. Dynamic discovery may promote only already-available tools into visibility."
-            )
-        }
-    }
-
-    static func skillValue(
-        _ snapshot: AgenticConversationSnapshot
-    ) -> String {
-        let selected = snapshot.skills.filter {
-            snapshot.selectedSkillIDs.contains($0.id)
-        }
-
-        if selected.isEmpty {
-            return "None"
-        }
-        if selected.count == 1 {
-            return selected[0].title
-        }
-        return "\(selected.count) selected"
-    }
-
-    static func selectedSkillTools(
-        _ snapshot: AgenticConversationSnapshot
-    ) -> [String] {
-        Array(
-            Set(
-                snapshot.skills
-                    .filter {
-                        snapshot.selectedSkillIDs.contains($0.id)
-                    }
-                    .flatMap(\.toolNames)
-            )
-        ).sorted()
-    }
-
-    private static func exposureRowID(
-        _ exposure: AgenticConversationToolExposure
-    ) -> RowID {
-        switch exposure {
-        case .discovery:
-            return .discovery
-        case .all:
-            return .allTools
-        case .skill_seeded:
-            return .skill_seeded
-        case .custom:
-            return .custom
-        }
-    }
 }

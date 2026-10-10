@@ -30,12 +30,10 @@ enum AgenticConversationSmoke {
         case invocationOptionsSelectionChanged
         case autonomySelectionChanged
         case streamingCapabilityGateChanged
-        case toolExposureSelectionChanged
-        case customToolExposureSelectionChanged
-        case customToolSelectionChanged
-        case customToolPickerPresentationMissing
+        case capabilitySelectionChanged
+        case capabilityBrowserPresentationMissing
         case derivedToolSelectionChanged
-        case skillSelectionChanged
+        case instructionSelectionChanged
         case settingsPresentationMissing
         case runDidNotOpen
         case runDidNotClose
@@ -46,7 +44,7 @@ enum AgenticConversationSmoke {
         case transcriptQExited
         case selectedMessagePresentationChanged
         case selectedMessageViewportChanged
-        case presentationMissing
+        case presentationMissing(String)
         case programCommandChanged
     }
 
@@ -320,17 +318,9 @@ enum AgenticConversationSmoke {
               submission.origin == .typed,
               submission.contents.isEmpty,
               submission.preferredModelProfileID.rawValue == "apple-default",
-              submission.skillIDs.isEmpty,
-              submission.toolExposure == .discovery,
-              submission.customToolSelection == AgenticConversationToolSelection(
-                availableIdentifiers: [
-                    "inspect_workspace",
-                ],
-                visibleIdentifiers: [
-                    "inspect_workspace",
-                ],
-                dynamicDiscovery: true
-              ),
+              submission.instructionIDs.isEmpty,
+              submission.availableCapabilities.tools == ["inspect_workspace"],
+              submission.visibleCapabilities.tools == ["inspect_workspace"],
               submission.responseDelivery == .stream,
               submission.invocationoptions == .default,
               submission.autonomyMode == .auto_observe,
@@ -534,182 +524,46 @@ enum AgenticConversationSmoke {
               settingsPresentation.contains(
                 "Autonomy"
               ),
-              settingsPresentation.contains(
-                "Tool exposure"
-              ),
-              settingsPresentation.contains(
-                "Skills"
-              )
+              settingsPresentation.contains("Capabilities")
         else {
             throw Failure.settingsPresentationMissing
         }
 
-        var customSettingsControl = AgenticConversationControl(
-            snapshot: fixture()
-        )
-        _ = customSettingsControl.handle(
-            .escape
-        )
-        _ = customSettingsControl.handle(
-            .escape
-        )
-        _ = customSettingsControl.handle(
-            .char("s")
-        )
-        _ = customSettingsControl.handle(
-            .char("j")
-        )
-        _ = customSettingsControl.handle(
-            .char("j")
-        )
-        _ = customSettingsControl.handle(
-            .char("j")
-        )
-        _ = customSettingsControl.handle(
-            .char("j")
-        )
-        _ = customSettingsControl.handle(
-            .enter
-        )
-        _ = customSettingsControl.handle(
-            .char("j")
-        )
-        _ = customSettingsControl.handle(
-            .char("j")
-        )
-        _ = customSettingsControl.handle(
-            .char("j")
-        )
-
-        guard customSettingsControl.handle(
-            .enter
-        ) == .toolExposureSelectionChanged(
-            .custom
+        // Browse by Domain, then Type; availability and visibility are separate.
+        var browserControl = AgenticConversationControl(snapshot: fixture())
+        _ = browserControl.handle(.escape)
+        _ = browserControl.handle(.escape)
+        _ = browserControl.handle(.char("s"))
+        for _ in 0..<4 { _ = browserControl.handle(.char("j")) }
+        _ = browserControl.handle(.enter) // Capabilities
+        _ = browserControl.handle(.char("j")) // Domain first
+        _ = browserControl.handle(.enter)
+        _ = browserControl.handle(.enter) // Core domain
+        _ = browserControl.handle(.enter) // Tools
+        guard browserControl.handle(.enter) == .capabilitySelectionChanged(
+            available: .init(tools: ["inspect_workspace"]),
+            visible: .none
         ) else {
-            throw Failure.customToolExposureSelectionChanged
+            throw Failure.capabilitySelectionChanged
         }
-
-        var customPickerFrame = TerminalFrame(
-            rows: 28,
-            columns: 100
-        )
-        customSettingsControl.render(
-            into: &customPickerFrame,
-            in: TerminalRegion(
-                rows: 28,
-                columns: 100
-            )
-        )
-        let customPickerPresentation = stripANSI(
-            customPickerFrame.resolved().spans
-                .map(\.content)
-                .joined(
-                    separator: "\n"
-                )
-        )
-
-        guard customPickerPresentation.contains(
-            "Conversation settings / Tool exposure / Custom"
-        ),
-              customPickerPresentation.contains(
-                "Dynamic discovery"
-              ),
-              customPickerPresentation.contains(
-                "Core"
-              ),
-              customPickerPresentation.contains(
-                "A 1/2 · V 1/2"
-              ),
-              customPickerPresentation.contains(
-                "Intrinsics"
-              )
-        else {
-            throw Failure.customToolPickerPresentationMissing
+        // Search is user-facing and must filter the *same* catalog.
+        _ = browserControl.handle(.char("/"))
+        for character in "mutate" { _ = browserControl.handle(.char(String(character))) }
+        _ = browserControl.handle(.enter)
+        var searchFrame = TerminalFrame(rows: 28, columns: 100)
+        browserControl.render(into: &searchFrame,
+            in: TerminalRegion(rows: 28, columns: 100))
+        let searchText = stripANSI(searchFrame.resolved().spans.map(\.content).joined(separator: "\n"))
+        guard searchText.contains("Search: /mutate"),
+              searchText.contains("mutate_files"),
+              !searchText.contains("inspect_workspace") else {
+            throw Failure.capabilityBrowserPresentationMissing
         }
-
-        guard customSettingsControl.handle(
-            .space
-        ) == .customToolSelectionChanged(
-            AgenticConversationToolSelection(
-                availableIdentifiers: [
-                    "inspect_workspace",
-                ],
-                visibleIdentifiers: [
-                    "inspect_workspace",
-                ],
-                dynamicDiscovery: false
-            )
+        guard browserControl.handle(.space) == .capabilitySelectionChanged(
+            available: .init(tools: ["inspect_workspace", "mutate_files"]),
+            visible: .none
         ) else {
-            throw Failure.customToolSelectionChanged
-        }
-
-        _ = customSettingsControl.handle(
-            .char("j")
-        )
-        guard customSettingsControl.handle(
-            .space
-        ) == .customToolSelectionChanged(
-            AgenticConversationToolSelection(
-                availableIdentifiers: [
-                    "inspect_workspace",
-                    "mutate_files",
-                ],
-                visibleIdentifiers: [
-                    "inspect_workspace",
-                ],
-                dynamicDiscovery: false
-            )
-        ) else {
-            throw Failure.customToolSelectionChanged
-        }
-
-        _ = customSettingsControl.handle(
-            .enter
-        )
-        guard customSettingsControl.handle(
-            .enter
-        ) == .customToolSelectionChanged(
-            AgenticConversationToolSelection(
-                availableIdentifiers: [
-                    "inspect_workspace",
-                    "mutate_files",
-                ],
-                visibleIdentifiers: [],
-                dynamicDiscovery: false
-            )
-        ) else {
-            throw Failure.customToolSelectionChanged
-        }
-        guard customSettingsControl.handle(
-            .space
-        ) == .customToolSelectionChanged(
-            AgenticConversationToolSelection(
-                availableIdentifiers: [
-                    "mutate_files",
-                ],
-                visibleIdentifiers: [],
-                dynamicDiscovery: false
-            )
-        ) else {
-            throw Failure.customToolSelectionChanged
-        }
-
-        _ = customSettingsControl.handle(
-            .char("q")
-        )
-        _ = customSettingsControl.handle(
-            .char("j")
-        )
-        _ = customSettingsControl.handle(
-            .enter
-        )
-
-        guard customSettingsControl.handle(
-            .space
-        ) == .feedbackRequested(
-            "Tool 'find_tools' is controlled by Dynamic discovery."
-        ) else {
-            throw Failure.derivedToolSelectionChanged
+            throw Failure.capabilitySelectionChanged
         }
 
         _ = control.handle(
@@ -832,72 +686,22 @@ enum AgenticConversationSmoke {
             throw Failure.streamingCapabilityGateChanged
         }
 
-        _ = control.handle(
-            .char("s")
-        )
-        _ = control.handle(
-            .char("j")
-        )
-        _ = control.handle(
-            .char("j")
-        )
-        _ = control.handle(
-            .char("j")
-        )
-        _ = control.handle(
-            .char("j")
-        )
-        _ = control.handle(
-            .enter
-        )
-        _ = control.handle(
-            .char("j")
-        )
-        guard control.handle(
-            .enter
-        ) == .toolExposureSelectionChanged(
-            .all
-        ) else {
-            throw Failure.toolExposureSelectionChanged
+        // Instruction selection never grants executable authority.
+        var instructionControl = AgenticConversationControl(snapshot: fixture())
+        _ = instructionControl.handle(.escape)
+        _ = instructionControl.handle(.escape)
+        _ = instructionControl.handle(.char("s"))
+        for _ in 0..<4 { _ = instructionControl.handle(.char("j")) }
+        _ = instructionControl.handle(.enter)
+        _ = instructionControl.handle(.char("/"))
+        for character in "Swift editing" { _ = instructionControl.handle(.char(String(character))) }
+        _ = instructionControl.handle(.enter)
+        guard instructionControl.handle(.space) == .instructionSelectionChanged(["swift-editing"]),
+              instructionControl.snapshot.availableCapabilities == fixture().availableCapabilities,
+              instructionControl.snapshot.visibleCapabilities == fixture().visibleCapabilities
+        else {
+            throw Failure.instructionSelectionChanged
         }
-        _ = control.handle(
-            .char("q")
-        )
-
-        _ = control.handle(
-            .char("s")
-        )
-        _ = control.handle(
-            .char("j")
-        )
-        _ = control.handle(
-            .char("j")
-        )
-        _ = control.handle(
-            .char("j")
-        )
-        _ = control.handle(
-            .char("j")
-        )
-        _ = control.handle(
-            .char("j")
-        )
-        _ = control.handle(
-            .enter
-        )
-        guard control.handle(
-            .space
-        ) == .skillSelectionChanged([
-            "swift-editing",
-        ]) else {
-            throw Failure.skillSelectionChanged
-        }
-        _ = control.handle(
-            .char("q")
-        )
-        _ = control.handle(
-            .char("q")
-        )
 
         guard control.handle(.enter) == .runOpened(
             messageID: "assistant-run",
@@ -1160,17 +964,23 @@ enum AgenticConversationSmoke {
             throw Failure.assistantMarkdownPresentationMissing
         }
 
-        guard rendered.contains("agentic conversation"),
-              rendered.contains("Mock model"),
-              rendered.contains("all tools"),
-              rendered.contains("Swift editing"),
-              rendered.contains("Run · completed"),
-              rendered.contains("1 step"),
-              !rendered.contains("Stage 1 of 1 · inspect_workspace"),
-              rendered.contains("1 operation passed"),
-              rendered.contains("Enter for run details")
-        else {
-            throw Failure.presentationMissing
+        // The fixture installs an Instruction but does not select it.
+        // Installed metadata must not be presented as active guidance.
+        let presentationChecks: [(String, Bool)] = [
+            ("conversation title", rendered.contains("agentic conversation")),
+            ("selected model", rendered.contains("Mock model")),
+            ("visible tool count", rendered.contains("1 visible tools")),
+            ("retired exposure preset absent", !rendered.contains("all tools")),
+            ("no selected instructions", rendered.contains("no instructions")),
+            ("completed run card", rendered.contains("Run · completed")),
+            ("run step count", rendered.contains("1 step")),
+            ("obsolete stage detail absent", !rendered.contains("Stage 1 of 1 · inspect_workspace")),
+            ("run summary", rendered.contains("1 operation passed")),
+            ("run details hint", rendered.contains("Enter for run details")),
+        ]
+        let missing = presentationChecks.filter { !$0.1 }.map { $0.0 }
+        guard missing.isEmpty else {
+            throw Failure.presentationMissing(missing.joined(separator: ", "))
         }
     }
 
@@ -1209,63 +1019,27 @@ enum AgenticConversationSmoke {
                 ),
             ],
             preferredModelProfileID: "apple-default",
-            skills: [
-                AgenticConversationSkillPresentation(
+            instructions: [
+                AgenticConversationInstructionPresentation(
                     id: "swift-editing",
                     title: "Swift editing",
                     summary: "Inspect, mutate, parse, and test Swift sources.",
-                    toolNames: [
-                        "read_swift_structure",
-                        "mutate_files",
-                        "swift_parse",
-                        "swift_run_product",
-                    ]
-                ),
+               ),
             ],
-            toolCollections: [
-                AgenticConversationToolCollectionPresentation(
-                    id: "core",
-                    title: "Core",
-                    tools: [
-                        AgenticConversationToolPresentation(
-                            id: "inspect_workspace",
-                            title: "inspect_workspace",
-                            summary: "Inspect the active workspace."
-                        ),
-                        AgenticConversationToolPresentation(
-                            id: "mutate_files",
-                            title: "mutate_files",
-                            summary: "Apply bounded file mutations."
-                        ),
-                    ]
-                ),
-                AgenticConversationToolCollectionPresentation(
-                    id: "intrinsics",
-                    title: "Intrinsics",
-                    tools: [
-                        AgenticConversationToolPresentation(
-                            id: "find_tools",
-                            title: "find_tools",
-                            summary: "Discover and activate registered tools.",
-                            selectionRole: .dynamicDiscovery
-                        ),
-                        AgenticConversationToolPresentation(
-                            id: "inspect_tool_registry",
-                            title: "inspect_tool_registry",
-                            summary: "Inspect registered tool metadata."
-                        ),
-                    ]
-                ),
+            capabilityEntries: [
+                .init(kind: .tool, identifier: "inspect_workspace", namespace: "Core",
+                    title: "inspect_workspace", summary: "Inspect the active workspace."),
+                .init(kind: .tool, identifier: "mutate_files", namespace: "Core",
+                    title: "mutate_files", summary: "Apply bounded file mutations."),
+                .init(kind: .tool, identifier: "find_tools", namespace: "Intrinsics",
+                    title: "find_tools", summary: "Discover installed capabilities."),
+                .init(kind: .tool, identifier: "inspect_tool_registry", namespace: "Intrinsics",
+                    title: "inspect_tool_registry", summary: "Inspect tool metadata."),
+                .init(kind: .instruction, identifier: "swift-editing", namespace: "Swift",
+                    title: "Swift editing", summary: "Inspect, mutate, parse, and test Swift sources."),
             ],
-            customToolSelection: AgenticConversationToolSelection(
-                availableIdentifiers: [
-                    "inspect_workspace",
-                ],
-                visibleIdentifiers: [
-                    "inspect_workspace",
-                ],
-                dynamicDiscovery: true
-            ),
+            availableCapabilities: .init(tools: ["inspect_workspace"]),
+            visibleCapabilities: .init(tools: ["inspect_workspace"]),
             hostConsole: AgenticHostConsoleSnapshot(
                 runs: [
                     AgenticHostConsoleRunPresentation(

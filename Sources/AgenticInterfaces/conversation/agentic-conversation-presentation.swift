@@ -11,34 +11,6 @@ public enum AgenticConversationInputOrigin: String, Sendable, Hashable {
     case transcribed
 }
 
-public enum AgenticConversationToolExposure:
-    String,
-    Sendable,
-    Hashable,
-    CaseIterable
-{
-    case discovery
-    case all
-    case skill_seeded
-    case custom
-
-    public var title: String {
-        switch self {
-        case .discovery:
-            return "Discovery"
-
-        case .all:
-            return "All tools"
-
-        case .skill_seeded:
-            return "Skill seeded"
-
-        case .custom:
-            return "Custom"
-        }
-    }
-}
-
 public enum AgenticConversationTranscriptionDisposition:
     String,
     Sendable,
@@ -421,28 +393,15 @@ public struct AgenticConversationModelPresentation: Sendable, Hashable {
     }
 }
 
-public struct AgenticConversationSkillPresentation: Sendable, Hashable {
-    public var id: AgentSkillIdentifier
+public struct AgenticConversationInstructionPresentation: Sendable, Hashable {
+    public var id: InstructionIdentifier
     public var title: String
     public var summary: String
-    public var toolNames: [String]
-    public var requiredToolIdentifiers: [ToolIdentifier]
-    public var optionalToolIdentifiers: [ToolIdentifier]
 
-    public init(
-        id: AgentSkillIdentifier,
-        title: String,
-        summary: String,
-        toolNames: [String],
-        requiredToolIdentifiers: [ToolIdentifier] = [],
-        optionalToolIdentifiers: [ToolIdentifier] = []
-    ) {
+    public init(id: InstructionIdentifier, title: String, summary: String) {
         self.id = id
         self.title = title
         self.summary = summary
-        self.toolNames = toolNames
-        self.requiredToolIdentifiers = requiredToolIdentifiers
-        self.optionalToolIdentifiers = optionalToolIdentifiers
     }
 }
 
@@ -451,9 +410,9 @@ public struct AgenticConversationSubmission: Sendable, Hashable {
     public var origin: AgenticConversationInputOrigin
     public var contents: [AgenticConversationContentPresentation]
     public var preferredModelProfileID: AgentModelProfileIdentifier
-    public var skillIDs: [AgentSkillIdentifier]
-    public var toolExposure: AgenticConversationToolExposure
-    public var customToolSelection: AgenticConversationToolSelection
+    public var instructionIDs: [InstructionIdentifier]
+    public var availableCapabilities: AgentCapabilitySet
+    public var visibleCapabilities: AgentCapabilitySet
     public var responseDelivery: AgentModelResponseDelivery
     public var invocationoptions: AgentModelInvocationOptions
     public var autonomyMode: AutonomyMode
@@ -463,9 +422,9 @@ public struct AgenticConversationSubmission: Sendable, Hashable {
         origin: AgenticConversationInputOrigin = .typed,
         contents: [AgenticConversationContentPresentation],
         preferredModelProfileID: AgentModelProfileIdentifier,
-        skillIDs: [AgentSkillIdentifier],
-        toolExposure: AgenticConversationToolExposure = .discovery,
-        customToolSelection: AgenticConversationToolSelection = .init(),
+        instructionIDs: [InstructionIdentifier],
+        availableCapabilities: AgentCapabilitySet = .none,
+        visibleCapabilities: AgentCapabilitySet = .none,
         responseDelivery: AgentModelResponseDelivery = .stream,
         invocationoptions: AgentModelInvocationOptions = .default,
         autonomyMode: AutonomyMode = .auto_observe
@@ -474,9 +433,9 @@ public struct AgenticConversationSubmission: Sendable, Hashable {
         self.origin = origin
         self.contents = contents
         self.preferredModelProfileID = preferredModelProfileID
-        self.skillIDs = skillIDs
-        self.toolExposure = toolExposure
-        self.customToolSelection = customToolSelection
+        self.instructionIDs = instructionIDs
+        self.availableCapabilities = availableCapabilities
+        self.visibleCapabilities = visibleCapabilities.intersecting(availableCapabilities)
         self.responseDelivery = responseDelivery
         self.invocationoptions = invocationoptions
         self.autonomyMode = autonomyMode
@@ -514,11 +473,11 @@ public struct AgenticConversationSnapshot: Sendable, Hashable {
     public var selectedResponseDelivery: AgentModelResponseDelivery
     public var selectedInvocationOptions: AgentModelInvocationOptions
     public var selectedAutonomyMode: AutonomyMode
-    public var skills: [AgenticConversationSkillPresentation]
-    public var selectedSkillIDs: [AgentSkillIdentifier]
-    public var selectedToolExposure: AgenticConversationToolExposure
-    public var toolCollections: [AgenticConversationToolCollectionPresentation]
-    public var customToolSelection: AgenticConversationToolSelection
+    public var instructions: [AgenticConversationInstructionPresentation]
+    public var selectedInstructionIDs: [InstructionIdentifier]
+    public var capabilityEntries: [AgenticConversationCapabilityEntry]
+    public var availableCapabilities: AgentCapabilitySet
+    public var visibleCapabilities: AgentCapabilitySet
     public var hostConsole: AgenticHostConsoleSnapshot
 
     public init(
@@ -536,11 +495,11 @@ public struct AgenticConversationSnapshot: Sendable, Hashable {
         selectedResponseDelivery: AgentModelResponseDelivery = .stream,
         selectedInvocationOptions: AgentModelInvocationOptions = .default,
         selectedAutonomyMode: AutonomyMode = .auto_observe,
-        skills: [AgenticConversationSkillPresentation] = [],
-        selectedSkillIDs: [AgentSkillIdentifier] = [],
-        selectedToolExposure: AgenticConversationToolExposure = .discovery,
-        toolCollections: [AgenticConversationToolCollectionPresentation] = [],
-        customToolSelection: AgenticConversationToolSelection = .init(),
+        instructions: [AgenticConversationInstructionPresentation] = [],
+        selectedInstructionIDs: [InstructionIdentifier] = [],
+        capabilityEntries: [AgenticConversationCapabilityEntry] = [],
+        availableCapabilities: AgentCapabilitySet = .none,
+        visibleCapabilities: AgentCapabilitySet = .none,
         hostConsole: AgenticHostConsoleSnapshot = .init()
     ) {
         self.title = title
@@ -557,11 +516,11 @@ public struct AgenticConversationSnapshot: Sendable, Hashable {
         self.selectedResponseDelivery = selectedResponseDelivery
         self.selectedInvocationOptions = selectedInvocationOptions
         self.selectedAutonomyMode = selectedAutonomyMode
-        self.skills = skills
-        self.selectedSkillIDs = selectedSkillIDs
-        self.selectedToolExposure = selectedToolExposure
-        self.toolCollections = toolCollections
-        self.customToolSelection = customToolSelection
+        self.instructions = instructions
+        self.selectedInstructionIDs = selectedInstructionIDs
+        self.capabilityEntries = capabilityEntries
+        self.availableCapabilities = availableCapabilities
+        self.visibleCapabilities = visibleCapabilities.intersecting(availableCapabilities)
         self.hostConsole = hostConsole
     }
 }

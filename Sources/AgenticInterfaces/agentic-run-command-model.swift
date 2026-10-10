@@ -9,8 +9,8 @@ public struct AgenticRunCommandModel: Sendable, Codable, Hashable {
     public var budgetPosture: BudgetPosture
     public var approvalStrictness: ApprovalStrictness
     public var exposedToolNames: [String]
-    public var loadedSkillIDs: [AgentSkillIdentifier]
-    public var missingSkillIDs: [AgentSkillIdentifier]
+    public var loadedInstructionIDs: [InstructionIdentifier]
+    public var missingInstructionIDs: [InstructionIdentifier]
     public var metadata: [String: String]
 
     public init(
@@ -22,8 +22,8 @@ public struct AgenticRunCommandModel: Sendable, Codable, Hashable {
         budgetPosture: BudgetPosture,
         approvalStrictness: ApprovalStrictness,
         exposedToolNames: [String],
-        loadedSkillIDs: [AgentSkillIdentifier],
-        missingSkillIDs: [AgentSkillIdentifier],
+        loadedInstructionIDs: [InstructionIdentifier],
+        missingInstructionIDs: [InstructionIdentifier],
         metadata: [String: String] = [:]
     ) {
         self.prompt = prompt
@@ -34,8 +34,8 @@ public struct AgenticRunCommandModel: Sendable, Codable, Hashable {
         self.budgetPosture = budgetPosture
         self.approvalStrictness = approvalStrictness
         self.exposedToolNames = exposedToolNames
-        self.loadedSkillIDs = loadedSkillIDs
-        self.missingSkillIDs = missingSkillIDs
+        self.loadedInstructionIDs = loadedInstructionIDs
+        self.missingInstructionIDs = missingInstructionIDs
         self.metadata = metadata
     }
 }
@@ -67,15 +67,15 @@ public struct AgenticRunScreen: Sendable, Codable, Hashable {
             )
         }
 
-        if !command.loadedSkillIDs.isEmpty {
+        if !command.loadedInstructionIDs.isEmpty {
             lines.append(
-                "  skills      \(command.loadedSkillIDs.map(\.rawValue).joined(separator: ","))"
+                "  instructions\(command.loadedInstructionIDs.map(\.rawValue).joined(separator: ","))"
             )
         }
 
-        if !command.missingSkillIDs.isEmpty {
+        if !command.missingInstructionIDs.isEmpty {
             lines.append(
-                "  missing     \(command.missingSkillIDs.map(\.rawValue).joined(separator: ","))"
+                "  missing     \(command.missingInstructionIDs.map(\.rawValue).joined(separator: ","))"
             )
         }
 

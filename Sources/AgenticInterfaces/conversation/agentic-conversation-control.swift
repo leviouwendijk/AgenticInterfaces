@@ -39,9 +39,8 @@ public enum AgenticConversationEvent: Sendable, Hashable {
     case responseDeliverySelectionChanged(AgentModelResponseDelivery)
     case invocationOptionsSelectionChanged(AgentModelInvocationOptions)
     case autonomySelectionChanged(AutonomyMode)
-    case toolExposureSelectionChanged(AgenticConversationToolExposure)
-    case customToolSelectionChanged(AgenticConversationToolSelection)
-    case skillSelectionChanged([AgentSkillIdentifier])
+    case capabilitySelectionChanged(available: AgentCapabilitySet, visible: AgentCapabilitySet)
+    case instructionSelectionChanged([InstructionIdentifier])
     case attachmentOpened(messageID: String, attachmentID: String)
     case attachmentClosed(messageID: String)
     case runOpened(messageID: String, runID: String)
@@ -659,9 +658,9 @@ private extension AgenticConversationControl {
             origin: draftOrigin,
             contents: includedContents,
             preferredModelProfileID: snapshot.preferredModelProfileID,
-            skillIDs: snapshot.selectedSkillIDs,
-            toolExposure: snapshot.selectedToolExposure,
-            customToolSelection: snapshot.customToolSelection,
+            instructionIDs: snapshot.selectedInstructionIDs,
+            availableCapabilities: snapshot.availableCapabilities,
+            visibleCapabilities: snapshot.visibleCapabilities,
             responseDelivery: snapshot.selectedResponseDelivery,
             invocationoptions: snapshot.selectedInvocationOptions,
             autonomyMode: snapshot.selectedAutonomyMode
@@ -1376,18 +1375,18 @@ private extension AgenticConversationControl {
         let modelTitle = snapshot.models.first {
             $0.id == snapshot.preferredModelProfileID
         }?.title ?? snapshot.preferredModelProfileID.rawValue
-        let selectedSkills = snapshot.skills.filter {
-            snapshot.selectedSkillIDs.contains(
+        let selectedInstructions = snapshot.instructions.filter {
+            snapshot.selectedInstructionIDs.contains(
                 $0.id
             )
         }
-        let skillTitle: String
-        if selectedSkills.isEmpty {
-            skillTitle = "no skills"
-        } else if selectedSkills.count == 1 {
-            skillTitle = selectedSkills[0].title
+        let instructionTitle: String
+        if selectedInstructions.isEmpty {
+            instructionTitle = "no instructions"
+        } else if selectedInstructions.count == 1 {
+            instructionTitle = selectedInstructions[0].title
         } else {
-            skillTitle = "\(selectedSkills.count) skills"
+            instructionTitle = "\(selectedInstructions.count) instructions"
         }
         let activity: String
         if let snapshotActivity = snapshot.activity {
@@ -1405,7 +1404,7 @@ private extension AgenticConversationControl {
             [
                 TerminalStyle.bold.apply(snapshot.title),
                 TerminalStyle.dim.apply(
-                    "\(snapshot.workspace) · \(modelTitle) · \(snapshot.selectedToolExposure.title.lowercased()) · \(skillTitle)"
+                    "\(snapshot.workspace) · \(modelTitle) · \(snapshot.visibleCapabilities.tools.count) visible tools · \(instructionTitle)"
                 ),
                 activity,
             ],
