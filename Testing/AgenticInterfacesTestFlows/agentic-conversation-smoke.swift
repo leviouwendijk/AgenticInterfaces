@@ -49,6 +49,7 @@ enum AgenticConversationSmoke {
     }
 
     static func run() throws {
+        try AgenticConversationUsageSmoke.run()
         try AgenticConversationUserInputSmoke.run()
         try AgenticConversationUserInputIntegrationSmoke.run()
         try AgenticConversationPendingSmoke.run()
@@ -582,7 +583,9 @@ enum AgenticConversationSmoke {
         browserControl.render(into: &searchFrame,
             in: TerminalRegion(rows: 28, columns: 100))
         let searchText = stripANSI(searchFrame.resolved().spans.map(\.content).joined(separator: "\n"))
-        guard searchText.contains("Search: /mutate"),
+        guard searchText.contains("Conversation settings / Capabilities / Search"),
+              searchText.contains("/mutate"),
+              searchText.contains("matches"),
               searchText.contains("mutate_files"),
               !searchText.contains("inspect_workspace") else {
             throw Failure.capabilityBrowserPresentationMissing

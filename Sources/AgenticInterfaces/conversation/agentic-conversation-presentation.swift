@@ -479,6 +479,7 @@ public struct AgenticConversationSnapshot: Sendable, Hashable {
     public var availableCapabilities: AgentCapabilitySet
     public var visibleCapabilities: AgentCapabilitySet
     public var hostConsole: AgenticHostConsoleSnapshot
+    public var usage: AgenticConversationUsagePresentation
 
     public init(
         title: String = "agentic conversation",
@@ -500,7 +501,8 @@ public struct AgenticConversationSnapshot: Sendable, Hashable {
         capabilityEntries: [AgenticConversationCapabilityEntry] = [],
         availableCapabilities: AgentCapabilitySet = .none,
         visibleCapabilities: AgentCapabilitySet = .none,
-        hostConsole: AgenticHostConsoleSnapshot = .init()
+        hostConsole: AgenticHostConsoleSnapshot = .init(),
+        usage: AgenticConversationUsagePresentation = .init()
     ) {
         self.title = title
         self.workspace = workspace
@@ -522,5 +524,6 @@ public struct AgenticConversationSnapshot: Sendable, Hashable {
         self.availableCapabilities = availableCapabilities
         self.visibleCapabilities = visibleCapabilities.intersecting(availableCapabilities)
         self.hostConsole = hostConsole
+        self.usage = usage
     }
 }

@@ -10,15 +10,26 @@ enum AgenticConversationSettingsControlEvent: Sendable, Hashable {
 
 struct AgenticConversationSettingsControl: Sendable {
     fileprivate enum Page: Sendable, Hashable {
-        case root, model, response, invocationoptions, requesttimeout, autonomy
+        case root, model, response, invocationoptions, requesttimeout, autonomy, usage
         case capabilities, domains, types
         case domain(String)
         case type(AgenticConversationCapabilityEntry.Kind)
         case items(domain: String, type: AgenticConversationCapabilityEntry.Kind)
         case search
     }
+    fileprivate enum Filter: String, Sendable, Hashable, CaseIterable {
+        case all, available, visible, unavailable
+
+        var next: Self {
+            let values = Self.allCases
+            let index = values.firstIndex(of: self) ?? 0
+            return values[(index + 1) % values.count]
+        }
+    }
+
     fileprivate enum RowID: Sendable, Hashable {
-        case model, response, invocationoptions, requesttimeout, autonomy, capabilities
+        case model, response, invocationoptions, requesttimeout, autonomy, capabilities, usage
+        case usageTokens, usageCost, usageProvenance
         case modelProfile(AgentModelProfileIdentifier)
         case responseDelivery(AgentModelResponseDelivery)
         case timeoutseconds(Int?)
@@ -31,6 +42,8 @@ struct AgenticConversationSettingsControl: Sendable {
 
     private var page: Page = .root
     private var rootSelection: RowID = .model
+    private var selections: [Page: RowID] = [:]
+    private var filter: Filter = .all
     private var menu: TerminalSettingsMenuControl<RowID>
     private var searchQuery = ""
     private var isEditingSearch = false
@@ -38,7 +51,7 @@ struct AgenticConversationSettingsControl: Sendable {
     private var itemParentIsDomain = true
 
     init(snapshot: AgenticConversationSnapshot) {
-        menu = Self.menu(snapshot: snapshot, page: .root, currentID: .model, query: "")
+        menu = Self.menu(snapshot: snapshot, page: .root, currentID: .model, query: "", filter: .all, editingSearch: false)
     }
 
     mutating func update(_ snapshot: AgenticConversationSnapshot) {
@@ -46,7 +59,6 @@ struct AgenticConversationSettingsControl: Sendable {
     }
     mutating func openRoot(_ snapshot: AgenticConversationSnapshot) {
         page = .root
-        rootSelection = .model
         refresh(snapshot, currentID: rootSelection)
     }
     mutating func openModel(_ snapshot: AgenticConversationSnapshot) {
@@ -77,23 +89,29 @@ struct AgenticConversationSettingsControl: Sendable {
                 return nil
             }
             if key == .char("/") {
-                returnFromSearch = page == .search ? returnFromSearch : page
+                if page != .search { returnFromSearch = page }
                 page = .search
-                searchQuery = ""
                 isEditingSearch = true
                 refresh(snapshot, currentID: nil)
+                return nil
+            }
+            if key == .char("f") {
+                filter = filter.next
+                refresh(snapshot, currentID: menu.currentID)
                 return nil
             }
         }
         guard let event = menu.handle(key) else { return nil }
         switch event {
-        case .currentChanged:
+        case .currentChanged(let id):
+            selections[page] = id
+            if page == .root { rootSelection = id }
             return nil
         case .cancelRequested:
             switch page {
             case .root: return .closeRequested
             case .requesttimeout: page = .invocationoptions
-            case .model, .response, .invocationoptions, .autonomy, .capabilities:
+            case .model, .response, .invocationoptions, .autonomy, .capabilities, .usage:
                 page = .root
             case .domains, .types:
                 page = .capabilities
@@ -104,7 +122,6 @@ struct AgenticConversationSettingsControl: Sendable {
                 page = itemParentIsDomain ? .domain(domain) : .type(type)
             case .search:
                 page = returnFromSearch
-                searchQuery = ""
             }
             refresh(snapshot, currentID: page == .root ? rootSelection : nil)
             return nil
@@ -136,8 +153,8 @@ struct AgenticConversationSettingsControl: Sendable {
             into: &frame,
             in: region,
             theme: .agentic,
-            columns: min(100, max(48, region.columns - 4)),
-            rows: min(30, max(12, region.rows - 2))
+            columns: min(100, max(1, region.columns - 4)),
+            rows: min(30, max(1, region.rows - 2))
         )
     }
 
@@ -168,6 +185,11 @@ struct AgenticConversationSettingsControl: Sendable {
         case .capabilities:
             rootSelection = .capabilities
             page = .capabilities
+        case .usage:
+            rootSelection = .usage
+            page = .usage
+        case .usageTokens, .usageCost, .usageProvenance:
+            return nil
         case .domains:
             page = .domains
             returnFromSearch = .domain("")
@@ -280,7 +302,15 @@ struct AgenticConversationSettingsControl: Sendable {
     }
 
     private mutating func refresh(_ snapshot: AgenticConversationSnapshot, currentID: RowID?) {
-        menu = Self.menu(snapshot: snapshot, page: page, currentID: currentID, query: searchQuery)
+        menu = Self.menu(
+            snapshot: snapshot,
+            page: page,
+            currentID: currentID ?? selections[page],
+            query: searchQuery,
+            filter: filter,
+            editingSearch: isEditingSearch
+        )
+        if let currentID = menu.currentID { selections[page] = currentID }
     }
 }
 
@@ -295,11 +325,12 @@ private extension AgenticConversationSettingsControl.Page {
 
 private extension AgenticConversationSettingsControl {
     static func menu(snapshot: AgenticConversationSnapshot, page: Page,
-                     currentID: RowID?, query: String) -> TerminalSettingsMenuControl<RowID>
+                     currentID: RowID?, query: String, filter: Filter, editingSearch: Bool) -> TerminalSettingsMenuControl<RowID>
     {
         var path: [String] = []
         let rows: [TerminalSettingsRow<RowID>]
-        var hint = "j/k move  enter select  / search  q back"
+        var hint = "j/k move  enter select  / search  f filter  J/K detail  q back"
+        let entries = filtered(snapshot.capabilityEntries, snapshot: snapshot, filter: filter)
         switch page {
         case .root:
             rows = rootRows(snapshot)
@@ -324,6 +355,10 @@ private extension AgenticConversationSettingsControl {
         case .autonomy:
             path = ["Autonomy"]
             rows = autonomyRows(snapshot)
+        case .usage:
+            path = ["Usage"]
+            rows = usageRows(snapshot.usage)
+            hint = "Read-only · consumption and cost provenance · J/K detail · q back"
         case .capabilities:
             path = ["Capabilities"]
             rows = [
@@ -333,7 +368,7 @@ private extension AgenticConversationSettingsControl {
             ]
         case .domains:
             path = ["Capabilities", "Domain first"]
-            rows = domains(snapshot).map { domain in
+            rows = domains(entries).map { domain in
                 .init(id: .domain(domain), title: domain, accessory: .disclosure)
             }
         case .types:
@@ -344,42 +379,70 @@ private extension AgenticConversationSettingsControl {
         case .domain(let domain):
             path = ["Capabilities", "Domain first", domain]
             rows = AgenticConversationCapabilityEntry.Kind.allCases.filter { kind in
-                snapshot.capabilityEntries.contains { $0.domain == domain && $0.kind == kind }
+                entries.contains { $0.domain == domain && $0.kind == kind }
             }.map { kind in
                 .init(id: .type(kind), title: kind.title, accessory: .disclosure)
             }
         case .type(let kind):
             path = ["Capabilities", "Type first", kind.title]
-            rows = domains(snapshot).filter { domain in
-                snapshot.capabilityEntries.contains { $0.domain == domain && $0.kind == kind }
+            rows = domains(entries).filter { domain in
+                entries.contains { $0.domain == domain && $0.kind == kind }
             }.map { domain in
                 .init(id: .domain(domain), title: domain, accessory: .disclosure)
             }
         case .items(let domain, let kind):
             path = ["Capabilities", domain, kind.title]
-            rows = snapshot.capabilityEntries.filter {
+            rows = entries.filter {
                 $0.domain == domain && $0.kind == kind
             }.map { capabilityRow($0, snapshot: snapshot) }
-            hint = "j/k move  enter visible  space available  / search  q back"
+            hint = "\(rows.count) matches · \(filter.rawValue) · enter visible  space available  / search  f filter  J/K detail"
         case .search:
-            path = ["Capabilities", "Search: /\(query)"]
+            path = ["Capabilities", "Search"]
             rows = AgenticConversationCapabilityEntry.search(
                 query,
-                in: snapshot.capabilityEntries
+                in: entries
             ).map { capabilityRow($0, snapshot: snapshot) }
-            hint = "type to search  enter visible  space available  q back"
+            hint = "\(rows.count) matches · \(filter.rawValue) · /\(query)\(editingSearch ? "▏" : "") · "
+                + (editingSearch ? "type query  enter done  esc stop" : "/ edit  f filter  enter visible  space available")
         }
         return TerminalSettingsMenuControl(
-            title: page == .search
-                ? "Search capabilities  /\(query)▏"
-                : (page.isBrowser ? "Capabilities  [ / search ]" : "Conversation settings"),
+            title: "Conversation settings",
             path: path, rows: rows,
             currentID: currentID, instructions: hint
         )
     }
 
-    static func domains(_ snapshot: AgenticConversationSnapshot) -> [String] {
-        Array(Set(snapshot.capabilityEntries.map(\.domain))).sorted()
+    static func domains(_ entries: [AgenticConversationCapabilityEntry]) -> [String] {
+        Array(Set(entries.map(\.domain))).sorted()
+    }
+
+    static func filtered(
+        _ entries: [AgenticConversationCapabilityEntry],
+        snapshot: AgenticConversationSnapshot,
+        filter: Filter
+    ) -> [AgenticConversationCapabilityEntry] {
+        entries.filter { entry in
+            if filter == .all { return true }
+            if entry.kind == .instruction {
+                let selected = snapshot.selectedInstructionIDs.contains(
+                    .init(rawValue: entry.identifier)
+                )
+                switch filter {
+                case .all: return true
+                case .available: return true
+                case .visible: return selected
+                case .unavailable: return false
+                }
+            }
+            let available = entry.capability.intersecting(snapshot.availableCapabilities) != .none
+            let visible = entry.capability.intersecting(snapshot.visibleCapabilities) != .none
+            switch filter {
+            case .all: return true
+            case .available: return available
+            case .visible: return visible
+            case .unavailable: return !available
+            }
+        }
     }
     static func capabilityRow(_ entry: AgenticConversationCapabilityEntry,
                               snapshot: AgenticConversationSnapshot) -> TerminalSettingsRow<RowID>
@@ -396,8 +459,8 @@ private extension AgenticConversationSettingsControl {
         let enabled = entry.capability.intersecting(snapshot.availableCapabilities) != .none
         let visible = entry.capability.intersecting(snapshot.visibleCapabilities) != .none
         return .init(id: .capability(entry.id), title: entry.title,
-            value: "Available \(enabled ? "on" : "off") · Visible \(visible ? "on" : "off")",
-            caption: "Enter toggles visibility · Space toggles availability",
+            value: visible ? "Visible" : (enabled ? "Available" : "Unavailable"),
+            caption: "Enter: visibility · Space: availability",
             accessory: .checkbox(selected: enabled),
             detail: .init(title: entry.title,
                 fields: [.init("identifier", entry.identifier),
@@ -426,8 +489,47 @@ private extension AgenticConversationSettingsControl {
             .init(id: .capabilities, title: "Capabilities",
                   value: "\(visibleCount) visible · \(snapshot.selectedInstructionIDs.count) instructions",
                   accessory: .disclosure),
+            .init(id: .usage, title: "Usage", value: snapshot.usage.shortSummary,
+                  accessory: .disclosure),
         ]
     }
+    static func usageRows(
+        _ usage: AgenticConversationUsagePresentation
+    ) -> [TerminalSettingsRow<RowID>] {
+        [
+            .init(
+                id: .usageTokens,
+                title: "Token consumption",
+                value: usage.shortSummary,
+                detail: .init(
+                    title: "Token consumption (observed and projected)",
+                    fields: [
+                        .init("input", String(usage.inputTokens)),
+                        .init("output", String(usage.outputTokens)),
+                        .init("cached reads", String(usage.cachedInputReadTokens)),
+                        .init("cached writes", String(usage.cachedInputWriteTokens)),
+                        .init("reasoning output", String(usage.reasoningOutputTokens)),
+                    ],
+                    body: "Token categories may overlap. These counts describe usage; they do not measure remaining context capacity."
+                )
+            ),
+            .init(
+                id: .usageCost,
+                title: "Cost",
+                value: usage.costDescription,
+                detail: .init(title: "Cost by currency", body:
+                    "\(usage.costDescription). Only priced projections are included. Missing pricing is unknown, not zero.")
+            ),
+            .init(
+                id: .usageProvenance,
+                title: "Provenance",
+                value: usage.scopeDescription,
+                detail: .init(title: "Usage provenance", body:
+                    "\(usage.scopeDescription). Each turn uses its actual provider projection when available, otherwise the projected estimate; runs are keyed by ID to prevent double counting on refresh.")
+            ),
+        ]
+    }
+
     private static func invocationOptionsRows(
         _ snapshot: AgenticConversationSnapshot
     ) -> [TerminalSettingsRow<RowID>] {

@@ -1406,7 +1406,9 @@ private extension AgenticConversationControl {
                 TerminalStyle.dim.apply(
                     "\(snapshot.workspace) · \(modelTitle) · \(snapshot.visibleCapabilities.tools.count) visible tools · \(instructionTitle)"
                 ),
-                activity,
+                [activity, TerminalStyle.dim.apply(snapshot.usage.shortSummary)]
+                    .filter { !$0.isEmpty }
+                    .joined(separator: " · "),
             ],
             in: vertical[0]
         )
