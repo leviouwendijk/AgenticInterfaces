@@ -169,6 +169,35 @@ public struct AgenticToolHostPlanNode:
         self.onDenied = onDenied
     }
 
+    private enum CodingKeys: String, CodingKey {
+        case kind
+        case call
+        case execution
+        case children
+        case onSuccess
+        case onFailure
+        case onDenied
+    }
+
+    public init(from decoder: any Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        kind = try container.decode(ToolPlan.Node.Kind.self, forKey: .kind)
+        call = try container.decodeIfPresent(AgenticToolHostCall.self, forKey: .call)
+        execution = try container.decodeIfPresent(ToolInvocation.Execution.self, forKey: .execution)
+        children = container.contains(.children)
+            ? try container.decode([Self].self, forKey: .children)
+            : []
+        onSuccess = container.contains(.onSuccess)
+            ? try container.decode([Self].self, forKey: .onSuccess)
+            : []
+        onFailure = container.contains(.onFailure)
+            ? try container.decode([Self].self, forKey: .onFailure)
+            : []
+        onDenied = container.contains(.onDenied)
+            ? try container.decode([Self].self, forKey: .onDenied)
+            : []
+    }
+
     public func agentToolPlanNode(
         registry: ToolRegistry
     ) throws -> ToolPlan.Node {
@@ -564,7 +593,7 @@ private extension AgenticToolHostInvocationContract {
                 replacing(
                     property,
                     schema: recursiveArray,
-                    isRequired: true
+                    isRequired: false
                 )
 
             case "call",
@@ -577,7 +606,7 @@ private extension AgenticToolHostInvocationContract {
                 replacing(
                     property,
                     schema: emptyRecursiveArray,
-                    isRequired: true
+                    isRequired: false
                 )
 
             default:
@@ -604,7 +633,7 @@ private extension AgenticToolHostInvocationContract {
                 replacing(
                     property,
                     schema: recursiveArray,
-                    isRequired: true
+                    isRequired: false
                 )
 
             case "call",
@@ -617,7 +646,7 @@ private extension AgenticToolHostInvocationContract {
                 replacing(
                     property,
                     schema: emptyRecursiveArray,
-                    isRequired: true
+                    isRequired: false
                 )
 
             default:
@@ -695,7 +724,7 @@ private extension AgenticToolHostInvocationContract {
                 replacing(
                     property,
                     schema: emptyRecursiveArray,
-                    isRequired: true
+                    isRequired: false
                 )
 
             case "onSuccess",
@@ -704,7 +733,7 @@ private extension AgenticToolHostInvocationContract {
                 replacing(
                     property,
                     schema: recursiveArray,
-                    isRequired: true
+                    isRequired: false
                 )
 
             default:
@@ -844,7 +873,7 @@ private extension AgenticToolHostInvocationContract {
                 )
             )
 
-        case .oneOf(let schemas):
+        case .oneOf(let schemas), .anyOf(let schemas):
             guard let first = schemas.first else {
                 return .object([:])
             }

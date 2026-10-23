@@ -288,6 +288,38 @@ enum AgenticToolHostInvocationRegression {
         else {
             throw Failure.planParseMismatch
         }
+
+        // Sparse recursive plans must pass schema admission and DTO decoding.
+        let sparse = try parser.parse(
+            data(
+                #"{"id":"sparse-plan","root":{"kind":"sequence","children":[{"kind":"call","call":{"id":"sparse-call","name":"echo_fixture","input":{"text":"sparse"}},"onSuccess":[{"kind":"call","call":{"id":"sparse-branch","name":"echo_fixture","input":{"text":"branch"}}}]},{"kind":"batch"}]}}"#
+            )
+        )
+        guard let sparsePlan = sparse.plan,
+              sparsePlan.references.isEmpty,
+              case .sequence(let nodes) = sparsePlan.root,
+              nodes.count == 2,
+              case .call(let call, _, let success, let failure, let denied) = nodes[0],
+              call.id == "sparse-call",
+              success.count == 1,
+              failure.isEmpty,
+              denied.isEmpty,
+              case .call(let branch, _, _, _, _) = success[0],
+              branch.id == "sparse-branch",
+              case .batch(let empty) = nodes[1],
+              empty.isEmpty else {
+            throw Failure.planParseMismatch
+        }
+
+        // All node arrays may be omitted, including children on an empty sequence.
+        let emptySequence = try parser.parse(
+            data(#"{"id":"empty-sequence","root":{"kind":"sequence"}}"#)
+        )
+        guard let emptyPlan = emptySequence.plan,
+              case .sequence(let emptyChildren) = emptyPlan.root,
+              emptyChildren.isEmpty else {
+            throw Failure.planParseMismatch
+        }
     }
 
     // MARK: - Parser rejection paths
@@ -314,6 +346,20 @@ enum AgenticToolHostInvocationRegression {
         try expectRejected {
             try parser.parse(
                 data(#"{"kind":"call","call":{"id":"c","name":"echo_fixture","input":{}}}"#)
+            )
+        }
+
+        // Explicit null is invalid; an omitted array alone means [].
+        try expectRejected {
+            try parser.parse(
+                data(#"{"id":"null-arrays","root":{"kind":"call","call":{"id":"c","name":"echo_fixture","input":{"text":"ok"}},"children":null}}"#)
+            )
+        }
+
+        // Prohibited nonempty ordinary children on call nodes stay invalid.
+        try expectRejected {
+            try parser.parse(
+                data(#"{"id":"illegal-children","root":{"kind":"call","call":{"id":"c","name":"echo_fixture","input":{"text":"ok"}},"children":[{"kind":"call","call":{"id":"nested","name":"echo_fixture","input":{"text":"no"}}}]}}"#)
             )
         }
     }
