@@ -26,6 +26,7 @@ public enum AgenticConversationEvent: Sendable, Hashable {
     case contentPinned(AgenticConversationContentPresentation)
     case submissionRequested(AgenticConversationSubmission)
     case supersedingSubmissionRequested(AgenticConversationSubmission)
+    case stopRequested
     case programInvocationRequested(
         invocation: AgenticConversationProgramInvocation,
         submission: AgenticConversationSubmission
@@ -88,6 +89,7 @@ public struct AgenticConversationControl: Sendable {
     private var pendingSubmission: AgenticConversationSubmission?
     private var pendingSpinner: TerminalSpinnerControl
     private var existing_assistant_ids_at_submission: Set<String>
+    private var stop_request_issued: Bool
     private var openedRunID: String?
     private var runReview: AgenticConversationRunReviewControl?
     private var userInput: AgenticConversationUserInputControl?
@@ -131,6 +133,7 @@ public struct AgenticConversationControl: Sendable {
             label: "invoking model…"
         )
         self.existing_assistant_ids_at_submission = []
+        self.stop_request_issued = false
         self.openedRunID = nil
         self.runReview = nil
         self.userInput = pendingUserInput.map { pending in
@@ -174,6 +177,8 @@ public struct AgenticConversationControl: Sendable {
         _ submission: AgenticConversationSubmission
     ) {
         pendingSubmission = submission
+        stop_request_issued = false
+        pendingSpinner = TerminalSpinnerControl(label: "invoking model…")
         existing_assistant_ids_at_submission = Set(
             snapshot.messages.filter { $0.role == .assistant }.map(\.id)
         )
@@ -186,7 +191,8 @@ public struct AgenticConversationControl: Sendable {
     public mutating func endPendingTurn() {
         pendingSubmission = nil
         existing_assistant_ids_at_submission = []
-        pendingSpinner.reset()
+        stop_request_issued = false
+        pendingSpinner = TerminalSpinnerControl(label: "invoking model…")
     }
 
     public mutating func beginUserInputResolution(
@@ -362,6 +368,12 @@ public struct AgenticConversationControl: Sendable {
     public mutating func handle(
         _ keyStroke: TerminalKeyStroke
     ) -> AgenticConversationEvent? {
+        if keyStroke.key == .control("G"),
+           pendingSubmission != nil,
+           focus.current != .confirmation {
+            return request_stop()
+        }
+
         if focus.current == .confirmation {
             return handleConfirmation(
                 keyStroke.key
@@ -394,6 +406,11 @@ public struct AgenticConversationControl: Sendable {
     }
 
     public mutating func handle(_ key: TerminalKey) -> AgenticConversationEvent? {
+        if key == .control("G"), pendingSubmission != nil,
+           focus.current != .confirmation {
+            return request_stop()
+        }
+
         if key == .control("C") {
             return handle(
                 .escape
@@ -476,6 +493,13 @@ public struct AgenticConversationControl: Sendable {
         case .confirmation:
             return handleConfirmation(key)
         }
+    }
+
+    private mutating func request_stop() -> AgenticConversationEvent? {
+        guard !stop_request_issued else { return nil }
+        stop_request_issued = true
+        pendingSpinner = TerminalSpinnerControl(label: "stopping run…")
+        return .stopRequested
     }
 
     public mutating func render(
@@ -1499,7 +1523,6 @@ private extension AgenticConversationControl {
                 into: &frame,
                 in: composerLayout[0],
                 isFocused: focus.current == .composer
-                    && pendingSubmission == nil
             )
             frame.write(
                 voiceActionControl.render(
@@ -1513,7 +1536,6 @@ private extension AgenticConversationControl {
                 into: &frame,
                 in: composerRow,
                 isFocused: focus.current == .composer
-                    && pendingSubmission == nil
             )
         }
 
@@ -2030,11 +2052,11 @@ private extension AgenticConversationControl {
         if pendingSubmission != nil {
             switch focus.current {
             case .composer:
-                return "response pending  enter newline  ctrl-enter stop+send  ctrl-c normal  :q quit  ctrl-f expand"
+                return "response pending  ctrl-g stop  ctrl-enter stop+send  ctrl-c normal  :q quit  ctrl-f expand"
             case .voice:
                 return "response pending  esc back"
             case .transcript:
-                return "j/k message  enter inspect  tab composer  x run actions  response pending"
+                return "j/k message  enter inspect  tab composer  ctrl-g stop  x run actions  response pending"
             case .pinnedContent,
                  .attachment,
                  .settings,

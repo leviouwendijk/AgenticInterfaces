@@ -117,6 +117,30 @@ enum AgenticConversationPendingSmoke {
               control.isResponsePending else {
             throw Failure.pendingComposerDidNotRemainEditable
         }
+        guard control.handle(TerminalKeyStroke(key: .control("G"))) == .stopRequested,
+              control.handle(.control("G")) == nil,
+              control.isResponsePending,
+              control.draftText == "x"
+        else { throw Failure.pendingStateMissing }
+
+        // The focused editor must retain its cursor and Vim-like mode
+        // transitions even while another task is running.
+        func composerCursor() -> TerminalCursorShape? {
+            var frame = TerminalFrame(rows: 24, columns: 80)
+            control.render(into: &frame, in: .init(rows: 24, columns: 80))
+            return frame.cursor?.shape
+        }
+        guard composerCursor() == .bar else {
+            throw Failure.pendingComposerDidNotRemainEditable
+        }
+        _ = control.handle(TerminalKeyStroke(key: .control("C")))
+        guard composerCursor() == .block else {
+            throw Failure.pendingNavigationBlocked
+        }
+        _ = control.handle(.char("i"))
+        guard composerCursor() == .bar, control.draftText == "x" else {
+            throw Failure.pendingNavigationBlocked
+        }
 
         _ = control.handle(
             .control("C")

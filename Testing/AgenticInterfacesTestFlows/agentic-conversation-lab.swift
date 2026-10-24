@@ -133,7 +133,8 @@ enum AgenticConversationLab {
                     snapshot.selectedInstructionIDs = ids
                     snapshot.activity = "instructions selected"
                     control.update(snapshot)
-                case .voiceStartRequested,
+                case .stopRequested,
+                     .voiceStartRequested,
                      .voiceStopRequested,
                      .voiceCancelRequested,
                      .contentPinned,
