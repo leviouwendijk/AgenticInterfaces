@@ -57,6 +57,8 @@ public struct AgenticHostConsoleControl:
     private var statusDocument: TerminalScrollableDocument
     private var inspectorDocument: TerminalScrollableDocument
     private var inspectedStepID: String?
+    private var traceNavigation: AgenticHostConsoleTraceNavigation?
+    private var inspectedTraceDocumentIndex: Int
     private var isRunHeaderSelected: Bool
 
     public init(
@@ -105,6 +107,8 @@ public struct AgenticHostConsoleControl:
         self.statusDocument = TerminalScrollableDocument()
         self.inspectorDocument = TerminalScrollableDocument()
         self.inspectedStepID = nil
+        self.traceNavigation = nil
+        self.inspectedTraceDocumentIndex = 0
         self.isRunHeaderSelected = false
     }
 
@@ -212,12 +216,24 @@ public struct AgenticHostConsoleControl:
         }
 
         if let inspectedStepID,
+           let roots = snapshot.documents.filter({
+               $0.runID == currentRunID && $0.stepID == inspectedStepID
+                   && $0.traceRoots != nil
+           }).dropFirst(inspectedTraceDocumentIndex).first?.traceRoots {
+            if var navigation = traceNavigation {
+                try? navigation.update(roots: roots)
+                traceNavigation = navigation
+            }
+        }
+        if let inspectedStepID,
            currentRun?.steps.contains(
             where: {
                 $0.id == inspectedStepID
             }
            ) != true {
             self.inspectedStepID = nil
+            self.traceNavigation = nil
+            self.inspectedTraceDocumentIndex = 0
 
             if focus.current == .inspector {
                 _ = focus.pop()
@@ -305,6 +321,21 @@ public struct AgenticHostConsoleControl:
 }
 
 private extension AgenticHostConsoleControl {
+    mutating func cycleTraceDocument(_ delta: Int) {
+        guard let runID = currentRunID, let stepID = inspectedStepID else { return }
+        let documents = snapshot.documents.filter {
+            $0.runID == runID && $0.stepID == stepID && $0.traceRoots != nil
+        }
+        guard !documents.isEmpty else { return }
+        inspectedTraceDocumentIndex = (
+            inspectedTraceDocumentIndex + delta + documents.count
+        ) % documents.count
+        traceNavigation = try? AgenticHostConsoleTraceNavigation(
+            roots: documents[inspectedTraceDocumentIndex].traceRoots ?? []
+        )
+        inspectorDocument.moveToStart()
+    }
+
     mutating func handleRuns(
         _ key: TerminalKey
     ) -> AgenticHostConsoleEvent? {
@@ -428,6 +459,13 @@ private extension AgenticHostConsoleControl {
             }
 
             inspectedStepID = stepID
+            if let roots = snapshot.documents.first(where: {
+                $0.runID == runID && $0.stepID == stepID && $0.traceRoots != nil
+            })?.traceRoots {
+                traceNavigation = try? AgenticHostConsoleTraceNavigation(roots: roots)
+            } else {
+                traceNavigation = nil
+            }
             inspectorDocument.moveToStart()
             focus.push(
                 .inspector
@@ -484,8 +522,31 @@ private extension AgenticHostConsoleControl {
     ) -> AgenticHostConsoleEvent? {
         if key == .escape || key == .char("q") {
             inspectedStepID = nil
+            traceNavigation = nil
+            inspectedTraceDocumentIndex = 0
             _ = focus.pop()
             return .stepInspectionClosed
+        }
+
+        if key == .char("[") { cycleTraceDocument(-1); return nil }
+        if key == .char("]") { cycleTraceDocument(1); return nil }
+        if var navigation = traceNavigation {
+            switch key {
+            case .up, .char("k"):
+                navigation.move(-1)
+            case .down, .char("j"):
+                navigation.move(1)
+            case .left, .char("h"):
+                navigation.collapse()
+            case .right, .char("l"):
+                navigation.expand()
+            case .enter, .char(" "):
+                navigation.toggle()
+            default:
+                break
+            }
+            traceNavigation = navigation
+            return nil
         }
 
         switch key {
@@ -912,11 +973,23 @@ private extension AgenticHostConsoleControl {
             in: region,
             title: step.title
         )
-        let lines = inspectorLines(
-            run: run,
-            step: step,
-            columns: content.columns
-        )
+        let lines: [String]
+        if let navigation = traceNavigation {
+            lines = navigation.rows.map { row in
+                let branch = row.node.children.isEmpty ? "·" : (row.is_expanded ? "▾" : "▸")
+                let prefix = String(repeating: "  ", count: row.depth)
+                let summary = prefix + branch + " " + row.node.title
+                    + (row.node.detail.map { " · " + $0 } ?? "")
+                return row.is_selected ? TerminalStyle(.inverse).apply(summary) : summary
+            } + ["", "Selected reference: " + (navigation.selected_node?.reference_id ?? "<none>")]
+              + (navigation.selected_node?.detail.map { [$0] } ?? [])
+        } else {
+            lines = inspectorLines(
+                run: run,
+                step: step,
+                columns: content.columns
+            )
+        }
 
         inspectorDocument.update(
             lines: lines,
