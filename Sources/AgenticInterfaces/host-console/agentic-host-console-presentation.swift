@@ -307,6 +307,9 @@ public struct AgenticHostConsoleDocumentPresentation:
     /// replacing or mutating `body`.
     public var structuredBody: StructuredContent?
 
+    /// Read-only nodes supporting in-place trace navigation.
+    public var traceRoots: [AgenticHostConsoleTraceNode]?
+
     public init(
         id: String,
         runID: String,
@@ -314,7 +317,8 @@ public struct AgenticHostConsoleDocumentPresentation:
         kind: AgenticHostConsoleDocumentKind,
         title: String? = nil,
         body: String,
-        structuredBody: StructuredContent? = nil
+        structuredBody: StructuredContent? = nil,
+        traceRoots: [AgenticHostConsoleTraceNode]? = nil
     ) {
         self.id = id
         self.runID = runID
@@ -323,6 +327,7 @@ public struct AgenticHostConsoleDocumentPresentation:
         self.title = title ?? kind.title
         self.body = body
         self.structuredBody = structuredBody
+        self.traceRoots = traceRoots
     }
 }
 
