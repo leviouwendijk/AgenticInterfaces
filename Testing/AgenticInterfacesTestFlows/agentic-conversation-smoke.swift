@@ -596,6 +596,30 @@ enum AgenticConversationSmoke {
         ) else {
             throw Failure.capabilitySelectionChanged
         }
+        // Both configuration dimensions must remain visible in the row.
+        func browserText() -> String {
+            var frame = TerminalFrame(rows: 28, columns: 100)
+            browserControl.render(into: &frame, in: .init(rows: 28, columns: 100))
+            return stripANSI(frame.resolved().spans.map(\.content).joined())
+        }
+        let availableOnlyText = browserText()
+        guard availableOnlyText.contains("A V"),
+              availableOnlyText.contains("[● ○]"),
+              availableOnlyText.contains("availability"),
+              availableOnlyText.contains("visibility")
+        else { throw Failure.capabilityBrowserPresentationMissing }
+
+        guard browserControl.handle(.enter) == .capabilitySelectionChanged(
+            available: .init(tools: ["inspect_workspace", "mutate_files"]),
+            visible: .init(tools: ["mutate_files"])
+        ), browserText().contains("[● ●]")
+        else { throw Failure.capabilityBrowserPresentationMissing }
+
+        guard browserControl.handle(.space) == .capabilitySelectionChanged(
+            available: .init(tools: ["inspect_workspace"]),
+            visible: .none
+        ), browserText().contains("[○ ○]")
+        else { throw Failure.capabilityBrowserPresentationMissing }
 
         _ = control.handle(
             .char("m")

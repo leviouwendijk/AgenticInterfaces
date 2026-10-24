@@ -52,7 +52,7 @@
       "location" : "https://github.com/leviouwendijk/Difference.git",
       "state" : {
         "branch" : "master",
-        "revision" : "ad07eb01d829b868cc6349503f40fa38148b52fd"
+        "revision" : "b08448f389850be4c6efd0d62161f7cde017eb4b"
       }
     },
     {
@@ -313,7 +313,7 @@
       "location" : "https://github.com/leviouwendijk/Terminal.git",
       "state" : {
         "branch" : "master",
-        "revision" : "61327038898babab122f1a3f9a622f3ac868d4c6"
+        "revision" : "648c3e00f29bb7576c71a97c5db37ed158b0c811"
       }
     },
     {

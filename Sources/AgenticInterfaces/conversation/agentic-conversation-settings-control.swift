@@ -328,6 +328,7 @@ private extension AgenticConversationSettingsControl {
                      currentID: RowID?, query: String, filter: Filter, editingSearch: Bool) -> TerminalSettingsMenuControl<RowID>
     {
         var path: [String] = []
+        var rowLegend: String?
         let rows: [TerminalSettingsRow<RowID>]
         var hint = "j/k move  enter select  / search  f filter  J/K detail  q back"
         let entries = filtered(snapshot.capabilityEntries, snapshot: snapshot, filter: filter)
@@ -392,12 +393,14 @@ private extension AgenticConversationSettingsControl {
             }
         case .items(let domain, let kind):
             path = ["Capabilities", domain, kind.title]
+            rowLegend = "   A V   ● enabled · ○ disabled"
             rows = entries.filter {
                 $0.domain == domain && $0.kind == kind
             }.map { capabilityRow($0, snapshot: snapshot) }
             hint = "\(rows.count) matches · \(filter.rawValue) · enter visible  space available  / search  f filter  J/K detail"
         case .search:
             path = ["Capabilities", "Search"]
+            rowLegend = "   A V   ● enabled · ○ disabled"
             rows = AgenticConversationCapabilityEntry.search(
                 query,
                 in: entries
@@ -408,7 +411,8 @@ private extension AgenticConversationSettingsControl {
         return TerminalSettingsMenuControl(
             title: "Conversation settings",
             path: path, rows: rows,
-            currentID: currentID, instructions: hint
+            currentID: currentID, instructions: hint,
+            rowLegend: rowLegend
         )
     }
 
@@ -459,14 +463,14 @@ private extension AgenticConversationSettingsControl {
         let enabled = entry.capability.intersecting(snapshot.availableCapabilities) != .none
         let visible = entry.capability.intersecting(snapshot.visibleCapabilities) != .none
         return .init(id: .capability(entry.id), title: entry.title,
-            value: visible ? "Visible" : (enabled ? "Available" : "Unavailable"),
-            caption: "Enter: visibility · Space: availability",
-            accessory: .checkbox(selected: enabled),
+            accessory: .indicators(first: enabled, second: visible),
             detail: .init(title: entry.title,
                 fields: [.init("identifier", entry.identifier),
                          .init("domain", entry.domain),
-                         .init("type", entry.kind.rawValue)],
-                body: entry.summary))
+                         .init("type", entry.kind.rawValue),
+                         .init("availability", enabled ? "enabled" : "disabled"),
+                         .init("visibility", visible ? "shown" : "hidden")],
+                body: entry.summary + "\n\nSpace toggles availability; Enter toggles visibility."))
     }
     static func rootRows(_ snapshot: AgenticConversationSnapshot) -> [TerminalSettingsRow<RowID>] {
         let model = snapshot.models.first { $0.id == snapshot.preferredModelProfileID }
