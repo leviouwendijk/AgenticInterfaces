@@ -1,5 +1,5 @@
 {
-  "originHash" : "f0d5175058563834fd4ab831ea40e1ebd4887dcc0d2c1be6a6201e318d54d11a",
+  "originHash" : "35f1e572dde57d7e51209b0568da21cad5e4d0c4772b39c125901290056a4418",
   "pins" : [
     {
       "identity" : "agentic",
@@ -7,7 +7,7 @@
       "location" : "https://github.com/leviouwendijk/Agentic.git",
       "state" : {
         "branch" : "master",
-        "revision" : "ac6f35077f0ff35decd3f7352563ccca7a55fa94"
+        "revision" : "36d8e4a6490d1200632fe1fb99341c100dc2e8b6"
       }
     },
     {
@@ -52,7 +52,7 @@
       "location" : "https://github.com/leviouwendijk/Difference.git",
       "state" : {
         "branch" : "master",
-        "revision" : "fefa84199e41c4fc0142d2f8766b290973e488fb"
+        "revision" : "df94b0fb6edef42c9a09d726d2246d5d996cac20"
       }
     },
     {
@@ -196,7 +196,7 @@
       "location" : "https://github.com/leviouwendijk/Primitives.git",
       "state" : {
         "branch" : "master",
-        "revision" : "d9a6c6822a3bd030979451f31835db3f3cd67fa2"
+        "revision" : "74458da6a6262002ea7b006f37844ec7a5aa04f5"
       }
     },
     {
@@ -313,7 +313,7 @@
       "location" : "https://github.com/leviouwendijk/Terminal.git",
       "state" : {
         "branch" : "master",
-        "revision" : "864ba08d428b03134e70c550308a167c9fe8b626"
+        "revision" : "dfa15c979febaf93c8165a921f69a852e4382547"
       }
     },
     {
