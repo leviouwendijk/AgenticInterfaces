@@ -135,15 +135,7 @@ extension TerminalApprovalPicker {
             return
         }
 
-        let renderedDiff = TerminalDifferenceRenderer.render(
-            diffPreview.layout,
-            options: .init(
-                base: .init(
-                    showHeader: true,
-                    showUnchangedLines: false
-                )
-            )
-        )
+        let renderedDiff = AgenticMutationDifferenceRenderer.render(diffPreview)
 
         Terminal.write(
             TerminalBlock(
