@@ -81,6 +81,7 @@ enum AgenticHostConsoleFoundationSmoke {
 
         try runExecutionControlPolicyProbe()
         try runExecutionFollowProbe()
+        try AgenticNativeDifferenceRenderSmoke.run()
     }
 
     private static func runExecutionControlPolicyProbe() throws {
