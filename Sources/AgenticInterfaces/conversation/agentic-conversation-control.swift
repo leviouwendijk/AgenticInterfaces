@@ -87,6 +87,7 @@ public struct AgenticConversationControl: Sendable {
     private var settings: AgenticConversationSettingsControl
     private var pendingSubmission: AgenticConversationSubmission?
     private var pendingSpinner: TerminalSpinnerControl
+    private var existing_assistant_ids_at_submission: Set<String>
     private var openedRunID: String?
     private var runReview: AgenticConversationRunReviewControl?
     private var userInput: AgenticConversationUserInputControl?
@@ -129,6 +130,7 @@ public struct AgenticConversationControl: Sendable {
         self.pendingSpinner = TerminalSpinnerControl(
             label: "invoking model…"
         )
+        self.existing_assistant_ids_at_submission = []
         self.openedRunID = nil
         self.runReview = nil
         self.userInput = pendingUserInput.map { pending in
@@ -160,10 +162,21 @@ public struct AgenticConversationControl: Sendable {
         pendingSubmission != nil
     }
 
+    private var is_awaiting_first_assistant_response: Bool {
+        pendingSubmission != nil
+            && !snapshot.messages.contains { message in
+                message.role == .assistant
+                    && !existing_assistant_ids_at_submission.contains(message.id)
+            }
+    }
+
     public mutating func beginPendingTurn(
         _ submission: AgenticConversationSubmission
     ) {
         pendingSubmission = submission
+        existing_assistant_ids_at_submission = Set(
+            snapshot.messages.filter { $0.role == .assistant }.map(\.id)
+        )
         pendingSpinner.reset()
         transcriptSelectionFollowsEnd = true
         pendingTranscriptReveal = nil
@@ -172,6 +185,7 @@ public struct AgenticConversationControl: Sendable {
 
     public mutating func endPendingTurn() {
         pendingSubmission = nil
+        existing_assistant_ids_at_submission = []
         pendingSpinner.reset()
     }
 
@@ -1389,13 +1403,10 @@ private extension AgenticConversationControl {
             instructionTitle = "\(selectedInstructions.count) instructions"
         }
         let activity: String
-        if let snapshotActivity = snapshot.activity {
-            activity = TerminalStyle.dim.apply(
-                snapshotActivity
-            )
-        } else if pendingSubmission != nil {
-            activity = pendingSpinner.render()
-            _ = pendingSpinner.advance()
+        if is_awaiting_first_assistant_response {
+            activity = TerminalStyle.dim.apply(pendingSpinner.render())
+        } else if let snapshotActivity = snapshot.activity {
+            activity = TerminalStyle.dim.apply(snapshotActivity)
         } else {
             activity = ""
         }
@@ -1414,6 +1425,9 @@ private extension AgenticConversationControl {
         )
 
         let layout = transcriptLines(columns: vertical[1].columns)
+        if is_awaiting_first_assistant_response {
+            _ = pendingSpinner.advance()
+        }
         transcript.update(lines: layout.lines, visibleRows: vertical[1].rows)
         if focus.current == .transcript,
            let pendingTranscriptReveal
@@ -1666,6 +1680,12 @@ private extension AgenticConversationControl {
             }
 
             rows[message.id] = start..<lines.count
+            lines.append("")
+        }
+
+        if is_awaiting_first_assistant_response {
+            lines.append(TerminalStyle.dim.apply("assistant"))
+            lines.append(TerminalStyle.dim.apply("  " + pendingSpinner.render()))
             lines.append("")
         }
 

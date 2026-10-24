@@ -50,12 +50,15 @@ enum AgenticConversationPendingSmoke {
             throw Failure.pendingStateMissing
         }
 
+        var waitingSnapshot = fixture()
+        waitingSnapshot.activity = "invoking model · 0.1s"
+        control.update(waitingSnapshot)
         let invoking = rendered(
             &control
         )
-        guard invoking.contains(
-            "⠋ invoking model…"
-        ) else {
+        guard invoking.contains("⠋ invoking model…"),
+              invoking.contains("assistant")
+        else {
             throw Failure.pendingSpinnerChanged
         }
 
