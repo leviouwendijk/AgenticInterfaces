@@ -1,5 +1,6 @@
 import Agentic
 import Difference
+import Terminal
 
 /// Renders both computed views from a single preflight Difference value.
 /// The tree is an affected-path plan projection, not an observed filesystem diff.
