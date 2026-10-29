@@ -380,7 +380,7 @@ enum AgenticToolHostInvocationRegression {
     private static func makeRegistry() throws -> ToolRegistry {
         try ToolRegistry {
             EchoTool()
-            AgentToolRegistration.tool(
+            ToolBinding(
                 HostOnlyTool(),
                 modelContract: .hostOnly
             )

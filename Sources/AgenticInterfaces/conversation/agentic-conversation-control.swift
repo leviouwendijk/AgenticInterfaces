@@ -19,7 +19,8 @@ public enum AgenticConversationFocus: Sendable, Hashable {
 }
 
 public enum AgenticConversationEvent: Sendable, Hashable {
-    case exitRequested
+    case archiveRequested
+    case showWorkRequested
     case voiceStartRequested
     case voiceStopRequested
     case voiceCancelRequested
@@ -98,7 +99,10 @@ public struct AgenticConversationControl: Sendable {
     private var confirmation: AgenticConversationConfirmationControl?
     private var confirmationPurpose: AgenticConversationConfirmationPurpose?
 
-    public init(snapshot: AgenticConversationSnapshot) {
+    public init(
+        snapshot: AgenticConversationSnapshot,
+        keyConfiguration: AgenticConversationKeyConfiguration = .init()
+    ) {
         let pendingUserInput = snapshot.pendingUserInput
 
         self.snapshot = snapshot
@@ -107,7 +111,7 @@ public struct AgenticConversationControl: Sendable {
                 ? .composer
                 : .transcript
         )
-        self.composer = AgenticConversationComposerControl()
+        self.composer = AgenticConversationComposerControl(keyConfiguration: keyConfiguration)
         self.voiceMeter = TerminalLevelMeter(
             capacity: 32
         )
@@ -671,8 +675,11 @@ private extension AgenticConversationControl {
             )
             return nil
 
-        case .exitRequested?:
-            return .exitRequested
+        case .archiveRequested?:
+            return .archiveRequested
+
+        case .showWorkRequested?:
+            return .showWorkRequested
 
         case nil:
             return nil
@@ -2052,7 +2059,7 @@ private extension AgenticConversationControl {
         if pendingSubmission != nil {
             switch focus.current {
             case .composer:
-                return "response pending  ctrl-g stop  ctrl-enter stop+send  ctrl-c normal  :q quit  ctrl-f expand"
+                return "response pending  ctrl-g stop  ctrl-enter stop+send  ctrl-c normal  :q archive  :Ex work  <leader>pv work  ctrl-f expand"
             case .voice:
                 return "response pending  esc back"
             case .transcript:
@@ -2070,7 +2077,7 @@ private extension AgenticConversationControl {
 
         switch focus.current {
         case .composer:
-            return "enter newline  ctrl-enter send  ctrl-c normal  :w save  :q quit  ctrl-f expand"
+            return "enter newline  ctrl-enter send  ctrl-c normal  :w save  :q archive  :Ex work  <leader>pv work  ctrl-f expand"
                 + voiceFooter
         case .voice:
             return "esc back"

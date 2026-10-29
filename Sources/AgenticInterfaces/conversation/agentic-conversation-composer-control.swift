@@ -8,6 +8,7 @@ private enum AgenticConversationComposerKeyAction:
     Sendable
 {
     case submit
+    case showWork
 }
 
 private enum AgenticConversationComposerQuitChoice:
@@ -23,7 +24,7 @@ private enum AgenticConversationComposerQuitChoice:
             return "Cancel"
 
         case .quit:
-            return "Quit"
+            return "Archive"
         }
     }
 }
@@ -43,7 +44,8 @@ enum AgenticConversationComposerEvent:
 {
     case submitRequested
     case focusTranscriptRequested
-    case exitRequested
+    case archiveRequested
+    case showWorkRequested
 }
 
 struct AgenticConversationComposerControl:
@@ -53,13 +55,14 @@ struct AgenticConversationComposerControl:
     private let inputBufferStore: SwimBufferStore
     private let inputBufferID: UUID
     private var keyMap: TerminalKeyMap<AgenticConversationComposerKeyAction>
+    private var keySequences: SwimKeySequenceMap<AgenticConversationComposerKeyAction>
     private var quitConfirmation: TerminalListControl<
         AgenticConversationComposerQuitItem,
         AgenticConversationComposerQuitChoice
     >
     private(set) var isQuitConfirmationPresented: Bool
 
-    init() {
+    init(keyConfiguration: AgenticConversationKeyConfiguration = .init()) {
         var keyMap = TerminalKeyMap<
             AgenticConversationComposerKeyAction
         >()
@@ -101,6 +104,12 @@ struct AgenticConversationComposerControl:
         self.inputBufferStore = SwimBufferStore()
         self.inputBufferID = UUID()
         self.keyMap = keyMap
+        var keySequences = SwimKeySequenceMap<AgenticConversationComposerKeyAction>(
+            leader: SwimTerminalInputAdapter.input(for: keyConfiguration.leader),
+            timeout: keyConfiguration.timeout
+        )
+        keySequences.bind([.leader, .char("p"), .char("v")], to: .showWork)
+        self.keySequences = keySequences
         self.quitConfirmation = TerminalListControl(
             items: [
                 AgenticConversationComposerQuitItem(
@@ -187,6 +196,9 @@ struct AgenticConversationComposerControl:
         case .action(.submit):
             return .submitRequested
 
+        case .action(.showWork):
+            return .showWorkRequested
+
         case .consumed:
             return nil
         }
@@ -197,6 +209,35 @@ struct AgenticConversationComposerControl:
             )
         }
 
+        if !surface.commandLine.isActive, surface.mode == .normal {
+            let resolved = keySequences.handle(
+                SwimTerminalInputAdapter.input(for: key),
+                mode: surface.mode
+            )
+            var replayEvent: AgenticConversationComposerEvent?
+            for replay in resolved.replay {
+                replayEvent = handleEditorKey(
+                    SwimTerminalInputAdapter.key(for: replay)
+                ) ?? replayEvent
+            }
+            if let action = resolved.action {
+                switch action {
+                case .showWork:
+                    return .showWorkRequested
+                case .submit:
+                    return .submitRequested
+                }
+            }
+            if resolved.isPending { return replayEvent }
+            return replayEvent
+        }
+        _ = keySequences.reset()
+        return handleEditorKey(key)
+    }
+
+    private mutating func handleEditorKey(
+        _ key: TerminalKey
+    ) -> AgenticConversationComposerEvent? {
         if key == .control("F"),
            !surface.commandLine.isActive
         {
@@ -242,16 +283,11 @@ struct AgenticConversationComposerControl:
                 }
 
             case .quit:
-                if isExpanded {
-                    surface.setSurfacePresentation(
-                        .compact
-                    )
-                } else {
-                    _ = quitConfirmation.select(
-                        id: .cancel
-                    )
-                    isQuitConfirmationPresented = true
-                }
+                _ = quitConfirmation.select(id: .cancel)
+                isQuitConfirmationPresented = true
+
+            case .explore:
+                return .showWorkRequested
             }
 
         case .cancelRequested?:
@@ -335,7 +371,8 @@ private extension AgenticConversationComposerControl {
                 return nil
 
             case .quit:
-                return .exitRequested
+                isQuitConfirmationPresented = false
+                return .archiveRequested
             }
         }
     }
@@ -395,7 +432,7 @@ private extension AgenticConversationComposerControl {
         {
             frame.write(
                 TerminalStyle.dim.apply(
-                    "mode \(surface.mode) · ctrl-enter submit · ctrl-c normal · :w save · :q compact · ctrl-f compact"
+                    "mode \(surface.mode) · ctrl-enter submit · ctrl-c normal · :w save · :q archive · :Ex work · ctrl-f compact"
                 ),
                 in: TerminalRegion(
                     top: content.bottom - 1,
@@ -424,7 +461,7 @@ private extension AgenticConversationComposerControl {
         let content = overlay.render(
             into: &frame,
             in: root,
-            title: "quit agentic conversation?"
+            title: "archive conversation?"
         )
 
         guard !content.isEmpty else {

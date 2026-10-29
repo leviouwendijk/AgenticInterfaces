@@ -60,8 +60,11 @@ enum AgenticConversationLab {
                     continue
                 }
                 switch event {
-                case .exitRequested:
+                case .archiveRequested:
                     return
+                case .showWorkRequested:
+                    snapshot.activity = "Work dashboard unavailable in the standalone lab"
+                    control.update(snapshot)
                 case .submissionRequested(let submission),
                      .supersedingSubmissionRequested(let submission):
                     let userID = "lab-user-\(nextMessageOrdinal)"

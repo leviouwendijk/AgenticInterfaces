@@ -16,12 +16,16 @@ enum AgenticConversationComposerSmoke {
         case quitCancellationChanged
         case quitChanged
         case tabSemanticsChanged
+        case exploreNavigationChanged
+        case leaderNavigationChanged
+        case insertLeaderTextChanged
     }
 
     static func run() throws {
         try runCompactAndSubmissionProbe()
         try runExpandedCommandProbe()
         try runTabProbe()
+        try runNavigationProbe()
     }
 
     private static func runCompactAndSubmissionProbe() throws {
@@ -134,7 +138,7 @@ enum AgenticConversationComposerSmoke {
                 ":w save"
               ),
               expanded.contains(
-                ":q compact"
+                ":q archive"
               ),
               expanded.contains(
                 "     1 alpha"
@@ -182,14 +186,10 @@ enum AgenticConversationComposerSmoke {
         )
 
         guard control.draftText == draft,
-              !rendered(
-                control
-              ).contains(
-                "message editor"
-              )
-        else {
-            throw Failure.expandedQuitChanged
-        }
+              rendered(control).contains("archive conversation?")
+        else { throw Failure.expandedQuitChanged }
+        _ = control.handle(.escape)
+        _ = control.handle(.control("F"))
 
         enterCommand(
             "w",
@@ -225,7 +225,7 @@ enum AgenticConversationComposerSmoke {
         guard rendered(
             control
         ).contains(
-            "quit agentic conversation?"
+            "archive conversation?"
         ) else {
             throw Failure.quitConfirmationChanged
         }
@@ -237,7 +237,7 @@ enum AgenticConversationComposerSmoke {
         guard !rendered(
             control
         ).contains(
-            "quit agentic conversation?"
+            "archive conversation?"
         ) else {
             throw Failure.quitCancellationChanged
         }
@@ -252,7 +252,7 @@ enum AgenticConversationComposerSmoke {
 
         guard control.handle(
             .enter
-        ) == .exitRequested else {
+        ) == .archiveRequested else {
             throw Failure.quitChanged
         }
     }
@@ -282,6 +282,29 @@ enum AgenticConversationComposerSmoke {
         guard control.focus.current == .transcript else {
             throw Failure.tabSemanticsChanged
         }
+    }
+
+    private static func runNavigationProbe() throws {
+        var control = AgenticConversationControl(snapshot: AgenticConversationSmoke.fixture())
+        // The editor starts in insert mode: Space/p/v are literal draft text.
+        for key in [TerminalKey.space, .char("p"), .char("v")] {
+            guard control.handle(key) == nil else { throw Failure.insertLeaderTextChanged }
+        }
+        guard control.draftText == " pv" else { throw Failure.insertLeaderTextChanged }
+        _ = control.handle(.control("C"))
+        for key in [TerminalKey.space, .char("p")] {
+            guard control.handle(key) == nil else { throw Failure.leaderNavigationChanged }
+        }
+        guard control.handle(.char("v")) == .showWorkRequested,
+              control.draftText == " pv"
+        else { throw Failure.leaderNavigationChanged }
+
+        // Assert :Ex requests Work navigation without clearing the draft.
+        _ = control.handle(.char(":"))
+        _ = control.handle(.char("E"))
+        _ = control.handle(.char("x"))
+        guard control.handle(.enter) == .showWorkRequested
+        else { throw Failure.exploreNavigationChanged }
     }
 
     private static var submitStroke: TerminalKeyStroke {
