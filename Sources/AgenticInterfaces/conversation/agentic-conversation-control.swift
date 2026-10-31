@@ -1622,6 +1622,8 @@ private extension AgenticConversationControl {
                         tone = .warning
                     case .failed:
                         tone = .failure
+                    case .interrupted:
+                        tone = .warning
                     }
                     let block = TerminalInteractiveBlock(
                         title: program.transcriptTitle,

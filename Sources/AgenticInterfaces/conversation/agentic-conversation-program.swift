@@ -26,6 +26,7 @@ public enum AgenticConversationProgramExecutionOutcome:
     case succeeded
     case suspended
     case failed
+    case interrupted
 }
 
 public struct AgenticConversationProgramStepPresentation:
@@ -113,6 +114,8 @@ public struct AgenticConversationProgramExecutionPresentation:
             return "Program · awaiting approval"
         case .failed:
             return "Program · failed"
+        case .interrupted:
+            return "Program · interrupted"
         }
     }
 
