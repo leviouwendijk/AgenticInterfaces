@@ -91,6 +91,7 @@ public struct AgenticConversationControl: Sendable {
     private var pendingSpinner: TerminalSpinnerControl
     private var existing_assistant_ids_at_submission: Set<String>
     private var stop_request_issued: Bool
+    private var workRunning: Bool
     private var openedRunID: String?
     private var runReview: AgenticConversationRunReviewControl?
     private var userInput: AgenticConversationUserInputControl?
@@ -138,6 +139,7 @@ public struct AgenticConversationControl: Sendable {
         )
         self.existing_assistant_ids_at_submission = []
         self.stop_request_issued = false
+        self.workRunning = false
         self.openedRunID = nil
         self.runReview = nil
         self.userInput = pendingUserInput.map { pending in
@@ -167,6 +169,13 @@ public struct AgenticConversationControl: Sendable {
 
     public var isResponsePending: Bool {
         pendingSubmission != nil
+    }
+
+    public mutating func setWorkRunning(_ running: Bool) {
+        workRunning = running
+        if !running {
+            stop_request_issued = false
+        }
     }
 
     private var is_awaiting_first_assistant_response: Bool {
@@ -373,8 +382,7 @@ public struct AgenticConversationControl: Sendable {
         _ keyStroke: TerminalKeyStroke
     ) -> AgenticConversationEvent? {
         if keyStroke.key == .control("G"),
-           pendingSubmission != nil,
-           focus.current != .confirmation {
+           workRunning || pendingSubmission != nil {
             return request_stop()
         }
 
@@ -410,8 +418,8 @@ public struct AgenticConversationControl: Sendable {
     }
 
     public mutating func handle(_ key: TerminalKey) -> AgenticConversationEvent? {
-        if key == .control("G"), pendingSubmission != nil,
-           focus.current != .confirmation {
+        if key == .control("G"),
+           workRunning || pendingSubmission != nil {
             return request_stop()
         }
 
@@ -502,7 +510,9 @@ public struct AgenticConversationControl: Sendable {
     private mutating func request_stop() -> AgenticConversationEvent? {
         guard !stop_request_issued else { return nil }
         stop_request_issued = true
-        pendingSpinner = TerminalSpinnerControl(label: "stopping run…")
+        pendingSpinner = TerminalSpinnerControl(
+            label: "stop requested · finishing active work…"
+        )
         return .stopRequested
     }
 

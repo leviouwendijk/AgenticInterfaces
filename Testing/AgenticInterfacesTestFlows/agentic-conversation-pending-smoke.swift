@@ -11,6 +11,7 @@ enum AgenticConversationPendingSmoke {
         case pendingNavigationBlocked
         case pendingSupersedeGateMissing
         case pendingStateDidNotClear
+        case globalStopUnavailable
     }
 
     static func run() throws {
@@ -181,6 +182,14 @@ enum AgenticConversationPendingSmoke {
             throw Failure.pendingSupersedeGateMissing
         }
 
+        control.setWorkRunning(false)
+        control.setWorkRunning(true)
+        guard control.handle(.control("G")) == .stopRequested,
+              control.focus.current == .confirmation else {
+            throw Failure.globalStopUnavailable
+        }
+        control.setWorkRunning(false)
+
         _ = control.handle(
             .escape
         )
@@ -193,7 +202,15 @@ enum AgenticConversationPendingSmoke {
         }
 
         control.endPendingTurn()
+        control.setWorkRunning(true)
 
+        guard !control.isResponsePending,
+              control.handle(.control("G")) == .stopRequested,
+              control.handle(.control("G")) == nil else {
+            throw Failure.globalStopUnavailable
+        }
+
+        control.setWorkRunning(false)
         guard !control.isResponsePending else {
             throw Failure.pendingStateDidNotClear
         }
