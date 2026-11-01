@@ -2,6 +2,7 @@ import DSL
 import Swim
 import Terminal
 import TerminalStructuredContent
+import TerminalReporting
 
 public enum AgenticHostConsoleWorkflowFocus:
     Sendable,
@@ -1311,7 +1312,15 @@ private extension AgenticHostConsoleWorkflowControl {
             zIndex: documentLayer
         )
 
-        if let structuredBody = currentDocument.structuredBody {
+        if let reportBody = currentDocument.reportBody {
+            document.update(
+                lines: TerminalReporting.Renderer().rows(
+                    reportBody,
+                    columns: content.columns
+                ),
+                visibleRows: content.rows
+            )
+        } else if let structuredBody = currentDocument.structuredBody {
             document.update(
                 lines: TerminalStructuredContent.Renderer()
                     .rows(

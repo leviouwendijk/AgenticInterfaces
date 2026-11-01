@@ -16,6 +16,10 @@ let package = Package(
             name: "t_aint_main",
             targets: ["AgenticInterfacesTestFlows"]
         ),
+        .executable(
+            name: "t_aint_reporting",
+            targets: ["AgenticInterfacesReportingTesting"]
+        ),
     ],
     dependencies: [
         .package(url: "https://github.com/leviouwendijk/Agentic.git", branch: "master"),
@@ -28,6 +32,7 @@ let package = Package(
         .package(url: "https://github.com/leviouwendijk/Difference.git", branch: "master"),
         .package(url: "https://github.com/leviouwendijk/DSL.git", branch: "master"),
         .package(url: "https://github.com/leviouwendijk/Terminal.git", branch: "master"),
+        .package(url: "https://github.com/leviouwendijk/Reporting.git", branch: "master"),
         .package(url: "https://github.com/leviouwendijk/Swim.git", branch: "master"),
         .package(url: "https://github.com/leviouwendijk/SwimIO.git", branch: "master"),
         .package(url: "https://github.com/leviouwendijk/SwimTerminal.git", branch: "master"),
@@ -52,10 +57,22 @@ let package = Package(
                 .product(name: "SwimIO", package: "SwimIO"),
                 .product(name: "SwimTerminal", package: "SwimTerminal"),
                 .product(name: "TerminalStructuredContent", package: "Terminal"),
+                .product(name: "TerminalReporting", package: "Terminal"),
+                .product(name: "Reporting", package: "Reporting"),
                 .product(name: "ParsersStructuredContent", package: "Parsers"),
                 .product(name: "Difference", package: "Difference"),
                 .product(name: "Arguments", package: "Arguments"),
                 .product(name: "Search", package: "Search"),
+            ]
+        ),
+        .executableTarget(
+            name: "AgenticInterfacesReportingTesting",
+            dependencies: [
+                "AgenticInterfaces",
+                .product(name: "DSL", package: "DSL"),
+                .product(name: "Reporting", package: "Reporting"),
+                .product(name: "Search", package: "Search"),
+                .product(name: "Terminal", package: "Terminal"),
             ]
         ),
         .executableTarget(

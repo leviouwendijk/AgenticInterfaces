@@ -1,5 +1,5 @@
 {
-  "originHash" : "35f1e572dde57d7e51209b0568da21cad5e4d0c4772b39c125901290056a4418",
+  "originHash" : "609e63dc2cae5aba8e0bbc15d47453f83a2a9c8c869d993f89a405aa5b7b4fbe",
   "pins" : [
     {
       "identity" : "agentic",
@@ -7,7 +7,7 @@
       "location" : "https://github.com/leviouwendijk/Agentic.git",
       "state" : {
         "branch" : "master",
-        "revision" : "02b1c79397b6a7df058575cd81aedcd7f1c9c731"
+        "revision" : "3c1f46fcc12350bc12f75ade202d9ae53f760730"
       }
     },
     {
@@ -151,7 +151,7 @@
       "location" : "https://github.com/leviouwendijk/Math.git",
       "state" : {
         "branch" : "master",
-        "revision" : "5a357079d1418897dc525712acd656e520a6250d"
+        "revision" : "1323a6904cfad9d630d689614607e1f04ee5889d"
       }
     },
     {
@@ -178,7 +178,7 @@
       "location" : "https://github.com/leviouwendijk/Parsing.git",
       "state" : {
         "branch" : "master",
-        "revision" : "eb15870c0eef5cf9901f032454313fe7ecf210f4"
+        "revision" : "cdd48e8533846308b01a9ced4424568bd0ab98bb"
       }
     },
     {
@@ -236,6 +236,15 @@
       }
     },
     {
+      "identity" : "reporting",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/leviouwendijk/Reporting.git",
+      "state" : {
+        "branch" : "master",
+        "revision" : "b469150bdd4f332a5fcf9496298f424742ecd02f"
+      }
+    },
+    {
       "identity" : "schema",
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/leviouwendijk/Schema.git",
@@ -250,7 +259,7 @@
       "location" : "https://github.com/leviouwendijk/Search.git",
       "state" : {
         "branch" : "master",
-        "revision" : "0ad0d4d49e7a6ef5edb1ccfc1b4b1aaa5a9548f0"
+        "revision" : "c8dc4ad771dedc7a6adb05f2b59de57e40c99a8e"
       }
     },
     {
@@ -322,7 +331,7 @@
       "location" : "https://github.com/leviouwendijk/Terminal.git",
       "state" : {
         "branch" : "master",
-        "revision" : "1d0b493344a85dfde4541a5dbb165efc081a5af5"
+        "revision" : "35919857e9d801f1c559bd8da5c454cde668abbf"
       }
     },
     {

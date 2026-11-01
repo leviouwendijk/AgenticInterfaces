@@ -1,4 +1,5 @@
 import DSL
+import Reporting
 
 public enum AgenticHostConsoleRunState:
     String,
@@ -307,6 +308,9 @@ public struct AgenticHostConsoleDocumentPresentation:
     /// replacing or mutating `body`.
     public var structuredBody: StructuredContent?
 
+    /// Optional typed report; rendered without replacing the canonical body.
+    public var reportBody: ReportDocument?
+
     /// Read-only nodes supporting in-place trace navigation.
     public var traceRoots: [AgenticHostConsoleTraceNode]?
 
@@ -318,7 +322,8 @@ public struct AgenticHostConsoleDocumentPresentation:
         title: String? = nil,
         body: String,
         structuredBody: StructuredContent? = nil,
-        traceRoots: [AgenticHostConsoleTraceNode]? = nil
+        traceRoots: [AgenticHostConsoleTraceNode]? = nil,
+        reportBody: ReportDocument? = nil
     ) {
         self.id = id
         self.runID = runID
@@ -328,6 +333,7 @@ public struct AgenticHostConsoleDocumentPresentation:
         self.body = body
         self.structuredBody = structuredBody
         self.traceRoots = traceRoots
+        self.reportBody = reportBody
     }
 }
 
