@@ -17,10 +17,13 @@ enum AgenticConversationUserInputSmoke {
         case escapeChanged
         case promptLayoutOverflow
         case promptLayoutDidNotWrap
+        case formInputDidNotSoftWrap
+        case formInputChangedByWrapping
     }
 
     static func run() throws {
         try layout()
+        try wrappedFormField()
         try text()
         try multiline()
         try singleChoice()
@@ -91,6 +94,37 @@ enum AgenticConversationUserInputSmoke {
               )
         else {
             throw Failure.promptLayoutDidNotWrap
+        }
+    }
+
+    private static func wrappedFormField() throws {
+        let value = "alpha beta gamma delta epsilon zeta eta theta endmark"
+        var control = AgenticConversationUserInputControl(
+            request: try UserInputRequest(
+                prompt: "Long answer",
+                input: .form(
+                    FormUserInput(fields: [
+                        UserInputField(id: "note", label: "Note", defaultText: value)
+                    ])
+                )
+            )
+        )
+        let columns = 24
+        var frame = TerminalFrame(rows: 16, columns: columns)
+        control.render(
+            into: &frame,
+            in: TerminalRegion(rows: 16, columns: columns)
+        )
+        let rendered = frame.resolved().spans
+            .map(\.content)
+            .joined(separator: "\n")
+        guard rendered.contains("alpha"), rendered.contains("endmark") else {
+            throw Failure.formInputDidNotSoftWrap
+        }
+        guard case .submitted(.answer(.form(let answer)))? = control.handle(
+            TerminalKeyStroke(key: .enter, modifiers: .control)
+        ), answer.values["note"] == value else {
+            throw Failure.formInputChangedByWrapping
         }
     }
 

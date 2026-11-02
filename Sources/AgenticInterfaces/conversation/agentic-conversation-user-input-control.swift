@@ -226,9 +226,7 @@ package struct AgenticConversationUserInputControl:
                         TextEditor(
                             text: field.defaultText ?? "",
                             placeholder: field.placeholder ?? "",
-                            maximumRows: field.multiline
-                                ? 4
-                                : 1
+                            maximumRows: 4
                         )
                     )
                 }
@@ -263,9 +261,7 @@ package struct AgenticConversationUserInputControl:
                     input: TextEditor(
                         text: specification.defaultText ?? "",
                         placeholder: specification.placeholder ?? "",
-                        maximumRows: specification.multiline
-                            ? 6
-                            : 1
+                        maximumRows: 6
                     )
                 )
             )

@@ -5,6 +5,11 @@ import Terminal
 enum AgenticConversationUserInputIntegrationSmoke {
     enum Failure: Error {
         case pendingInputDidNotFocus
+        case submittingInputStayedFocused
+        case submittingInputReopened
+        case failedInputDidNotReopen
+        case failedInputLostAnswer
+        case successfulInputReopened
         case replyIdentityChanged
         case duplicateReplyWasNotBlocked
         case closeDidNotReturnToTranscript
@@ -58,15 +63,32 @@ enum AgenticConversationUserInputIntegrationSmoke {
         control.beginUserInputResolution(
             interactionID: "interaction-1"
         )
+        guard control.focus.current == .transcript else {
+            throw Failure.submittingInputStayedFocused
+        }
+        control.update(fixture(pendingUserInput: pending))
+        _ = control.handle(.char("u"))
+        guard control.focus.current == .transcript else {
+            throw Failure.submittingInputReopened
+        }
+        let duplicateEvent = control.handle(
+            TerminalKeyStroke(key: .enter, modifiers: .control)
+        )
+        if case .userInputReplyRequested? = duplicateEvent {
+            throw Failure.duplicateReplyWasNotBlocked
+        }
+        control.endUserInputResolution()
+        guard control.focus.current == .userInput else {
+            throw Failure.failedInputDidNotReopen
+        }
         guard control.handle(
             TerminalKeyStroke(
                 key: .enter,
                 modifiers: .control
             )
-        ) == nil else {
-            throw Failure.duplicateReplyWasNotBlocked
+        ) == reply else {
+            throw Failure.failedInputLostAnswer
         }
-        control.endUserInputResolution()
 
         let closeEvent = control.handle(
             TerminalKeyStroke(
@@ -78,6 +100,16 @@ enum AgenticConversationUserInputIntegrationSmoke {
         }
         guard control.focus.current == .transcript else {
             throw Failure.closeDidNotReturnToTranscript
+        }
+
+        var finishedControl = AgenticConversationControl(
+            snapshot: fixture(pendingUserInput: pending)
+        )
+        finishedControl.beginUserInputResolution(interactionID: "interaction-1")
+        finishedControl.update(fixture(pendingUserInput: nil))
+        finishedControl.endUserInputResolution()
+        guard finishedControl.focus.current != .userInput else {
+            throw Failure.successfulInputReopened
         }
 
         let pendingPresentation = rendered(
