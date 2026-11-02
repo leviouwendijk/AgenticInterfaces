@@ -20,6 +20,10 @@ let package = Package(
             name: "t_aint_reporting",
             targets: ["AgenticInterfacesReportingTesting"]
         ),
+        .executable(
+            name: "t_aint_structured",
+            targets: ["AgenticInterfacesStructuredTesting"]
+        ),
     ],
     dependencies: [
         .package(url: "https://github.com/leviouwendijk/Agentic.git", branch: "master"),
@@ -58,12 +62,23 @@ let package = Package(
                 .product(name: "SwimTerminal", package: "SwimTerminal"),
                 .product(name: "TerminalStructuredContent", package: "Terminal"),
                 .product(name: "TerminalReporting", package: "Terminal"),
+                .product(name: "TerminalGraph", package: "Terminal"),
                 .product(name: "Reporting", package: "Reporting"),
                 .product(name: "ParsersStructuredContent", package: "Parsers"),
                 .product(name: "Difference", package: "Difference"),
                 .product(name: "Arguments", package: "Arguments"),
                 .product(name: "Search", package: "Search"),
             ]
+        ),
+        .executableTarget(
+            name: "AgenticInterfacesStructuredTesting",
+            dependencies: [
+                "AgenticInterfaces",
+                .product(name: "Agentic", package: "Agentic"),
+                .product(name: "Primitives", package: "Primitives"),
+                .product(name: "Reporting", package: "Reporting"),
+            ],
+            path: "Testing/AgenticInterfacesStructuredTesting"
         ),
         .executableTarget(
             name: "AgenticInterfacesReportingTesting",

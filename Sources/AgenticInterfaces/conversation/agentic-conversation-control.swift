@@ -78,6 +78,7 @@ public struct AgenticConversationControl: Sendable {
     private var transcript: TerminalScrollableDocument
     private var attachmentDocument: TerminalScrollableDocument
     private var selectedMessageID: String?
+    private var selectedIterationIndices: [String: Int]
     private var transcriptSelectionFollowsEnd: Bool
     private var pendingTranscriptReveal: AgenticConversationTranscriptReveal?
     private var pendingContents: [AgenticConversationContentPresentation]
@@ -120,6 +121,7 @@ public struct AgenticConversationControl: Sendable {
         self.transcript = TerminalScrollableDocument(followEnd: true)
         self.attachmentDocument = TerminalScrollableDocument()
         self.selectedMessageID = snapshot.messages.last?.id
+        self.selectedIterationIndices = [:]
         self.transcriptSelectionFollowsEnd = true
         self.pendingTranscriptReveal = nil
         self.pendingContents = []
@@ -216,10 +218,22 @@ public struct AgenticConversationControl: Sendable {
         }
 
         resolvingUserInputID = interactionID
+        focus.reset(to: .transcript)
     }
 
     public mutating func endUserInputResolution() {
+        guard let resolving = resolvingUserInputID else {
+            return
+        }
+
         resolvingUserInputID = nil
+        guard snapshot.pendingUserInput?.interactionID == resolving,
+              userInput != nil else {
+            return
+        }
+
+        focus.reset(to: .transcript)
+        focus.push(.userInput)
     }
 
     public var currentMessage: AgenticConversationMessagePresentation? {
@@ -526,6 +540,7 @@ public struct AgenticConversationControl: Sendable {
 
         if focus.current == .run, var hostConsole {
             if snapshot.pendingUserInput?.runID == openedRunID,
+               resolvingUserInputID == nil,
                region.rows > 1
             {
                 let consoleRegion = TerminalRegion(
@@ -916,7 +931,8 @@ private extension AgenticConversationControl {
                 .settings
             )
         case .char("u"):
-            guard snapshot.pendingUserInput != nil,
+            guard resolvingUserInputID == nil,
+                  snapshot.pendingUserInput != nil,
                   userInput != nil else {
                 return nil
             }
@@ -925,6 +941,12 @@ private extension AgenticConversationControl {
             )
         case .char("r"):
             return openCurrentRun()
+        case .char("["):
+            moveIteration(by: -1)
+        case .char("]"):
+            moveIteration(by: 1)
+        case .char("t"):
+            return openCurrentTrace()
         case .char("x"):
             return openCurrentRunActions()
         case .enter:
@@ -933,6 +955,26 @@ private extension AgenticConversationControl {
             break
         }
         return nil
+    }
+
+    mutating func moveIteration(by delta: Int) {
+        guard let message = currentMessage, !message.iterations.isEmpty else { return }
+        let last = message.iterations.count - 1
+        let current = selectedIterationIndices[message.id] ?? last
+        selectedIterationIndices[message.id] = min(last, max(0, current + delta))
+        pendingTranscriptReveal = .start
+    }
+
+    mutating func openCurrentTrace() -> AgenticConversationEvent? {
+        guard let message = currentMessage,
+              let index = message.attachments.firstIndex(where: { attachment in
+                  if case .trace = attachment { return true }
+                  return false
+              }) else { return nil }
+        attachmentIndex = index
+        attachmentDocument.moveToStart()
+        focus.push(.attachment)
+        return .attachmentOpened(messageID: message.id, attachmentID: message.attachments[index].id)
     }
 
     mutating func handleAttachment(_ key: TerminalKey) -> AgenticConversationEvent? {
@@ -1005,6 +1047,7 @@ private extension AgenticConversationControl {
         }
 
         if key == .char("u"),
+           resolvingUserInputID == nil,
            snapshot.pendingUserInput?.runID == openedRunID,
            userInput != nil
         {
@@ -1254,7 +1297,8 @@ private extension AgenticConversationControl {
     mutating func openPendingUserInput(
         runID: String
     ) -> Bool {
-        guard snapshot.pendingUserInput?.runID == runID,
+        guard resolvingUserInputID == nil,
+              snapshot.pendingUserInput?.runID == runID,
               userInput != nil else {
             return false
         }
@@ -1586,9 +1630,26 @@ private extension AgenticConversationControl {
                     )
                     : TerminalStyle.bold.apply(label)
             )
+            let selectedIteration = selectedIterationIndices[message.id].flatMap { index in
+                message.iterations.indices.contains(index) ? message.iterations[index] : nil
+            }
+            if !message.iterations.isEmpty {
+                let display = selectedIteration?.number ?? message.iterations.last?.number ?? 0
+                lines.append(
+                    TerminalStyle.dim.apply(
+                        "  iteration \(display) · [ previous  ] next  t trace"
+                    )
+                )
+            }
+            let earlierIteration = selectedIteration.flatMap { selected -> String? in
+                selected.id == message.iterations.last?.id
+                    ? nil
+                    : (selected.assistantBody ?? selected.events.joined(separator: "\n"))
+            }
+            let displayedBody = earlierIteration ?? message.body
             if message.role == .assistant {
                 let structured = MarkdownStructuredContentParser.parse(
-                    message.body
+                    displayedBody
                 )
                 lines += structuredRenderer.rows(
                     structured,
@@ -1598,7 +1659,7 @@ private extension AgenticConversationControl {
                 }
             } else {
                 lines += TerminalTextWrap.lines(
-                    message.body,
+                    displayedBody,
                     width: bodyWidth
                 ).map {
                     "  " + $0
@@ -1612,6 +1673,22 @@ private extension AgenticConversationControl {
                             "  [" + content.summary + "]"
                         )
                     )
+
+                case .structured(let value):
+                    if let selectedIteration,
+                       selectedIteration.id != message.iterations.last?.id,
+                       value.iteration != selectedIteration.number {
+                        continue
+                    }
+                    let blockStart = lines.count
+                    lines.append(TerminalStyle.bold.apply("  " + value.title))
+                    let preview = Array(value.rows(columns: bodyWidth).prefix(6))
+                    lines += preview.map { "  " + $0 }
+                    lines.append(TerminalStyle.dim.apply("  [Enter to inspect · " + value.summary + "]"))
+                    nestedInteractiveRows.formUnion(blockStart..<lines.count)
+
+                case .trace:
+                    lines.append(TerminalStyle.dim.apply("  [Execution trace · Enter to inspect]"))
 
                 case .program(let program):
                     let tone: AgenticConversationRunCardTone
@@ -1941,6 +2018,23 @@ private extension AgenticConversationControl {
                 columns: body.columns,
                 visibleRows: body.rows,
                 wrapping: .display
+            )
+        case .structured(let value):
+            attachmentDocument.update(
+                lines: value.rows(columns: body.columns),
+                visibleRows: body.rows
+            )
+        case .trace:
+            let lines = message.iterations.flatMap { iteration -> [String] in
+                ["iteration \(iteration.number)", iteration.assistantBody ?? "(no recorded assistant text)"]
+                    + iteration.events.map { "  " + $0 }
+                    + [""]
+            }
+            attachmentDocument.update(
+                text: lines.joined(separator: "\n"),
+                columns: body.columns,
+                visibleRows: body.rows,
+                wrapping: .word
             )
         case .program(let program):
             attachmentDocument.update(

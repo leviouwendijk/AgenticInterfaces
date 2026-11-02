@@ -58,6 +58,8 @@ public struct AgenticConversationContentPresentation: Sendable, Hashable {
 public enum AgenticConversationAttachmentPresentation: Sendable, Hashable {
     case content(AgenticConversationContentPresentation)
     case program(AgenticConversationProgramExecutionPresentation)
+    case structured(AgenticConversationStructuredPresentation)
+    case trace(runID: String)
     case run(runID: String)
 
     public var id: String {
@@ -66,6 +68,10 @@ public enum AgenticConversationAttachmentPresentation: Sendable, Hashable {
             return content.id
         case .program(let program):
             return program.id
+        case .structured(let value):
+            return value.id
+        case .trace(let runID):
+            return "trace-" + runID
         case .run(let runID):
             return runID
         }
@@ -77,6 +83,10 @@ public enum AgenticConversationAttachmentPresentation: Sendable, Hashable {
             return content.title
         case .program(let program):
             return program.title
+        case .structured(let value):
+            return value.title
+        case .trace:
+            return "Execution trace"
         case .run(let runID):
             return hostConsole.runs.first { $0.id == runID }?.title ?? "Run"
         }
@@ -88,6 +98,10 @@ public enum AgenticConversationAttachmentPresentation: Sendable, Hashable {
             return content.summary
         case .program(let program):
             return "program · \(program.program.rawValue) · \(program.outcome.rawValue)"
+        case .structured(let value):
+            return value.summary
+        case .trace:
+            return "recorded iterations and events"
         case .run(let runID):
             guard let run = hostConsole.runs.first(where: { $0.id == runID }) else {
                 return "run · \(runID) · unavailable"
@@ -357,17 +371,20 @@ public struct AgenticConversationMessagePresentation: Sendable, Hashable {
     public var role: MessageRole
     public var body: String
     public var attachments: [AgenticConversationAttachmentPresentation]
+    public var iterations: [AgenticConversationIterationPresentation]
 
     public init(
         id: String,
         role: MessageRole,
         body: String,
-        attachments: [AgenticConversationAttachmentPresentation] = []
+        attachments: [AgenticConversationAttachmentPresentation] = [],
+        iterations: [AgenticConversationIterationPresentation] = []
     ) {
         self.id = id
         self.role = role
         self.body = body
         self.attachments = attachments
+        self.iterations = iterations
     }
 }
 
