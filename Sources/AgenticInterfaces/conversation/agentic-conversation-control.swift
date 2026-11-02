@@ -1682,8 +1682,7 @@ private extension AgenticConversationControl {
                     }
                     let blockStart = lines.count
                     lines.append(TerminalStyle.bold.apply("  " + value.title))
-                    let preview = Array(value.rows(columns: bodyWidth).prefix(6))
-                    lines += preview.map { "  " + $0 }
+                    lines += value.previewRows(columns: bodyWidth).map { "  " + $0 }
                     lines.append(TerminalStyle.dim.apply("  [Enter to inspect · " + value.summary + "]"))
                     nestedInteractiveRows.formUnion(blockStart..<lines.count)
 
@@ -2021,7 +2020,7 @@ private extension AgenticConversationControl {
             )
         case .structured(let value):
             attachmentDocument.update(
-                lines: value.rows(columns: body.columns),
+                lines: value.rows(columns: body.columns, includeTitle: false),
                 visibleRows: body.rows
             )
         case .trace:

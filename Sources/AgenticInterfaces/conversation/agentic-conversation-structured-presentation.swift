@@ -44,11 +44,11 @@ public struct AgenticConversationStructuredPresentation: Sendable, Hashable, Cod
     }
 
     /// The same rows serve an inline preview and a full scrollable inspector.
-    public func rows(columns: Int) -> [String] {
+    public func rows(columns: Int, includeTitle: Bool = true) -> [String] {
         let width = max(1, columns)
         switch content {
         case .report(let document):
-            return TerminalReporting.Renderer().rows(document, columns: width)
+            return TerminalReporting.Renderer().rows(document, columns: width, includeTitle: includeTitle)
         case .graph(let graph, let references):
             let labels = Dictionary(uniqueKeysWithValues: graph.nodes.map { node in
                 (node.id, Self.valueLabel(node.value, fallback: node.id))
@@ -69,6 +69,20 @@ public struct AgenticConversationStructuredPresentation: Sendable, Hashable, Cod
                 + references.references.map { "reference \($0.id) -> \($0.target)" }
             return descriptions.flatMap { TerminalTextWrap.lines($0, width: width) }
         }
+    }
+
+    /// Transcript previews are bounded and must explicitly disclose omitted rows.
+    /// The surrounding conversation supplies the attachment title.
+    public func previewRows(columns: Int, maxRows: Int = 12) -> [String] {
+        let width = max(1, columns)
+        let full = rows(columns: width, includeTitle: false)
+        let limit = max(2, maxRows)
+        guard full.count > limit else { return full }
+        let displayed = limit - 1
+        let more = full.count - displayed
+        return Array(full.prefix(displayed)) + [
+            TerminalDisplay.clipped("… \(more) more rows · Enter to inspect", columns: width)
+        ]
     }
 
     private static func valueLabel(_ value: JSONValue, fallback: String) -> String {

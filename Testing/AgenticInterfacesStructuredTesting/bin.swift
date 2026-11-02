@@ -47,6 +47,20 @@ struct ConversationStructuredSmoke {
             content: .graph(cyclic, refs)
         )
         try check(cyclicView.rows(columns: 60).joined(separator: "\n").contains("edge cycle"), "cyclic fallback")
+        let merged = try G(
+            nodes: graph.nodes + [.init(id: "merge", value: .string("Merge"))],
+            edges: graph.edges + [
+                .init(id: "am", source: "a", destination: "merge", value: .null),
+                .init(id: "bm", source: "b", destination: "merge", value: .null),
+            ]
+        )
+        let mergedView = AgenticConversationStructuredPresentation(
+            id: "run:tool:merged", sourceCallID: "merged", iteration: 2,
+            content: .graph(merged, refs)
+        )
+        let preview = mergedView.previewRows(columns: 80)
+        try check(preview.joined(separator: "\n").contains("Merge"), "Four-node graph is fully previewed")
+        try check(preview.count <= 12, "Preview is bounded")
         let document = try ReportDocument(
             title: "Example",
             datasets: [],
@@ -57,6 +71,21 @@ struct ConversationStructuredSmoke {
             content: .report(document)
         )
         try check(reportView.rows(columns: 60).joined(separator: "\n").contains("Sample narrative"), "report renderer")
+        try check(!reportView.rows(columns: 60, includeTitle: false).contains("Example"),
+                  "Expanded inspection uses surrounding title")
+        let longDocument = try ReportDocument(
+            title: "Long report", datasets: [],
+            blocks: [.narrative(.collection((0..<24).map { index in
+                .paragraph([.text("Entry \(index)")])
+            }))]
+        )
+        let longView = AgenticConversationStructuredPresentation(
+            id: "run:tool:long", sourceCallID: "long", iteration: 3,
+            content: .report(longDocument)
+        )
+        let longPreview = longView.previewRows(columns: 60)
+        try check(longPreview.count == 12, "Long preview has row budget")
+        try check(longPreview.last?.contains("more rows") == true, "Truncation is explicit")
         let history = AgenticConversationIterationPresentation(
             id: "run:iteration:1", number: 1, assistantBody: "Draft",
             events: ["assistant_response · draft"], toolCallIDs: ["graph"]
