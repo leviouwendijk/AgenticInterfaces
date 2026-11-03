@@ -44,6 +44,10 @@ enum AgenticConversationSmoke {
         case transcriptQExited
         case selectedMessagePresentationChanged
         case selectedMessageViewportChanged
+        case iterationNavigationStyleChanged
+        case transcriptIncrementalScrollChanged
+        case transcriptScrollSelectionChanged
+        case transcriptScrollFollowChanged
         case presentationMissing(String)
         case programCommandChanged
     }
@@ -798,10 +802,14 @@ enum AgenticConversationSmoke {
         guard control.focus.current == .transcript,
               rendered.contains(selectedBody),
               rendered.contains("tab composer"),
+              rendered.contains("J/K scroll"),
+              rendered.contains("PgUp/PgDn"),
+              rendered.contains("m model"),
+              rendered.contains("s settings"),
               !rendered.contains("tab voice"),
               !rendered.contains("q quit")
         else {
-            throw Failure.selectedMessagePresentationChanged
+            throw Failure.presentationMissing("selection:initial_render")
         }
 
         guard rendered.contains(
@@ -839,7 +847,7 @@ enum AgenticConversationSmoke {
         )
 
         guard messageSelectionControl.currentMessage?.id == "selection-third" else {
-            throw Failure.selectedMessagePresentationChanged
+            throw Failure.presentationMissing("selection:follow_third")
         }
 
         _ = messageSelectionControl.handle(.escape)
@@ -849,7 +857,7 @@ enum AgenticConversationSmoke {
         guard messageSelectionControl.focus.current == .transcript,
               messageSelectionControl.currentMessage?.id == "selection-second"
         else {
-            throw Failure.selectedMessagePresentationChanged
+            throw Failure.presentationMissing("selection:backward_second")
         }
 
         _ = messageSelectionControl.handle(.tab)
@@ -867,7 +875,7 @@ enum AgenticConversationSmoke {
         guard messageSelectionControl.focus.current == .composer,
               messageSelectionControl.currentMessage?.id == "selection-second"
         else {
-            throw Failure.selectedMessagePresentationChanged
+            throw Failure.presentationMissing("selection:preserved_in_composer")
         }
 
         _ = messageSelectionControl.handle(.tab)
@@ -875,14 +883,14 @@ enum AgenticConversationSmoke {
         guard messageSelectionControl.focus.current == .transcript,
               messageSelectionControl.currentMessage?.id == "selection-second"
         else {
-            throw Failure.selectedMessagePresentationChanged
+            throw Failure.presentationMissing("selection:restored_transcript")
         }
 
         _ = messageSelectionControl.handle(.char("j"))
         _ = messageSelectionControl.handle(.char("j"))
 
         guard messageSelectionControl.currentMessage?.id == "selection-fourth" else {
-            throw Failure.selectedMessagePresentationChanged
+            throw Failure.presentationMissing("selection:forward_fourth")
         }
 
         _ = messageSelectionControl.handle(.tab)
@@ -898,7 +906,64 @@ enum AgenticConversationSmoke {
         )
 
         guard messageSelectionControl.currentMessage?.id == "selection-fifth" else {
-            throw Failure.selectedMessagePresentationChanged
+            throw Failure.presentationMissing("selection:follow_fifth")
+        }
+
+        var iterationSnapshot = fixture()
+        iterationSnapshot.messages = [
+            AgenticConversationMessagePresentation(
+                id: "iteration-assistant",
+                role: .assistant,
+                body: "final iteration text",
+                iterations: [
+                    .init(id: "iteration-1", number: 1, assistantBody: "earlier iteration text", events: [], toolCallIDs: []),
+                    .init(id: "iteration-2", number: 2, assistantBody: "final iteration text", events: [], toolCallIDs: []),
+                ]
+            ),
+        ]
+        var iterationControl = AgenticConversationControl(snapshot: iterationSnapshot)
+        _ = iterationControl.handle(.escape)
+        _ = iterationControl.handle(.escape)
+        var iterationFrame = TerminalFrame(rows: 22, columns: 80)
+        iterationControl.render(
+            into: &iterationFrame,
+            in: TerminalRegion(rows: 22, columns: 80)
+        )
+        let navigationStyle = TerminalStyle(
+            foreground: .hex("#aab6c6"),
+            background: .hex("#28313b")
+        )
+        let latestNavigation = navigationStyle.apply(
+            TerminalDisplay.fitted(
+                "  iteration 2/2 · [ previous  ] next  t trace",
+                columns: 80
+            )
+        )
+        let latestIteration = iterationFrame.resolved().spans
+            .map(\.content).joined(separator: "\n")
+        guard iterationControl.focus.current == .transcript,
+              latestIteration.contains(latestNavigation),
+              latestIteration.contains("final iteration text") else {
+            throw Failure.iterationNavigationStyleChanged
+        }
+        _ = iterationControl.handle(.char("["))
+        iterationFrame.removeAll()
+        iterationControl.render(
+            into: &iterationFrame,
+            in: TerminalRegion(rows: 22, columns: 80)
+        )
+        let earlierNavigation = navigationStyle.apply(
+            TerminalDisplay.fitted(
+                "  iteration 1/2 · [ previous  ] next  t trace",
+                columns: 80
+            )
+        )
+        let earlierIteration = iterationFrame.resolved().spans
+            .map(\.content).joined(separator: "\n")
+        guard earlierIteration.contains(earlierNavigation),
+              earlierIteration.contains("earlier iteration text"),
+              iterationControl.currentMessage?.id == "iteration-assistant" else {
+            throw Failure.iterationNavigationStyleChanged
         }
 
         var viewportSnapshot = fixture()
@@ -976,6 +1041,83 @@ enum AgenticConversationSmoke {
 
         guard stableViewportRendered.contains("long-tail") else {
             throw Failure.selectedMessageViewportChanged
+        }
+
+        _ = viewportControl.handle(.char("K"))
+        viewportFrame.removeAll()
+        viewportControl.render(
+            into: &viewportFrame,
+            in: TerminalRegion(rows: 10, columns: 60)
+        )
+        let scrolledUp = stripANSI(
+            viewportFrame.resolved().spans.map(\.content).joined(separator: "\n")
+        )
+        guard scrolledUp != stableViewportRendered else {
+            throw Failure.transcriptIncrementalScrollChanged
+        }
+        guard viewportControl.currentMessage?.id == "viewport-long" else {
+            throw Failure.transcriptScrollSelectionChanged
+        }
+
+        viewportSnapshot.messages.append(
+            AgenticConversationMessagePresentation(
+                id: "viewport-newest",
+                role: .assistant,
+                body: "newest live message"
+            )
+        )
+        viewportControl.update(viewportSnapshot)
+        viewportFrame.removeAll()
+        viewportControl.render(
+            into: &viewportFrame,
+            in: TerminalRegion(rows: 10, columns: 60)
+        )
+        let afterUpdate = stripANSI(
+            viewportFrame.resolved().spans.map(\.content).joined(separator: "\n")
+        )
+        guard viewportControl.currentMessage?.id == "viewport-long",
+              !afterUpdate.contains("newest live message") else {
+            throw Failure.transcriptScrollFollowChanged
+        }
+
+        _ = viewportControl.handle(.char("J"))
+        viewportFrame.removeAll()
+        viewportControl.render(
+            into: &viewportFrame,
+            in: TerminalRegion(rows: 10, columns: 60)
+        )
+        let scrolledDown = stripANSI(
+            viewportFrame.resolved().spans.map(\.content).joined(separator: "\n")
+        )
+        guard scrolledDown != afterUpdate,
+              viewportControl.currentMessage?.id == "viewport-long" else {
+            throw Failure.transcriptIncrementalScrollChanged
+        }
+
+        _ = viewportControl.handle(.pageUp)
+        viewportFrame.removeAll()
+        viewportControl.render(
+            into: &viewportFrame,
+            in: TerminalRegion(rows: 10, columns: 60)
+        )
+        let pageUpRendered = stripANSI(
+            viewportFrame.resolved().spans.map(\.content).joined(separator: "\n")
+        )
+        guard pageUpRendered != scrolledDown else {
+            throw Failure.transcriptIncrementalScrollChanged
+        }
+        _ = viewportControl.handle(.pageDown)
+        viewportFrame.removeAll()
+        viewportControl.render(
+            into: &viewportFrame,
+            in: TerminalRegion(rows: 10, columns: 60)
+        )
+        let pageDownRendered = stripANSI(
+            viewportFrame.resolved().spans.map(\.content).joined(separator: "\n")
+        )
+        guard pageDownRendered != pageUpRendered,
+              viewportControl.currentMessage?.id == "viewport-long" else {
+            throw Failure.transcriptScrollSelectionChanged
         }
 
         guard viewportControl.handle(.enter) == .feedbackRequested(

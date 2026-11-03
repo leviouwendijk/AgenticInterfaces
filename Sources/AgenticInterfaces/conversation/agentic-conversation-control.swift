@@ -907,6 +907,14 @@ private extension AgenticConversationControl {
             moveMessage(by: 1)
         case .char("k"), .up:
             moveMessage(by: -1)
+        case .char("J"):
+            scrollTranscript(by: 3)
+        case .char("K"):
+            scrollTranscript(by: -3)
+        case .pageUp:
+            pageTranscript(down: false)
+        case .pageDown:
+            pageTranscript(down: true)
         case .char("m"):
             guard pendingSubmission == nil else {
                 return nil
@@ -963,6 +971,26 @@ private extension AgenticConversationControl {
         let current = selectedIterationIndices[message.id] ?? last
         selectedIterationIndices[message.id] = min(last, max(0, current + delta))
         pendingTranscriptReveal = .start
+    }
+
+    mutating func scrollTranscript(by rows: Int) {
+        pendingTranscriptReveal = nil
+        transcriptSelectionFollowsEnd = false
+        if rows < 0 {
+            _ = transcript.scrollUp(by: -rows)
+        } else if rows > 0 {
+            _ = transcript.scrollDown(by: rows)
+        }
+    }
+
+    mutating func pageTranscript(down: Bool) {
+        pendingTranscriptReveal = nil
+        transcriptSelectionFollowsEnd = false
+        if down {
+            _ = transcript.pageDown()
+        } else {
+            _ = transcript.pageUp()
+        }
     }
 
     mutating func openCurrentTrace() -> AgenticConversationEvent? {
@@ -1622,6 +1650,7 @@ private extension AgenticConversationControl {
             let selected = focus.current == .transcript
                 && message.id == selectedMessageID
             var nestedInteractiveRows: Set<Int> = []
+            var navigationRows: Set<Int> = []
             let label = (selected ? "> " : "") + message.role.rawValue
             lines.append(
                 selected
@@ -1635,11 +1664,18 @@ private extension AgenticConversationControl {
             }
             if !message.iterations.isEmpty {
                 let display = selectedIteration?.number ?? message.iterations.last?.number ?? 0
+                let navigation = "  iteration \(display)/\(message.iterations.count) · [ previous  ] next  t trace"
+                navigationRows.insert(lines.count)
                 lines.append(
-                    TerminalStyle.dim.apply(
-                        "  iteration \(display) · [ previous  ] next  t trace"
+                    TerminalStyle(
+                        foreground: .hex("#aab6c6"),
+                        background: .hex("#28313b")
+                    ).apply(
+                        TerminalDisplay.fitted(navigation, columns: width)
                     )
                 )
+                navigationRows.insert(lines.count)
+                lines.append("")
             }
             let earlierIteration = selectedIteration.flatMap { selected -> String? in
                 selected.id == message.iterations.last?.id
@@ -1784,7 +1820,9 @@ private extension AgenticConversationControl {
                     )
                 )
 
-                for index in start..<lines.count where !nestedInteractiveRows.contains(index) {
+                for index in start..<lines.count
+                where !nestedInteractiveRows.contains(index)
+                    && !navigationRows.contains(index) {
                     lines[index] = selectionStyle.apply(
                         TerminalDisplay.fitted(
                             stripANSI(
@@ -2168,7 +2206,7 @@ private extension AgenticConversationControl {
             case .voice:
                 return "response pending  esc back"
             case .transcript:
-                return "j/k message  enter inspect  tab composer  ctrl-g stop  x run actions  response pending"
+                return "j/k msg  J/K scroll  PgUp/PgDn  tab composer  enter inspect  ctrl-g stop  x actions  response pending"
             case .pinnedContent,
                  .attachment,
                  .settings,
@@ -2188,7 +2226,7 @@ private extension AgenticConversationControl {
             return "esc back"
                 + voiceFooter
         case .transcript:
-            return "j/k message  enter inspect  m model  s settings"
+            return "j/k msg  J/K scroll  PgUp/PgDn  tab composer  enter inspect  m model  s settings"
                 + (pendingContents.isEmpty ? "" : "  p pins")
                 + "  tab composer  ctrl-c composer"
                 + (snapshot.pendingUserInput == nil ? "" : "  u answer  r run")
