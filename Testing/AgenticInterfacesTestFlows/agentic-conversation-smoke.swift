@@ -146,7 +146,7 @@ enum AgenticConversationSmoke {
                 "Stage 2 of 3 · mutate_files",
                 "Human review required",
               ].joined(separator: "\n"),
-              card.hint == "Enter for actions",
+              card.hint == "a review · Enter inspect",
               card.tone == .warning
         else {
             throw Failure.runCardProjectionChanged
@@ -806,6 +806,7 @@ enum AgenticConversationSmoke {
               rendered.contains("PgUp/PgDn"),
               rendered.contains("m model"),
               rendered.contains("s settings"),
+              rendered.contains("a review"),
               !rendered.contains("tab voice"),
               !rendered.contains("q quit")
         else {

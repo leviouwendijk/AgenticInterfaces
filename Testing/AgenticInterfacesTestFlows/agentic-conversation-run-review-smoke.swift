@@ -10,6 +10,10 @@ enum AgenticConversationRunReviewSmoke {
         case diffDidNotOpen
         case exactApprovalEventChanged
         case reviewDidNotCloseAfterAction
+        case inspectionNavigationChanged
+        case reviewShortcutDidNotOpen
+        case reviewShortcutActionChanged
+        case noPendingReviewFeedbackChanged
     }
 
     static func run() throws {
@@ -64,6 +68,55 @@ enum AgenticConversationRunReviewSmoke {
                 ),
             ]
         )
+
+        var multiAttachmentSnapshot = snapshot
+        multiAttachmentSnapshot.messages[1].attachments = [
+            .trace(runID: "conversation-run"),
+            .run(runID: "conversation-run"),
+        ]
+        var shortcutControl = AgenticConversationControl(
+            snapshot: multiAttachmentSnapshot
+        )
+        _ = shortcutControl.handle(.escape)
+        _ = shortcutControl.handle(.escape)
+
+        guard shortcutControl.handle(.enter) == .attachmentOpened(
+            messageID: "assistant-run",
+            attachmentID: "trace-conversation-run"
+        ), shortcutControl.focus.current == .attachment else {
+            throw Failure.inspectionNavigationChanged
+        }
+
+        _ = shortcutControl.handle(.char("q"))
+        guard shortcutControl.focus.current == .transcript,
+              shortcutControl.handle(.char("a")) == nil,
+              shortcutControl.focus.current == .runReview else {
+            throw Failure.reviewShortcutDidNotOpen
+        }
+
+        _ = shortcutControl.handle(.char("j"))
+        _ = shortcutControl.handle(.char("j"))
+        guard shortcutControl.handle(.enter) == .run(
+            .actionRequested(
+                interruptionID: "conversation-approval",
+                runID: "conversation-run",
+                stepID: "review-step",
+                action: .approve
+            )
+        ), shortcutControl.focus.current == .transcript else {
+            throw Failure.reviewShortcutActionChanged
+        }
+
+        var noReviewControl = AgenticConversationControl(
+            snapshot: AgenticConversationSmoke.fixture()
+        )
+        _ = noReviewControl.handle(.escape)
+        _ = noReviewControl.handle(.escape)
+        guard noReviewControl.handle(.char("a")) == .feedbackRequested(
+            "Selected run has no pending review."
+        ), noReviewControl.focus.current == .transcript else {
+            throw Failure.noPendingReviewFeedbackChanged
+        }
 
         var control = AgenticConversationControl(
             snapshot: snapshot

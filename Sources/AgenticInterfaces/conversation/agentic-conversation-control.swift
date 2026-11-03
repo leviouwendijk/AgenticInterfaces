@@ -949,6 +949,8 @@ private extension AgenticConversationControl {
             )
         case .char("r"):
             return openCurrentRun()
+        case .char("a"):
+            return openCurrentRunReview()
         case .char("["):
             moveIteration(by: -1)
         case .char("]"):
@@ -1288,6 +1290,33 @@ private extension AgenticConversationControl {
                 )
             }
         }
+    }
+
+    mutating func openCurrentRunReview() -> AgenticConversationEvent? {
+        guard let currentMessage else {
+            return .feedbackRequested("No message selected.")
+        }
+
+        guard let attachment = currentMessage.attachments.first(where: { attachment in
+            if case .run = attachment {
+                return true
+            }
+            return false
+        }),
+              case .run(let runID) = attachment else {
+            return .feedbackRequested("Selected message has no attached run.")
+        }
+
+        guard let review = AgenticConversationRunReviewControl(
+            snapshot: snapshot.hostConsole,
+            runID: runID
+        ) else {
+            return .feedbackRequested("Selected run has no pending review.")
+        }
+
+        runReview = review
+        focus.push(.runReview)
+        return nil
     }
 
     mutating func openCurrentRunActions() -> AgenticConversationEvent? {
@@ -2206,7 +2235,7 @@ private extension AgenticConversationControl {
             case .voice:
                 return "response pending  esc back"
             case .transcript:
-                return "j/k msg  J/K scroll  PgUp/PgDn  tab composer  enter inspect  ctrl-g stop  x actions  response pending"
+                return "j/k a review enter inspect ctrl-g stop x actions tab composer response pending"
             case .pinnedContent,
                  .attachment,
                  .settings,
@@ -2226,7 +2255,7 @@ private extension AgenticConversationControl {
             return "esc back"
                 + voiceFooter
         case .transcript:
-            return "j/k msg  J/K scroll  PgUp/PgDn  tab composer  enter inspect  m model  s settings"
+            return "j/k J/K scroll PgUp/PgDn tab composer enter inspect a review m model s settings"
                 + (pendingContents.isEmpty ? "" : "  p pins")
                 + "  tab composer  ctrl-c composer"
                 + (snapshot.pendingUserInput == nil ? "" : "  u answer  r run")

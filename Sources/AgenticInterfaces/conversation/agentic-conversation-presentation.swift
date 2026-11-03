@@ -345,8 +345,13 @@ public struct AgenticConversationRunCardPresentation:
         for state: AgenticHostConsoleRunState,
         interruption: AgenticHostConsoleInterruptionPresentation?
     ) -> String {
-        if interruption != nil {
-            return "Enter for actions"
+        if let interruption {
+            switch interruption.kind {
+            case .approval, .workspace_access, .run_limit:
+                return "a review · Enter inspect"
+            case .recovery:
+                return "Enter for run details"
+            }
         }
 
         switch state {
