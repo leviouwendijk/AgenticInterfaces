@@ -143,7 +143,7 @@ extension TerminalApprovalPicker {
                 fields: [
                     .init(
                         "changes",
-                        "+\(diffPreview.layout.changes.insertions.count) -\(diffPreview.layout.changes.deletions.count)"
+                        diffPreview.changeSummary
                     ),
                 ],
                 body: renderedDiff,
