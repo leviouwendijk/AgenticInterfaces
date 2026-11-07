@@ -1,3 +1,4 @@
+import AgenticStandard
 import Foundation
 import Primitives
 import Reporting
@@ -11,6 +12,7 @@ public struct AgenticConversationStructuredPresentation: Sendable, Hashable, Cod
     public enum Content: Sendable, Hashable, Codable {
         case graph(Graph<String, JSONValue, String, JSONValue>, ReferenceSet<String, String>)
         case report(ReportDocument)
+        case call_tree(Standard.Tools.CreateCallTree.Output)
     }
 
     public let id: String
@@ -31,6 +33,8 @@ public struct AgenticConversationStructuredPresentation: Sendable, Hashable, Cod
             return "Graph"
         case .report(let report):
             return report.title
+        case .call_tree:
+            return "Call tree"
         }
     }
 
@@ -40,6 +44,9 @@ public struct AgenticConversationStructuredPresentation: Sendable, Hashable, Cod
             return "graph · \(graph.nodes.count) nodes · \(graph.edges.count) edges"
         case .report(let report):
             return "report · \(report.datasets.count) datasets · \(report.blocks.count) blocks"
+        case .call_tree(let output):
+            let occurrenceCount = output.tree.walk().reduce(0) { count, _ in count + 1 }
+            return "call tree · \(occurrenceCount) occurrences · \(output.provenance.rawValue)"
         }
     }
 
@@ -49,6 +56,8 @@ public struct AgenticConversationStructuredPresentation: Sendable, Hashable, Cod
         switch content {
         case .report(let document):
             return TerminalReporting.Renderer().rows(document, columns: width, includeTitle: includeTitle)
+        case .call_tree(let output):
+            return AgenticConversationCallTreeRenderer.rows(output, columns: width, includeTitle: includeTitle)
         case .graph(let graph, let references):
             let labels = Dictionary(uniqueKeysWithValues: graph.nodes.map { node in
                 (node.id, Self.valueLabel(node.value, fallback: node.id))

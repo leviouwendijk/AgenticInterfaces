@@ -1,4 +1,5 @@
 import Agentic
+import AgenticStandard
 import AgenticInterfaces
 import Foundation
 import Primitives
@@ -38,6 +39,27 @@ struct ConversationStructuredSmoke {
             from: JSONEncoder().encode(graphView)
         )
         try check(decoded == graphView, "graph view Codable")
+        let callTreeOutput = try Standard.Tools.CreateCallTree.evaluate(.init(calls: [
+            .init(id: "root", symbol_id: "GoalLoop"),
+            .init(id: "first", symbol_id: "Search", parent_id: "root"),
+            .init(id: "second", symbol_id: "Search", parent_id: "root", label: "Search again"),
+        ]))
+        let callTreeView = AgenticConversationStructuredPresentation(
+            id: "run:tool:call-tree", sourceCallID: "call-tree", iteration: 4,
+            content: .call_tree(callTreeOutput)
+        )
+        let callTreeRows = callTreeView.rows(columns: 80)
+        let callTreeText = callTreeRows.joined(separator: "\n")
+        try check(callTreeView.title == "Call tree", "call tree title")
+        try check(callTreeView.summary.contains("3 occurrences · proposed"), "proposed call tree summary")
+        try check(callTreeText.contains("GoalLoop") && callTreeText.contains("Search again"), "call tree inline content")
+        try check(callTreeText.contains("[first]") && callTreeText.contains("[second]"), "occurrence IDs")
+        try check(callTreeView.previewRows(columns: 80).count <= 12, "call tree preview is bounded")
+        let roundtripTree = try JSONDecoder().decode(
+            AgenticConversationStructuredPresentation.self,
+            from: JSONEncoder().encode(callTreeView)
+        )
+        try check(roundtripTree == callTreeView, "call tree view Codable")
         let cyclic = try G(
             nodes: graph.nodes,
             edges: graph.edges + [.init(id: "cycle", source: "a", destination: "root", value: .null)]
@@ -92,10 +114,10 @@ struct ConversationStructuredSmoke {
         )
         let message = AgenticConversationMessagePresentation(
             id: "run-assistant", role: .assistant, body: "Final",
-            attachments: [.structured(graphView), .structured(reportView), .trace(runID: "run")],
+            attachments: [.structured(graphView), .structured(reportView), .structured(callTreeView), .trace(runID: "run")],
             iterations: [history]
         )
-        try check(message.attachments.count == 3 && message.iterations[0].number == 1, "message attachment history")
+        try check(message.attachments.count == 4 && message.iterations[0].number == 1, "message attachment history")
         print("Conversation structured presentation smoke: passed")
     }
 

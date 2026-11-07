@@ -49,6 +49,7 @@ let package = Package(
             name: "AgenticInterfaces",
             dependencies: [
                 .product(name: "Agentic", package: "Agentic"),
+                .product(name: "AgenticStandard", package: "Agentic"),
                 .product(name: "Workspace", package: "Workspace"),
 
                 .product(name: "Primitives", package: "Primitives"),
@@ -75,6 +76,7 @@ let package = Package(
             dependencies: [
                 "AgenticInterfaces",
                 .product(name: "Agentic", package: "Agentic"),
+                .product(name: "AgenticStandard", package: "Agentic"),
                 .product(name: "Primitives", package: "Primitives"),
                 .product(name: "Reporting", package: "Reporting"),
             ],
