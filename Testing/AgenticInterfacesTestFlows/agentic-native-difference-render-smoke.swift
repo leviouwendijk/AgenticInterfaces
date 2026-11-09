@@ -1,6 +1,7 @@
 import Agentic
 import AgenticInterfaces
 import Difference
+import Terminal
 
 /// Confirms that native tree+text layouts survive the preflight presentation seam.
 enum AgenticNativeDifferenceRenderSmoke {
@@ -83,6 +84,55 @@ enum AgenticNativeDifferenceRenderSmoke {
         guard all.contains("tree_only_marker.swift"),
               all.contains("replacement_line"),
               all.contains("guest ──▶ wan") else {
+            throw Failure.missing_graph
+        }
+
+        // Existing native layouts must remain byte-identical by default.
+        guard rendered == TerminalDifferenceRenderer.render(combined.presentation) else {
+            throw Failure.missing_text
+        }
+
+        let source = TextDiffer.diff(
+            old: "let HTTPServerConfiguration = 30\n",
+            new: "let HTTPServerConfiguration = 45\n"
+        )
+        let sourcePreview = ToolPreflight.Preview.Difference(source: source)
+        let reviewOptions = TerminalDifferenceRenderOptions(width: .fixed(90))
+        let modern = AgenticMutationDifferenceRenderer.render(
+            sourcePreview,
+            options: reviewOptions
+        )
+        guard modern.contains("│"),
+              modern.contains("HTTPServerConfiguration"),
+              modern.contains("30"),
+              modern.contains("45"),
+              modern.contains("\u{001B}[1m") else {
+            throw Failure.missing_text
+        }
+
+        let uncolored = AgenticMutationDifferenceRenderer.render(
+            sourcePreview,
+            options: .plain
+        )
+        guard !uncolored.contains("\u{001B}"),
+              uncolored.contains("30"),
+              uncolored.contains("45") else {
+            throw Failure.missing_text
+        }
+
+        let structuredSource = ToolPreflight.Preview.Difference(
+            source: source,
+            tree: tree,
+            graph: graph
+        )
+        let combinedModern = AgenticMutationDifferenceRenderer.render(
+            structuredSource,
+            options: reviewOptions
+        )
+        guard combinedModern.contains("tree_only_marker.swift"),
+              combinedModern.contains("guest ──▶ wan"),
+              combinedModern.contains("│"),
+              combinedModern.contains("45") else {
             throw Failure.missing_graph
         }
     }
