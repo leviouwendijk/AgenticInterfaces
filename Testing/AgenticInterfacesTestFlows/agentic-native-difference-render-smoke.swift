@@ -87,8 +87,26 @@ enum AgenticNativeDifferenceRenderSmoke {
             throw Failure.missing_graph
         }
 
-        // Existing native layouts must remain byte-identical by default.
-        guard rendered == TerminalDifferenceRenderer.render(combined.presentation) else {
+        // Layout-only approval previews must remain byte-identical to the
+        // original compact-gutter rendering path.
+        let expectedLegacy = TerminalDifferenceRenderer.render(
+            combined.presentation,
+            options: .legacy
+        )
+        guard rendered == expectedLegacy,
+              rendered.contains("1:-"),
+              rendered.contains("-:1") else {
+            throw Failure.missing_text
+        }
+
+        // Explicit plain presentation must still work for legacy previews.
+        let plainLegacy = AgenticMutationDifferenceRenderer.render(
+            combined,
+            options: .plain
+        )
+        guard !plainLegacy.contains("\u{001B}"),
+              plainLegacy.contains("obsolete_line"),
+              plainLegacy.contains("replacement_line") else {
             throw Failure.missing_text
         }
 

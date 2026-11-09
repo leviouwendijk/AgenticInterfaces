@@ -8,13 +8,19 @@ public enum AgenticMutationDifferenceRenderer {
         _ difference: ToolPreflight.Preview.Difference,
         options: TerminalDifferenceRenderOptions = .review
     ) -> String {
-        // Existing layout-only previews retain their established render path.
-        // Do not reconstruct a TextDifference from presentation rows.
+        // Layout-only previews retain the established compact gutters.
+        // Never infer source text from an already-projected layout.
         guard let source = difference.source,
               difference.layout == DifferenceLayout.make(source, options: .full) else {
+            var fallback = options
+            if fallback.presentation == .review {
+                fallback.base = .unified
+                fallback.wrap = .characters
+                fallback.presentation = .legacy
+            }
             return TerminalDifferenceRenderer.render(
                 difference.presentation,
-                options: options
+                options: fallback
             )
         }
 
