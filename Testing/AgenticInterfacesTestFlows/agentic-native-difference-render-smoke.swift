@@ -12,6 +12,9 @@ enum AgenticNativeDifferenceRenderSmoke {
         case missing_text_only
         case missing_graph
         case missing_graph_only
+        case missing_section_style
+        case missing_section_content
+        case missing_section_legacy
     }
 
     static func run() throws {
@@ -152,6 +155,94 @@ enum AgenticNativeDifferenceRenderSmoke {
               combinedModern.contains("│"),
               combinedModern.contains("45") else {
             throw Failure.missing_graph
+        }
+
+        let hidden = "untouched-secret-outside-context"
+        let before = ([hidden] + (1...100).map { "line-\($0)" })
+            .joined(separator: "\n") + "\n"
+        let after = before.replacingOccurrences(
+            of: "line-50\n", with: "modified-line-50\n"
+        )
+        let longDifference = TextDiffer.diff(
+            old: before,
+            new: after,
+            oldName: "a/first.swift",
+            newName: "b/first.swift"
+        )
+        let secondDifference = TextDiffer.diff(
+            old: "let retryCount = 2\n",
+            new: "let retryCount = 4\n",
+            oldName: "a/second.swift",
+            newName: "b/second.swift"
+        )
+        let context = DifferenceRenderOptions(
+            showHeader: true,
+            showUnchangedLines: false,
+            contextLineCount: 3,
+            showHunkHeaders: true
+        )
+        let sections = [
+            ToolPreflight.Preview.Difference.Section(
+                id: "operation-first",
+                nodeID: "node-first",
+                path: "first.swift",
+                projection: DifferenceLayout.project(
+                    longDifference.analyze(), mode: .split, options: context
+                )
+            ),
+            ToolPreflight.Preview.Difference.Section(
+                id: "operation-second",
+                nodeID: "node-second",
+                path: "second.swift",
+                projection: DifferenceLayout.project(
+                    secondDifference.analyze(), mode: .split, options: context
+                )
+            )
+        ]
+        let sectionPreview = ToolPreflight.Preview.Difference(
+            layout: text,
+            sections: sections,
+            tree: tree,
+            graph: graph
+        )
+        let sectionReview = AgenticMutationDifferenceRenderer.render(
+            sectionPreview,
+            options: reviewOptions
+        )
+        // Intraline highlights can insert ANSI codes inside source words.
+        // Verify styled structure here, and exact source text in plain output.
+        guard sectionReview.contains("first.swift"),
+              sectionReview.contains("second.swift"),
+              sectionReview.contains("tree_only_marker.swift"),
+              sectionReview.contains("guest ──▶ wan"),
+              !sectionReview.contains(hidden),
+              sectionReview.contains("│"),
+              sectionReview.contains("\u{001B}") else {
+            throw Failure.missing_section_style
+        }
+        let sectionPlain = AgenticMutationDifferenceRenderer.render(
+            sectionPreview,
+            options: .plain
+        )
+        guard !sectionPlain.contains("\u{001B}"),
+              sectionPlain.contains("first.swift"),
+              sectionPlain.contains("second.swift"),
+              sectionPlain.contains("modified-line-50"),
+              sectionPlain.contains("retryCount"),
+              sectionPlain.contains("tree_only_marker.swift"),
+              sectionPlain.contains("guest ──▶ wan"),
+              !sectionPlain.contains(hidden) else {
+            throw Failure.missing_section_content
+        }
+        let sectionLegacy = AgenticMutationDifferenceRenderer.render(
+            sectionPreview,
+            options: .legacy
+        )
+        guard sectionLegacy == TerminalDifferenceRenderer.render(
+            sectionPreview.presentation,
+            options: .legacy
+        ) else {
+            throw Failure.missing_section_legacy
         }
     }
 }

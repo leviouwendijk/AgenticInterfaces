@@ -8,6 +8,28 @@ public enum AgenticMutationDifferenceRenderer {
         _ difference: ToolPreflight.Preview.Difference,
         options: TerminalDifferenceRenderOptions = .review
     ) -> String {
+        if options.presentation != .legacy,
+           let sections = difference.sections,
+           !sections.isEmpty {
+            let structural = TerminalDifferenceRenderer.render(
+                DifferencePresentation(
+                    text: .init(lines: []),
+                    tree: difference.tree,
+                    graph: difference.graph
+                ),
+                options: options
+            )
+            let text = sections.map { section in
+                TerminalDifferenceRenderer.render(
+                    section.projection,
+                    options: options
+                )
+            }.filter { !$0.isEmpty }.joined(separator: "\n\n")
+            return [structural, text]
+                .filter { !$0.isEmpty }
+                .joined(separator: "\n\n")
+        }
+
         // Layout-only previews retain the established compact gutters.
         // Never infer source text from an already-projected layout.
         guard let source = difference.source,
