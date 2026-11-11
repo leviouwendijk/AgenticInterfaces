@@ -24,6 +24,10 @@ let package = Package(
             name: "t_aint_structured",
             targets: ["AgenticInterfacesStructuredTesting"]
         ),
+        .executable(
+            name: "t_aint_diffpreview",
+            targets: ["AgenticInterfacesDiffPreview"]
+        ),
     ],
     dependencies: [
         .package(url: "https://github.com/leviouwendijk/Agentic.git", branch: "master"),
@@ -43,6 +47,8 @@ let package = Package(
         .package(url: "https://github.com/leviouwendijk/Parsers.git", branch: "master"),
         .package(url: "https://github.com/leviouwendijk/Arguments.git", branch: "master"),
         .package(url: "https://github.com/leviouwendijk/Search.git", branch: "master"),
+        .package(url: "https://github.com/leviouwendijk/AgenticIO.git", branch: "master"),
+        .package(url: "https://github.com/leviouwendijk/Path.git", branch: "master"),
     ],
     targets: [
         .target(
@@ -103,6 +109,18 @@ let package = Package(
                 .product(name: "Schema", package: "Schema"),
             ],
             path: "Testing/AgenticInterfacesTestFlows"
+        ),
+        .executableTarget(
+            name: "AgenticInterfacesDiffPreview",
+            dependencies: [
+                "AgenticInterfaces",
+                .product(name: "Agentic", package: "Agentic"),
+                .product(name: "AgenticIO", package: "AgenticIO"),
+                .product(name: "Path", package: "Path"),
+                .product(name: "Terminal", package: "Terminal"),
+                .product(name: "Workspace", package: "Workspace")
+            ],
+            path: "Testing/AgenticInterfacesDiffPreview"
         ),
     ]
 )
