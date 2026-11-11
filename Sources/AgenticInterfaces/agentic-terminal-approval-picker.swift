@@ -135,23 +135,30 @@ extension TerminalApprovalPicker {
             return
         }
 
-        let renderedDiff = AgenticMutationDifferenceRenderer.render(diffPreview)
+        // Use the width of the interactive output stream, not an
+        // independently measured stdout descriptor.
+        let columns = Terminal.size(for: stream).columns
+        let options = TerminalDifferenceRenderOptions(
+            width: .fixed(columns)
+        )
+        let renderedDiff = AgenticMutationDifferenceRenderer.render(
+            diffPreview,
+            options: options
+        )
+
+        // TerminalBlock wraps prose. Physical diff rows already own their
+        // display-cell widths and must not be wrapped a second time.
+        let heading = TerminalBlock(
+            title: diffPreview.title ?? "Diff preview",
+            fields: [
+                .init("changes", diffPreview.changeSummary)
+            ],
+            theme: theme,
+            layout: .agentic
+        ).render(stream: stream)
 
         Terminal.write(
-            TerminalBlock(
-                title: diffPreview.title ?? "Diff preview",
-                fields: [
-                    .init(
-                        "changes",
-                        diffPreview.changeSummary
-                    ),
-                ],
-                body: renderedDiff,
-                theme: theme,
-                layout: .agentic
-            ).render(
-                stream: stream
-            ),
+            heading + renderedDiff + "\n\n",
             to: stream
         )
     }

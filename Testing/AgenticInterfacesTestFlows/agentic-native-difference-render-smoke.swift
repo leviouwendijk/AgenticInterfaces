@@ -220,6 +220,22 @@ enum AgenticNativeDifferenceRenderSmoke {
               sectionReview.contains("\u{001B}") else {
             throw Failure.missing_section_style
         }
+        // Physical side-by-side rows must use the supplied width, rather
+        // than an unrelated stdout terminal measurement.
+        for columns in [80, 120, 160] {
+            let output = AgenticMutationDifferenceRenderer.render(
+                sectionPreview,
+                options: .init(width: .fixed(columns))
+            )
+            let rows = output.split(separator: "\n").filter { row in
+                row.contains("┃") && row.contains("│")
+            }
+            guard !rows.isEmpty,
+                  rows.allSatisfy({ TerminalDisplay.width(of: String($0)) == columns }) else {
+                throw Failure.missing_section_style
+            }
+        }
+
         let sectionPlain = AgenticMutationDifferenceRenderer.render(
             sectionPreview,
             options: .plain
