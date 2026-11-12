@@ -543,6 +543,15 @@ private extension AgenticConversationRunReviewControl {
                     ),
                 visibleRows: content.rows
             )
+        } else if let difference = currentDocument.differenceBody {
+            document.update(
+                lines: AgenticMutationDifferenceRenderer.rows(
+                    difference,
+                    columns: content.columns,
+                    prelude: currentDocument.differencePrelude
+                ),
+                visibleRows: content.rows
+            )
         } else {
             let wrapping: TerminalDocumentWrapping
 

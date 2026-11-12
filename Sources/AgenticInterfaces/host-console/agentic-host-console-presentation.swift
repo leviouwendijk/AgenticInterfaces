@@ -1,3 +1,4 @@
+import Agentic
 import DSL
 import Reporting
 
@@ -311,6 +312,12 @@ public struct AgenticHostConsoleDocumentPresentation:
     /// Optional typed report; rendered without replacing the canonical body.
     public var reportBody: ReportDocument?
 
+    /// Semantic diff retained until the enclosing viewport establishes its width.
+    public var differenceBody: ToolPreflight.Preview.Difference?
+
+    /// Text shown above the semantic diff, preserved independently of raw body.
+    public var differencePrelude: String?
+
     /// Read-only nodes supporting in-place trace navigation.
     public var traceRoots: [AgenticHostConsoleTraceNode]?
 
@@ -323,7 +330,9 @@ public struct AgenticHostConsoleDocumentPresentation:
         body: String,
         structuredBody: StructuredContent? = nil,
         traceRoots: [AgenticHostConsoleTraceNode]? = nil,
-        reportBody: ReportDocument? = nil
+        reportBody: ReportDocument? = nil,
+        differenceBody: ToolPreflight.Preview.Difference? = nil,
+        differencePrelude: String? = nil
     ) {
         self.id = id
         self.runID = runID
@@ -334,6 +343,8 @@ public struct AgenticHostConsoleDocumentPresentation:
         self.structuredBody = structuredBody
         self.traceRoots = traceRoots
         self.reportBody = reportBody
+        self.differenceBody = differenceBody
+        self.differencePrelude = differencePrelude
     }
 }
 

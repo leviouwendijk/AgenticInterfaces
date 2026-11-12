@@ -15,6 +15,7 @@ enum AgenticNativeDifferenceRenderSmoke {
         case missing_section_style
         case missing_section_content
         case missing_section_legacy
+        case incorrect_embedded_width
     }
 
     static func run() throws {
@@ -233,6 +234,35 @@ enum AgenticNativeDifferenceRenderSmoke {
             guard !rows.isEmpty,
                   rows.allSatisfy({ TerminalDisplay.width(of: String($0)) == columns }) else {
                 throw Failure.missing_section_style
+            }
+        }
+
+        let embedded = AgenticHostConsoleDocumentPresentation(
+            id: "embedded-diff",
+            runID: "run",
+            stepID: "step",
+            kind: .diff,
+            body: sectionReview,
+            differenceBody: sectionPreview,
+            differencePrelude: "status     staged for approval"
+        )
+        guard let semantic = embedded.differenceBody else {
+            throw Failure.incorrect_embedded_width
+        }
+        for columns in [80, 120, 160] {
+            let lines = AgenticMutationDifferenceRenderer.rows(
+                semantic,
+                columns: columns,
+                prelude: embedded.differencePrelude
+            )
+            let changed = lines.filter { $0.contains("┃") && $0.contains("│") }
+            var document = TerminalScrollableDocument()
+            document.update(lines: lines, visibleRows: 200)
+            guard lines.first == "status     staged for approval",
+                  !changed.isEmpty,
+                  changed.allSatisfy({ TerminalDisplay.width(of: $0) == columns }),
+                  document.lines == lines else {
+                throw Failure.incorrect_embedded_width
             }
         }
 

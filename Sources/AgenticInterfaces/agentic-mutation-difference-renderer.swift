@@ -60,4 +60,29 @@ public enum AgenticMutationDifferenceRenderer {
             .filter { !$0.isEmpty }
             .joined(separator: "\n\n")
     }
+
+    /// These are already-sized physical rows, not text to be wrapped again.
+    /// Set both width policies: legacy layout previews use `columns`, while
+    /// split/intraline projections use `width`.
+    public static func rows(
+        _ difference: ToolPreflight.Preview.Difference,
+        columns: Int,
+        prelude: String? = nil
+    ) -> [String] {
+        let columns = max(1, columns)
+        let output = render(
+            difference,
+            options: .init(
+                columns: columns,
+                width: .fixed(columns)
+            )
+        )
+        var sections: [String] = []
+        if let prelude, !prelude.isEmpty {
+            sections.append(prelude)
+        }
+        sections.append(output)
+        return sections.joined(separator: "\n\n")
+            .components(separatedBy: "\n")
+    }
 }
