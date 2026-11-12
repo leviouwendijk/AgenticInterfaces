@@ -13,6 +13,10 @@ extension TerminalApprovalPicker {
         ).columns
 
         var instructions = prompt.preflight.summary
+        if let lineage = prompt.metadata["delegation_path"]
+            ?? prompt.metadata["delegated_child_session_id"] {
+            instructions = "Worker approval from \(lineage)\n\n" + instructions
+        }
 
         if let guidelines = AgenticGuidelinePresentation.summary(
             prompt.guidelineReferences
