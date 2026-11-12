@@ -61,28 +61,37 @@ public enum AgenticMutationDifferenceRenderer {
             .joined(separator: "\n\n")
     }
 
-    /// These are already-sized physical rows, not text to be wrapped again.
-    /// Set both width policies: legacy layout previews use `columns`, while
-    /// split/intraline projections use `width`.
+    /// Physical diff rows are already measured and must not be rewrapped.
+    /// The parent owns all border/padding calculations and supplies its region.
+    public static func rows(
+        _ difference: ToolPreflight.Preview.Difference,
+        in region: TerminalRegion,
+        prelude: String? = nil
+    ) -> [String] {
+        guard !region.isEmpty else { return [] }
+        let output = render(
+            difference,
+            options: TerminalDifferenceRenderOptions.review.constrained(to: region)
+        )
+        let physical = output.components(separatedBy: "\n")
+        guard let prelude, !prelude.isEmpty else { return physical }
+        let heading = TerminalTextLayout(
+            text: prelude,
+            columns: region.columns
+        ).rows.map(\.content)
+        return heading + [""] + physical
+    }
+
+    /// Compatibility for consumers that only have an allocated column count.
     public static func rows(
         _ difference: ToolPreflight.Preview.Difference,
         columns: Int,
         prelude: String? = nil
     ) -> [String] {
-        let columns = max(1, columns)
-        let output = render(
+        rows(
             difference,
-            options: .init(
-                columns: columns,
-                width: .fixed(columns)
-            )
+            in: TerminalRegion(rows: 1, columns: columns),
+            prelude: prelude
         )
-        var sections: [String] = []
-        if let prelude, !prelude.isEmpty {
-            sections.append(prelude)
-        }
-        sections.append(output)
-        return sections.joined(separator: "\n\n")
-            .components(separatedBy: "\n")
     }
 }

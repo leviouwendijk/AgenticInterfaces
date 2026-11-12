@@ -547,7 +547,7 @@ private extension AgenticConversationRunReviewControl {
             document.update(
                 lines: AgenticMutationDifferenceRenderer.rows(
                     difference,
-                    columns: content.columns,
+                    in: content,
                     prelude: currentDocument.differencePrelude
                 ),
                 visibleRows: content.rows

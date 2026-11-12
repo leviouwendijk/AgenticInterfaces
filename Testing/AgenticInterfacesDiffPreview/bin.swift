@@ -16,11 +16,17 @@ struct AgenticInterfacesDiffPreview {
 
     static func main() async throws {
         let arguments = Array(CommandLine.arguments.dropFirst())
+        guard !(arguments.contains("--direct") && arguments.contains("--embedded")) else {
+            throw Failure.invalidWidth
+        }
+        let embedded = !arguments.contains("--direct")
+        let widthArguments = arguments.filter { $0 != "--embedded" && $0 != "--direct" }
+        let terminalSize = Terminal.size(for: .standardError)
         let columns: Int
-        if arguments.isEmpty {
-            columns = Terminal.size(for: .standardError).columns
-        } else if arguments.count == 2, arguments[0] == "--width" {
-            columns = Int(arguments[1]) ?? 0
+        if widthArguments.isEmpty {
+            columns = terminalSize.columns
+        } else if widthArguments.count == 2, widthArguments[0] == "--width" {
+            columns = Int(widthArguments[1]) ?? 0
         } else {
             throw Failure.invalidWidth
         }
@@ -130,10 +136,57 @@ struct AgenticInterfacesDiffPreview {
             difference,
             options: .init(width: .fixed(columns))
         )
-        Terminal.write(
-            "t_aint_diffpreview | width=\(columns) | mode=\(mode) | sections=\(difference.sections?.count ?? 0)\n\n",
-            to: .standardError
-        )
-        Terminal.write(rendered + "\n", to: .standardError)
+        if embedded {
+            let snapshot = AgenticHostConsoleSnapshot(
+                runs: [
+                    .init(
+                        id: "preview-run",
+                        title: "Mutation preview",
+                        state: .awaitingApproval,
+                        steps: [
+                            .init(id: "mutation", title: "mutate_files", state: .active)
+                        ]
+                    )
+                ],
+                documents: [
+                    .init(
+                        id: "preview-diff",
+                        runID: "preview-run",
+                        stepID: "mutation",
+                        kind: .diff,
+                        title: difference.title ?? "File mutation preview",
+                        body: rendered,
+                        differenceBody: difference,
+                        differencePrelude: "status     staged for approval"
+                    )
+                ]
+            )
+            var control = AgenticHostConsoleWorkflowControl(
+                snapshot: snapshot,
+                currentRunID: "preview-run",
+                currentStepID: "mutation"
+            )
+            guard control.handle(.char("f")) == .documentOpened(
+                documentID: "preview-diff",
+                kind: .diff
+            ) else {
+                throw Failure.missingDifference
+            }
+            let rows = max(12, terminalSize.rows)
+            var frame = TerminalFrame(rows: rows, columns: columns)
+            control.render(
+                into: &frame,
+                in: TerminalRegion(rows: rows, columns: columns)
+            )
+            var renderer = TerminalFrameRenderer(stream: .standardError)
+            renderer.render(frame)
+            Terminal.showCursor(on: .standardError)
+        } else {
+            Terminal.write(
+                "t_aint_diffpreview | width=\(columns) | mode=\(mode) | sections=\(difference.sections?.count ?? 0)\n\n",
+                to: .standardError
+            )
+            Terminal.write(rendered + "\n", to: .standardError)
+        }
     }
 }

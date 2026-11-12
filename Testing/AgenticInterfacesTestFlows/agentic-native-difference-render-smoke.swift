@@ -266,6 +266,60 @@ enum AgenticNativeDifferenceRenderSmoke {
             }
         }
 
+        // Render through the real workflow, border, and document viewport.
+        // Check source spans before frame composition can clip any overflow.
+        let snapshot = AgenticHostConsoleSnapshot(
+            runs: [
+                .init(
+                    id: "run", title: "Mutation preview", state: .awaitingApproval,
+                    steps: [.init(id: "step", title: "mutate_files", state: .active)]
+                )
+            ],
+            documents: [embedded]
+        )
+        var workflow = AgenticHostConsoleWorkflowControl(
+            snapshot: snapshot,
+            currentRunID: "run",
+            currentStepID: "step"
+        )
+        guard workflow.handle(.char("f")) == .documentOpened(
+            documentID: "embedded-diff", kind: .diff
+        ) else {
+            throw Failure.incorrect_embedded_width
+        }
+        for outerColumns in [40, 60, 80, 84, 85, 120, 160] {
+            let region = TerminalRegion(rows: 36, columns: outerColumns)
+            let content = AgenticHostConsoleInspectionSurface.overlay(
+                in: region
+            ).contentRegion(in: region)
+            let allRows = AgenticMutationDifferenceRenderer.rows(
+                sectionPreview,
+                in: content,
+                prelude: embedded.differencePrelude
+            )
+            guard allRows.allSatisfy({
+                TerminalDisplay.width(of: $0) <= content.columns
+            }) else {
+                throw Failure.incorrect_embedded_width
+            }
+            var frame = TerminalFrame(rows: region.rows, columns: outerColumns)
+            workflow.render(into: &frame, in: region)
+            let documentSpans = frame.spans.filter {
+                $0.leading == content.leading
+                    && $0.columns == content.columns
+                    && $0.zIndex == TerminalZIndex(200)
+            }
+            guard !documentSpans.isEmpty,
+                  documentSpans.allSatisfy({
+                      TerminalDisplay.width(of: $0.content) <= content.columns
+                  }),
+                  frame.resolved().columns == outerColumns else {
+                throw Failure.incorrect_embedded_width
+            }
+            // Subsequent widths reflow the same open document at its end.
+            _ = workflow.handle(.end)
+        }
+
         let sectionPlain = AgenticMutationDifferenceRenderer.render(
             sectionPreview,
             options: .plain
