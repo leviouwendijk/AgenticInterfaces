@@ -60,6 +60,7 @@ enum AgenticConversationSmoke {
         try AgenticConversationRunReviewSmoke.run()
         try AgenticConversationComposerSmoke.run()
         try AgenticConversationPinnedContentSmoke.run()
+        try AgenticConversationScrollingSmoke.run()
 
         var programSnapshot = fixture()
         programSnapshot.programs = [
@@ -803,10 +804,9 @@ enum AgenticConversationSmoke {
               rendered.contains(selectedBody),
               rendered.contains("tab composer"),
               rendered.contains("J/K scroll"),
-              rendered.contains("PgUp/PgDn"),
-              rendered.contains("m model"),
-              rendered.contains("s settings"),
-              rendered.contains("a review"),
+              rendered.contains("↑/↓ rows"),
+              rendered.contains("y copy"),
+              rendered.contains("Y visible"),
               !rendered.contains("tab voice"),
               !rendered.contains("q quit")
         else {

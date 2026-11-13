@@ -49,6 +49,7 @@ public enum AgenticConversationEvent: Sendable, Hashable {
     case runClosed(runID: String)
     case run(AgenticHostConsoleWorkflowEvent)
     case feedbackRequested(String)
+    case copyRequested(text: String, title: String)
 }
 
 private enum AgenticConversationTranscriptReveal: Sendable {
@@ -374,6 +375,27 @@ public struct AgenticConversationControl: Sendable {
         _ event: TerminalInputEvent
     ) -> AgenticConversationEvent? {
         switch event {
+        case .mouse(let mouse):
+            switch focus.current {
+            case .composer, .transcript:
+                if transcript.handle(mouse) {
+                    pendingTranscriptReveal = nil
+                    transcriptSelectionFollowsEnd = transcript.isFollowingEnd
+                    if mouse.kind == .press { focus.replace(.transcript) }
+                }
+            case .attachment:
+                attachmentDocument.handle(mouse)
+            case .runReview:
+                runReview?.handle(mouse)
+            case .pinnedContent:
+                pinnedContent.handle(mouse)
+            case .run:
+                hostConsole?.handle(mouse)
+            default:
+                break
+            }
+            return nil
+
         case .paste(let text):
             if focus.current == .userInput {
                 return handleUserInput(
@@ -449,6 +471,23 @@ public struct AgenticConversationControl: Sendable {
     }
 
     public mutating func handle(_ key: TerminalKey) -> AgenticConversationEvent? {
+        if key == .control("C"), let text = selectedDocumentText {
+            return .copyRequested(text: text, title: "selection")
+        }
+
+        if key == .char("y") || key == .char("Y") {
+            let text: String?
+            switch focus.current {
+            case .runReview:
+                text = runReview?.copyText(visible: key == .char("Y"))
+            case .pinnedContent:
+                text = pinnedContent.copyText(visible: key == .char("Y"), contents: pendingContents)
+            default:
+                text = nil
+            }
+            if let text { return .copyRequested(text: text, title: "viewed content") }
+        }
+
         if key == .control("G"),
            workRunning || pendingSubmission != nil {
             return request_stop()
@@ -919,11 +958,16 @@ private extension AgenticConversationControl {
     mutating func handleTranscript(_ key: TerminalKey) -> AgenticConversationEvent? {
         switch key {
         case .tab, .escape:
+            transcript.clearSelection()
             focus.replace(.composer)
-        case .char("j"), .down:
+        case .char("j"):
             moveMessage(by: 1)
-        case .char("k"), .up:
+        case .char("k"):
             moveMessage(by: -1)
+        case .down:
+            scrollTranscript(by: 1)
+        case .up:
+            scrollTranscript(by: -1)
         case .char("J"):
             scrollTranscript(by: 3)
         case .char("K"):
@@ -932,6 +976,28 @@ private extension AgenticConversationControl {
             pageTranscript(down: false)
         case .pageDown:
             pageTranscript(down: true)
+        case .home:
+            pendingTranscriptReveal = nil
+            transcriptSelectionFollowsEnd = false
+            transcript.moveToStart()
+        case .end:
+            pendingTranscriptReveal = nil
+            transcriptSelectionFollowsEnd = true
+            selectedMessageID = snapshot.messages.last?.id
+            transcript.moveToEnd()
+        case .char("y"):
+            if let text = transcript.selectedText {
+                return .copyRequested(text: text, title: "selection")
+            }
+            guard let message = currentMessage else { return nil }
+            let iteration = selectedIterationIndices[message.id].flatMap { index in
+                message.iterations.indices.contains(index) ? message.iterations[index] : nil
+            }
+            return .copyRequested(
+                text: iteration?.assistantBody ?? message.body, title: "message"
+            )
+        case .char("Y"):
+            return .copyRequested(text: transcript.visibleText, title: "visible transcript")
         case .char("m"):
             guard pendingSubmission == nil else {
                 return nil
@@ -1000,6 +1066,7 @@ private extension AgenticConversationControl {
         } else if rows > 0 {
             _ = transcript.scrollDown(by: rows)
         }
+        transcriptSelectionFollowsEnd = transcript.isFollowingEnd
     }
 
     mutating func pageTranscript(down: Bool) {
@@ -1010,6 +1077,7 @@ private extension AgenticConversationControl {
         } else {
             _ = transcript.pageUp()
         }
+        transcriptSelectionFollowsEnd = transcript.isFollowingEnd
     }
 
     mutating func openCurrentTrace() -> AgenticConversationEvent? {
@@ -1026,6 +1094,21 @@ private extension AgenticConversationControl {
 
     mutating func handleAttachment(_ key: TerminalKey) -> AgenticConversationEvent? {
         switch key {
+        case .char("y"):
+            let source: String?
+            switch currentAttachment {
+            case .content(let content): source = content.body
+            case .program(let program): source = program.detailsBody
+            default: source = nil
+            }
+            return .copyRequested(
+                text: attachmentDocument.selectedText
+                    ?? source
+                    ?? attachmentDocument.lines.map { stripANSI($0) }.joined(separator: "\n"),
+                title: attachmentDocument.selectedText == nil ? "attachment" : "selection"
+            )
+        case .char("Y"):
+            return .copyRequested(text: attachmentDocument.visibleText, title: "visible attachment")
         case .char("q"), .escape:
             let messageID = currentMessage?.id ?? ""
             _ = focus.pop()
@@ -1476,6 +1559,7 @@ private extension AgenticConversationControl {
     }
 
     mutating func moveMessage(by offset: Int) {
+        transcript.clearSelection()
         guard !snapshot.messages.isEmpty else {
             selectedMessageID = nil
             transcriptSelectionFollowsEnd = true
@@ -2197,7 +2281,7 @@ private extension AgenticConversationControl {
             TerminalStyle.dim.apply(
                 "\(position)/\(message.attachments.count)  h/l sibling  j/k scroll"
                     + enterHint
-                    + "  q back"
+                    + "  y copy  Y visible  q back"
             ),
             in: TerminalRegion(
                 top: content.bottom - 1,
@@ -2295,7 +2379,7 @@ private extension AgenticConversationControl {
             case .voice:
                 return "response pending  esc back"
             case .transcript:
-                return "j/k a review enter inspect ctrl-g stop x actions tab composer response pending"
+                return "j/k messages  ↑/↓ scroll  y copy  Y visible  ctrl-g stop  tab composer"
             case .pinnedContent,
                  .attachment,
                  .settings,
@@ -2315,7 +2399,8 @@ private extension AgenticConversationControl {
             return "esc back"
                 + voiceFooter
         case .transcript:
-            return "j/k J/K scroll PgUp/PgDn tab composer enter inspect a review m model s settings"
+            return "j/k msg  J/K scroll  ↑/↓ rows  y copy  Y visible  tab composer  enter inspect"
+                + "  PgUp/PgDn  a review  m model  s settings"
                 + (pendingContents.isEmpty ? "" : "  p pins")
                 + "  tab composer  ctrl-c composer"
                 + (snapshot.pendingUserInput == nil ? "" : "  u answer  r run")
@@ -2346,6 +2431,17 @@ private extension AgenticConversationControl {
 
 
 private extension AgenticConversationControl {
+    var selectedDocumentText: String? {
+        switch focus.current {
+        case .transcript: return transcript.selectedText
+        case .attachment: return attachmentDocument.selectedText
+        case .runReview: return runReview?.selectedText
+        case .pinnedContent: return pinnedContent.selectedText
+        case .run: return hostConsole?.selectedText
+        default: return nil
+        }
+    }
+
     var voiceActionControl: TerminalActionControl {
         TerminalActionControl(
             symbol: "●",

@@ -77,6 +77,9 @@ package struct AgenticConversationUserInputControl:
             let previous = surface.text
 
             switch event {
+            case .mouse:
+                break
+
             case .keyStroke(let keyStroke):
                 _ = handle(
                     keyStroke
@@ -384,6 +387,9 @@ package struct AgenticConversationUserInputControl:
         _ event: TerminalInputEvent
     ) -> AgenticConversationUserInputEvent? {
         switch event {
+        case .mouse:
+            return nil
+
         case .paste(let text):
             return handlePaste(
                 text

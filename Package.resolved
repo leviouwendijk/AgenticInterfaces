@@ -160,7 +160,7 @@
       "location" : "https://github.com/leviouwendijk/IO.git",
       "state" : {
         "branch" : "master",
-        "revision" : "5e88720439dc8f782034b6f9f8374c61ef1707f0"
+        "revision" : "8c462fa29ff9abfd5068cec656d4a84526f24644"
       }
     },
     {
@@ -385,7 +385,7 @@
       "location" : "https://github.com/leviouwendijk/SwimTerminal.git",
       "state" : {
         "branch" : "master",
-        "revision" : "15ab28704bdf5ed394f6f423747bdf12b0d67154"
+        "revision" : "cf0c4eedd67302abaee704cae374e21a0bb00b8a"
       }
     },
     {
@@ -403,7 +403,7 @@
       "location" : "https://github.com/leviouwendijk/Terminal.git",
       "state" : {
         "branch" : "master",
-        "revision" : "21b94a7079bcf145bc3d0ce8b1a8ffea577c92c3"
+        "revision" : "4a3982b32819fa06c0826d6430ddc0e956e08dd2"
       }
     },
     {

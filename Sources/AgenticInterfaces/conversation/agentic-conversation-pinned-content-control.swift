@@ -22,7 +22,19 @@ struct AgenticConversationPinnedContentControl: Sendable {
     var footer: String {
         inspectedID == nil
             ? "j/k pin  enter inspect  space include/exclude  d remove  q back"
-            : "j/k scroll  pgup/pgdn scroll  home/end  q pins"
+            : "j/k scroll  pgup/pgdn  home/end  y copy  Y visible  q pins"
+    }
+
+    var selectedText: String? { inspectedID == nil ? nil : document.selectedText }
+
+    func copyText(visible: Bool, contents: [AgenticConversationContentPresentation]) -> String? {
+        guard let inspectedID else { return nil }
+        return visible ? document.visibleText
+            : document.selectedText ?? contents.first(where: { $0.id == inspectedID })?.body
+    }
+
+    mutating func handle(_ mouse: TerminalMouseEvent) {
+        if inspectedID != nil { document.handle(mouse) }
     }
 
     mutating func update(

@@ -281,9 +281,36 @@ public struct AgenticHostConsoleWorkflowControl:
         }
     }
 
+    private var viewedDocument: TerminalScrollableDocument? {
+        switch focus.current {
+        case .document: return document
+        case .runInspector: return runInspector
+        case .diagnostic: return diagnostic
+        default: return nil
+        }
+    }
+
+    public var selectedText: String? { viewedDocument?.selectedText }
+
     public mutating func handle(
         _ key: TerminalKey
     ) -> AgenticHostConsoleWorkflowEvent? {
+        if let viewedDocument {
+            if key == .control("C"), let text = viewedDocument.selectedText {
+                return .copyRequested(text: text, title: "selection")
+            }
+            if key == .char("y") {
+                return .copyRequested(
+                    text: viewedDocument.selectedText
+                        ?? (focus.current == .document ? currentDocument?.body : nil)
+                        ?? viewedDocument.lines.map { stripANSI($0) }.joined(separator: "\n"),
+                    title: "viewed content"
+                )
+            }
+            if key == .char("Y") {
+                return .copyRequested(text: viewedDocument.visibleText, title: "visible content")
+            }
+        }
         if key == .control("C") {
             return .base(
                 .exitRequested
@@ -320,6 +347,15 @@ public struct AgenticHostConsoleWorkflowControl:
             return handleDiagnostic(
                 key
             )
+        }
+    }
+
+    public mutating func handle(_ mouse: TerminalMouseEvent) {
+        switch focus.current {
+        case .document: document.handle(mouse)
+        case .runInspector: runInspector.handle(mouse)
+        case .diagnostic: diagnostic.handle(mouse)
+        default: break
         }
     }
 

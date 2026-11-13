@@ -124,10 +124,21 @@ struct AgenticConversationRunReviewControl:
 
     var footer: String {
         if openedDocumentKind != nil {
-            return "j/k scroll  pgup/pgdn  home/end  q actions"
+            return "j/k scroll  pgup/pgdn  home/end  y copy  Y visible  q actions"
         }
 
         return "j/k choose  enter open  q back"
+    }
+
+    var selectedText: String? { openedDocumentKind == nil ? nil : document.selectedText }
+
+    func copyText(visible: Bool) -> String? {
+        guard let kind = openedDocumentKind else { return nil }
+        return visible ? document.visibleText : document.selectedText ?? matchingDocument(kind: kind)?.body
+    }
+
+    mutating func handle(_ mouse: TerminalMouseEvent) {
+        if openedDocumentKind != nil { document.handle(mouse) }
     }
 
     @discardableResult

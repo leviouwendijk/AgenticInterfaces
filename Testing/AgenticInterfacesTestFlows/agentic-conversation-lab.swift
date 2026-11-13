@@ -12,6 +12,7 @@ enum AgenticConversationLab {
                 hideCursor: true,
                 useRawMode: true,
                 useBracketedPaste: true,
+                useMouseTracking: true,
                 keyboardProtocol: .kitty,
                 controlSignalBehavior: .input,
                 restoreOnInterrupt: true,
@@ -110,6 +111,10 @@ enum AgenticConversationLab {
                     control.update(snapshot)
                 case .feedbackRequested(let message):
                     snapshot.activity = message
+                    control.update(snapshot)
+                case .copyRequested(let text, let title):
+                    let copied = TerminalClipboardDestination.system.write(text)
+                    snapshot.activity = copied ? "Copied \(title)." : "Clipboard write failed."
                     control.update(snapshot)
                 case .modelPreferenceChanged(let id):
                     snapshot.preferredModelProfileID = id

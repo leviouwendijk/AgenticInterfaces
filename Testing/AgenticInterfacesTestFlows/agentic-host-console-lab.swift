@@ -17,6 +17,10 @@ enum AgenticInterfacesTestFlows {
         case "conversation":
             try AgenticConversationLab.run()
 
+        case "conversation-scrolling":
+            try AgenticConversationScrollingSmoke.run()
+            print("agentic conversation scrolling smoke passed")
+
         case "host-console-foundation":
             try AgenticHostConsoleFoundationSmoke.run()
             try AgenticHostConsoleWorkflowSmoke.run()
@@ -41,6 +45,7 @@ enum AgenticInterfacesTestFlows {
                 usage:
                   swift run aginttest host-console
                   swift run aginttest conversation
+                  swift run t_aint_main conversation-scrolling
                   swift run aginttest host-console-foundation
                 """
             )
