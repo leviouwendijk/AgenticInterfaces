@@ -4,19 +4,19 @@ public struct AgenticConversationIterationPresentation: Sendable, Hashable {
     public let number: Int
     public let assistantBody: String?
     public let events: [String]
-    public let toolCallIDs: [String]
+    public let callIDs: [String]
 
     public init(
         id: String,
         number: Int,
         assistantBody: String?,
         events: [String],
-        toolCallIDs: [String]
+        callIDs: [String]
     ) {
         self.id = id
         self.number = number
         self.assistantBody = assistantBody
         self.events = events
-        self.toolCallIDs = toolCallIDs
+        self.callIDs = callIDs
     }
 }

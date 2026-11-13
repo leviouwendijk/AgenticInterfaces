@@ -55,6 +55,23 @@ public struct AgenticConversationUsagePresentation: Sendable, Hashable {
         projections.reduce(0) { $0 + $1.usage.reasoningOutputTokens }
     }
 
+    /// Largest context any single request sent: how full the window got,
+    /// as opposed to the cumulative totals billed across requests.
+    public var peakContextTokens: Int {
+        projections.map {
+            $0.usage.inputTokens
+                + $0.usage.cachedInputReadTokens
+                + $0.usage.cachedInputWriteTokens
+        }.max() ?? 0
+    }
+
+    /// Share of all input served from a prompt cache; nil before any input.
+    public var cacheHitRate: Double? {
+        let total = inputTokens + cachedInputReadTokens + cachedInputWriteTokens
+        guard total > 0 else { return nil }
+        return Double(cachedInputReadTokens) / Double(total)
+    }
+
     /// Currency-separated amounts. Missing prices are not treated as zero-cost.
     public var amounts: [String: Int64] {
         var totals: [String: Int64] = [:]
@@ -82,6 +99,13 @@ public struct AgenticConversationUsagePresentation: Sendable, Hashable {
     public var shortSummary: String {
         guard !projections.isEmpty else { return "usage not reported" }
         let provenance = projectedTurns > 0 ? " (includes estimates)" : ""
-        return "\(inputTokens) in / \(outputTokens) out\(provenance)"
+        var parts = ["\(inputTokens) in"]
+        if cachedInputReadTokens > 0 || cachedInputWriteTokens > 0 {
+            parts.append("\(cachedInputReadTokens) cache read")
+            parts.append("\(cachedInputWriteTokens) cache write")
+        }
+        parts.append("\(outputTokens) out")
+        parts.append("peak context \(peakContextTokens)")
+        return parts.joined(separator: " / ") + provenance
     }
 }

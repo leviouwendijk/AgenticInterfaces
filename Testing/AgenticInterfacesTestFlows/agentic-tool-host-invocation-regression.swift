@@ -9,7 +9,7 @@ import Schema
 /// schema and manifest) and `AgenticToolHostInvocationParser` (untrusted JSON
 /// classification) against a live `ToolRegistry` containing both a model-facing
 /// and a host-only fixture tool. After the I1 semantic cleanup, execution is a
-/// canonical `ToolInvocation.Execution` for every model-facing tool and the
+/// canonical `ToolInvocation.Target` for every model-facing tool and the
 /// host never encodes per-tool targetability.
 enum AgenticToolHostInvocationRegression {
     enum Failure: Error {
@@ -233,7 +233,7 @@ enum AgenticToolHostInvocationRegression {
         guard direct.action == .invoke,
               let directCall = direct.call,
               directCall.id == "positive-direct",
-              directCall.tool.rawValue == EchoTool.identifier,
+              directCall.name == EchoTool.identifier,
               try directCall.input.decode(EchoInput.self).text == "direct",
               direct.execution?.workspace?.subpath == "AgenticMedia",
               direct.calls == nil,
@@ -254,10 +254,10 @@ enum AgenticToolHostInvocationRegression {
               let calls = batch.calls,
               calls.count == 2,
               calls[0].id == "positive-batch-1",
-              calls[0].tool.rawValue == EchoTool.identifier,
+              calls[0].name == EchoTool.identifier,
               try calls[0].input.decode(EchoInput.self).text == "one",
               calls[1].id == "positive-batch-2",
-              calls[1].tool.rawValue == EchoTool.identifier,
+              calls[1].name == EchoTool.identifier,
               try calls[1].input.decode(EchoInput.self).text == "two"
         else {
             throw Failure.batchParseMismatch
@@ -282,7 +282,7 @@ enum AgenticToolHostInvocationRegression {
                 _
               ) = materializedPlan.root,
               planCall.id == "positive-plan-call",
-              planCall.tool.rawValue == EchoTool.identifier,
+              planCall.name == EchoTool.identifier,
               try planCall.input.decode(EchoInput.self).text == "plan",
               execution?.workspace?.subpath == "AgenticMedia"
         else {

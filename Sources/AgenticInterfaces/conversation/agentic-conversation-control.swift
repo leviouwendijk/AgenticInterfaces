@@ -100,6 +100,22 @@ public struct AgenticConversationControl: Sendable {
     private var hostConsole: AgenticHostConsoleWorkflowControl?
     private var confirmation: AgenticConversationConfirmationControl?
     private var confirmationPurpose: AgenticConversationConfirmationPurpose?
+    private var transcriptCache: [String: TranscriptEntry]
+
+    struct TranscriptEntry: Sendable {
+        struct Key: Sendable, Equatable {
+            let message: AgenticConversationMessagePresentation
+            let columns: Int
+            let selected: Bool
+            let iteration: Int?
+            // Run cards project from console state; nil for messages without one.
+            let hostConsole: AgenticHostConsoleSnapshot?
+            let pendingUserInput: AgenticConversationUserInputPresentation?
+        }
+
+        let key: Key
+        let lines: [String]
+    }
 
     public init(
         snapshot: AgenticConversationSnapshot,
@@ -153,6 +169,7 @@ public struct AgenticConversationControl: Sendable {
         self.hostConsole = nil
         self.confirmation = nil
         self.confirmationPurpose = nil
+        self.transcriptCache = [:]
 
         if pendingUserInput != nil {
             self.focus.push(
@@ -1665,207 +1682,55 @@ private extension AgenticConversationControl {
         )
     }
 
-    func transcriptLines(
+    /// Lays out the transcript, reusing each message's rows until something
+    /// that message's layout reads has changed. Rendering runs every frame, so
+    /// re-parsing every message would make cost grow with conversation length.
+    mutating func transcriptLines(
         columns: Int
     ) -> (lines: [String], messageRows: [String: Range<Int>]) {
         let width = max(1, columns)
-        let bodyWidth = max(1, width - 2)
         var lines: [String] = []
         var rows: [String: Range<Int>] = [:]
+        var cache: [String: TranscriptEntry] = [:]
         let structuredRenderer = TerminalStructuredContent.Renderer()
 
         for message in snapshot.messages {
-            let start = lines.count
             let selected = focus.current == .transcript
                 && message.id == selectedMessageID
-            var nestedInteractiveRows: Set<Int> = []
-            var navigationRows: Set<Int> = []
-            let label = (selected ? "> " : "") + message.role.rawValue
-            lines.append(
-                selected
-                    ? TerminalStyle(.inverse).apply(
-                        TerminalDisplay.fitted(label, columns: width)
-                    )
-                    : TerminalStyle.bold.apply(label)
+            let hasRun = message.attachments.contains {
+                if case .run = $0 { return true }
+                return false
+            }
+            let key = TranscriptEntry.Key(
+                message: message,
+                columns: width,
+                selected: selected,
+                iteration: selectedIterationIndices[message.id],
+                hostConsole: hasRun ? snapshot.hostConsole : nil,
+                pendingUserInput: hasRun ? snapshot.pendingUserInput : nil
             )
-            let selectedIteration = selectedIterationIndices[message.id].flatMap { index in
-                message.iterations.indices.contains(index) ? message.iterations[index] : nil
-            }
-            if !message.iterations.isEmpty {
-                let display = selectedIteration?.number ?? message.iterations.last?.number ?? 0
-                let navigation = "  iteration \(display)/\(message.iterations.count) · [ previous  ] next  t trace"
-                navigationRows.insert(lines.count)
-                lines.append(
-                    TerminalStyle(
-                        foreground: .hex("#aab6c6"),
-                        background: .hex("#28313b")
-                    ).apply(
-                        TerminalDisplay.fitted(navigation, columns: width)
-                    )
-                )
-                navigationRows.insert(lines.count)
-                lines.append("")
-            }
-            let earlierIteration = selectedIteration.flatMap { selected -> String? in
-                selected.id == message.iterations.last?.id
-                    ? nil
-                    : (selected.assistantBody ?? selected.events.joined(separator: "\n"))
-            }
-            let displayedBody = earlierIteration ?? message.body
-            if message.role == .assistant {
-                let structured = MarkdownStructuredContentParser.parse(
-                    displayedBody
-                )
-                lines += structuredRenderer.rows(
-                    structured,
-                    columns: bodyWidth
-                ).map {
-                    "  " + $0
-                }
+            let entry: TranscriptEntry
+            if let cached = transcriptCache[message.id], cached.key == key {
+                entry = cached
             } else {
-                lines += TerminalTextWrap.lines(
-                    displayedBody,
-                    width: bodyWidth
-                ).map {
-                    "  " + $0
-                }
-            }
-            for attachment in message.attachments {
-                switch attachment {
-                case .content(let content):
-                    lines.append(
-                        TerminalStyle.dim.apply(
-                            "  [" + content.summary + "]"
-                        )
-                    )
-
-                case .structured(let value):
-                    if let selectedIteration,
-                       selectedIteration.id != message.iterations.last?.id,
-                       value.iteration != selectedIteration.number {
-                        continue
-                    }
-                    let blockStart = lines.count
-                    lines.append(TerminalStyle.bold.apply("  " + value.title))
-                    lines += value.previewRows(columns: bodyWidth).map { "  " + $0 }
-                    lines.append(TerminalStyle.dim.apply("  [Enter to inspect · " + value.summary + "]"))
-                    nestedInteractiveRows.formUnion(blockStart..<lines.count)
-
-                case .trace:
-                    lines.append(TerminalStyle.dim.apply("  [Execution trace · Enter to inspect]"))
-
-                case .program(let program):
-                    let tone: AgenticConversationRunCardTone
-                    switch program.outcome {
-                    case .succeeded:
-                        tone = .success
-                    case .suspended:
-                        tone = .warning
-                    case .failed:
-                        tone = .failure
-                    case .interrupted:
-                        tone = .warning
-                    }
-                    let block = TerminalInteractiveBlock(
-                        title: program.transcriptTitle,
-                        body: program.transcriptBody,
-                        hint: "Enter for program details",
-                        state: TerminalInteractiveBlock.resolvedState(
-                            isFocused: selected
-                        ),
-                        style: runCardStyle(
-                            for: tone
-                        )
-                    )
-                    let blockStart = lines.count
-
-                    lines.append(
-                        contentsOf: block.render(
-                            width: bodyWidth
-                        ).map { line in
-                            "  " + line
-                        }
-                    )
-                    nestedInteractiveRows.formUnion(
-                        blockStart..<lines.count
-                    )
-
-                case .run(let runID):
-                    guard let run = snapshot.hostConsole.runs.first(
-                        where: { run in
-                            run.id == runID
-                        }
-                    ) else {
-                        lines.append(
-                            TerminalStyle.dim.apply(
-                                "  ["
-                                    + attachment.summary(
-                                        in: snapshot.hostConsole
-                                    )
-                                    + "]"
-                            )
-                        )
-                        continue
-                    }
-
-                    let presentation =
-                        AgenticConversationRunCardPresentation.project(
-                            run: run,
-                            hostConsole: snapshot.hostConsole,
-                            pendingUserInput: snapshot.pendingUserInput
-                        )
-                    let block = TerminalInteractiveBlock(
-                        title: presentation.title,
-                        body: presentation.body,
-                        hint: presentation.hint,
-                        state: TerminalInteractiveBlock.resolvedState(
-                            isFocused: selected
-                        ),
-                        style: runCardStyle(
-                            for: presentation.tone
-                        )
-                    )
-                    let blockStart = lines.count
-
-                    lines.append(
-                        contentsOf: block.render(
-                            width: bodyWidth
-                        ).map { line in
-                            "  " + line
-                        }
-                    )
-                    nestedInteractiveRows.formUnion(
-                        blockStart..<lines.count
-                    )
-                }
-            }
-            if selected {
-                let selectionStyle = TerminalStyle(
-                    foreground: .hex(
-                        "#d0d0d0"
-                    ),
-                    background: .hex(
-                        "#3a3d43"
+                entry = TranscriptEntry(
+                    key: key,
+                    lines: messageLines(
+                        message,
+                        width: width,
+                        selected: selected,
+                        renderer: structuredRenderer
                     )
                 )
-
-                for index in start..<lines.count
-                where !nestedInteractiveRows.contains(index)
-                    && !navigationRows.contains(index) {
-                    lines[index] = selectionStyle.apply(
-                        TerminalDisplay.fitted(
-                            stripANSI(
-                                lines[index]
-                            ),
-                            columns: width
-                        )
-                    )
-                }
             }
+            cache[message.id] = entry
 
+            let start = lines.count
+            lines += entry.lines
             rows[message.id] = start..<lines.count
             lines.append("")
         }
+        transcriptCache = cache
 
         if is_awaiting_first_assistant_response {
             lines.append(TerminalStyle.dim.apply("assistant"))
@@ -1877,6 +1742,201 @@ private extension AgenticConversationControl {
             lines = [TerminalStyle.dim.apply("No messages yet.")]
         }
         return (lines, rows)
+    }
+
+    func messageLines(
+        _ message: AgenticConversationMessagePresentation,
+        width: Int,
+        selected: Bool,
+        renderer structuredRenderer: TerminalStructuredContent.Renderer
+    ) -> [String] {
+        let bodyWidth = max(1, width - 2)
+        var lines: [String] = []
+        var nestedInteractiveRows: Set<Int> = []
+        var navigationRows: Set<Int> = []
+        let label = (selected ? "> " : "") + message.role.rawValue
+        lines.append(
+            selected
+                ? TerminalStyle(.inverse).apply(
+                    TerminalDisplay.fitted(label, columns: width)
+                )
+                : TerminalStyle.bold.apply(label)
+        )
+        let selectedIteration = selectedIterationIndices[message.id].flatMap { index in
+            message.iterations.indices.contains(index) ? message.iterations[index] : nil
+        }
+        if !message.iterations.isEmpty {
+            let display = selectedIteration?.number ?? message.iterations.last?.number ?? 0
+            let navigation = "  iteration \(display)/\(message.iterations.count) · [ previous  ] next  t trace"
+            navigationRows.insert(lines.count)
+            lines.append(
+                TerminalStyle(
+                    foreground: .hex("#aab6c6"),
+                    background: .hex("#28313b")
+                ).apply(
+                    TerminalDisplay.fitted(navigation, columns: width)
+                )
+            )
+            navigationRows.insert(lines.count)
+            lines.append("")
+        }
+        let earlierIteration = selectedIteration.flatMap { selected -> String? in
+            selected.id == message.iterations.last?.id
+                ? nil
+                : (selected.assistantBody ?? selected.events.joined(separator: "\n"))
+        }
+        let displayedBody = earlierIteration ?? message.body
+        if message.role == .assistant {
+            let structured = MarkdownStructuredContentParser.parse(
+                displayedBody
+            )
+            lines += structuredRenderer.rows(
+                structured,
+                columns: bodyWidth
+            ).map {
+                "  " + $0
+            }
+        } else {
+            lines += TerminalTextWrap.lines(
+                displayedBody,
+                width: bodyWidth
+            ).map {
+                "  " + $0
+            }
+        }
+        for attachment in message.attachments {
+            switch attachment {
+            case .content(let content):
+                lines.append(
+                    TerminalStyle.dim.apply(
+                        "  [" + content.summary + "]"
+                    )
+                )
+
+            case .structured(let value):
+                if let selectedIteration,
+                   selectedIteration.id != message.iterations.last?.id,
+                   value.iteration != selectedIteration.number {
+                    continue
+                }
+                let blockStart = lines.count
+                lines.append(TerminalStyle.bold.apply("  " + value.title))
+                lines += value.previewRows(columns: bodyWidth).map { "  " + $0 }
+                lines.append(TerminalStyle.dim.apply("  [Enter to inspect · " + value.summary + "]"))
+                nestedInteractiveRows.formUnion(blockStart..<lines.count)
+
+            case .trace:
+                lines.append(TerminalStyle.dim.apply("  [Execution trace · Enter to inspect]"))
+
+            case .program(let program):
+                let tone: AgenticConversationRunCardTone
+                switch program.outcome {
+                case .succeeded:
+                    tone = .success
+                case .suspended:
+                    tone = .warning
+                case .failed:
+                    tone = .failure
+                case .interrupted:
+                    tone = .warning
+                }
+                let block = TerminalInteractiveBlock(
+                    title: program.transcriptTitle,
+                    body: program.transcriptBody,
+                    hint: "Enter for program details",
+                    state: TerminalInteractiveBlock.resolvedState(
+                        isFocused: selected
+                    ),
+                    style: runCardStyle(
+                        for: tone
+                    )
+                )
+                let blockStart = lines.count
+
+                lines.append(
+                    contentsOf: block.render(
+                        width: bodyWidth
+                    ).map { line in
+                        "  " + line
+                    }
+                )
+                nestedInteractiveRows.formUnion(
+                    blockStart..<lines.count
+                )
+
+            case .run(let runID):
+                guard let run = snapshot.hostConsole.runs.first(
+                    where: { run in
+                        run.id == runID
+                    }
+                ) else {
+                    lines.append(
+                        TerminalStyle.dim.apply(
+                            "  ["
+                                + attachment.summary(
+                                    in: snapshot.hostConsole
+                                )
+                                + "]"
+                        )
+                    )
+                    continue
+                }
+
+                let presentation =
+                    AgenticConversationRunCardPresentation.project(
+                        run: run,
+                        hostConsole: snapshot.hostConsole,
+                        pendingUserInput: snapshot.pendingUserInput
+                    )
+                let block = TerminalInteractiveBlock(
+                    title: presentation.title,
+                    body: presentation.body,
+                    hint: presentation.hint,
+                    state: TerminalInteractiveBlock.resolvedState(
+                        isFocused: selected
+                    ),
+                    style: runCardStyle(
+                        for: presentation.tone
+                    )
+                )
+                let blockStart = lines.count
+
+                lines.append(
+                    contentsOf: block.render(
+                        width: bodyWidth
+                    ).map { line in
+                        "  " + line
+                    }
+                )
+                nestedInteractiveRows.formUnion(
+                    blockStart..<lines.count
+                )
+            }
+        }
+        if selected {
+            let selectionStyle = TerminalStyle(
+                foreground: .hex(
+                    "#d0d0d0"
+                ),
+                background: .hex(
+                    "#3a3d43"
+                )
+            )
+
+            for index in lines.indices
+            where !nestedInteractiveRows.contains(index)
+                && !navigationRows.contains(index) {
+                lines[index] = selectionStyle.apply(
+                    TerminalDisplay.fitted(
+                        stripANSI(
+                            lines[index]
+                        ),
+                        columns: width
+                    )
+                )
+            }
+        }
+        return lines
     }
 
     func runCardStyle(

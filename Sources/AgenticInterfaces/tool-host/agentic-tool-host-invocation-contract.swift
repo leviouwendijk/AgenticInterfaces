@@ -29,12 +29,10 @@ public struct AgenticToolHostCall:
         self.input = input
     }
 
-    public var agentToolCall: ToolCall {
+    public var agentToolCall: FunctionCall {
         .init(
             id: id,
-            tool: ToolIdentifier(
-                rawValue: name
-            ),
+            name: name,
             input: input
         )
     }
@@ -42,7 +40,7 @@ public struct AgenticToolHostCall:
 
 /// Execution metadata that remains outside semantic tool input.
 ///
-/// The host consumes Agentic's canonical `ToolInvocation.Execution` and
+/// The host consumes Agentic's canonical `ToolInvocation.Target` and
 /// `WorkspaceTarget` directly rather than owning a parallel execution DTO or
 /// JSON-decode bridge. `execution.workspace.subpath` is ordinary optional
 /// invocation metadata for every model-facing tool; Workspace decides whether a
@@ -50,11 +48,11 @@ public struct AgenticToolHostCall:
 /// advertise here, so the host never encodes one.
 ///
 /// Schema authority: the host's flattened wire grammar is `{ name, input,
-/// execution }` (or `AgentToolCall { id, name, input }`), which intentionally
+/// execution }` (or `FunctionCall { id, tool, input }`), which intentionally
 /// differs from Agentic's `{ arguments, execution? }` model-facing envelope. The
 /// host therefore derives its `input` property from Agentic's authoritative
 /// `semanticInputSchema`, and its `execution` property from Agentic's canonical
-/// `ToolInvocation.Execution.jsonschema`. No model-facing execution policy is
+/// `ToolInvocation.Target.jsonschema`. No model-facing execution policy is
 /// reconstructed by the host.
 
 /// Canonical flattened direct invocation accepted by `agentic host bridge`.
@@ -75,13 +73,13 @@ public struct AgenticToolHostDirectInvocation:
 
     /// Optional invocation execution metadata. Workspace selects whether the
     /// requested target is permitted; every model-facing tool may carry it.
-    public let execution: ToolInvocation.Execution?
+    public let execution: ToolInvocation.Target?
 
     public init(
         id: String,
         name: String,
         input: JSONValue,
-        execution: ToolInvocation.Execution? = nil
+        execution: ToolInvocation.Target? = nil
     ) {
         self.id = id
         self.name = name
@@ -89,12 +87,10 @@ public struct AgenticToolHostDirectInvocation:
         self.execution = execution
     }
 
-    public var call: ToolCall {
+    public var call: FunctionCall {
         .init(
             id: id,
-            tool: ToolIdentifier(
-                rawValue: name
-            ),
+            name: name,
             input: input
         )
     }
@@ -145,7 +141,7 @@ public struct AgenticToolHostPlanNode:
 {
     public let kind: ToolPlan.Node.Kind
     public let call: AgenticToolHostCall?
-    public let execution: ToolInvocation.Execution?
+    public let execution: ToolInvocation.Target?
     public let children: [AgenticToolHostPlanNode]
     public let onSuccess: [AgenticToolHostPlanNode]
     public let onFailure: [AgenticToolHostPlanNode]
@@ -154,7 +150,7 @@ public struct AgenticToolHostPlanNode:
     public init(
         kind: ToolPlan.Node.Kind,
         call: AgenticToolHostCall? = nil,
-        execution: ToolInvocation.Execution? = nil,
+        execution: ToolInvocation.Target? = nil,
         children: [AgenticToolHostPlanNode] = [],
         onSuccess: [AgenticToolHostPlanNode] = [],
         onFailure: [AgenticToolHostPlanNode] = [],
@@ -183,7 +179,7 @@ public struct AgenticToolHostPlanNode:
         let container = try decoder.container(keyedBy: CodingKeys.self)
         kind = try container.decode(ToolPlan.Node.Kind.self, forKey: .kind)
         call = try container.decodeIfPresent(AgenticToolHostCall.self, forKey: .call)
-        execution = try container.decodeIfPresent(ToolInvocation.Execution.self, forKey: .execution)
+        execution = try container.decodeIfPresent(ToolInvocation.Target.self, forKey: .execution)
         children = container.contains(.children)
             ? try container.decode([Self].self, forKey: .children)
             : []
@@ -213,7 +209,7 @@ public struct AgenticToolHostPlanNode:
             }
 
             guard registry.modelFacingDefinition(
-                identifiedBy: call.agentToolCall.tool
+                identifiedBy: ToolIdentifier(call.agentToolCall.name)
             ) != nil else {
                 throw AgenticToolHostError.invalidInvocationPayload(
                     "Tool '\(call.name)' is not registered as model-facing."
@@ -282,7 +278,7 @@ private struct AgenticToolHostPlanNodeSchemaShape:
 {
     let kind: String
     let call: JSONValue?
-    let execution: ToolInvocation.Execution?
+    let execution: ToolInvocation.Target?
     let children: [JSONValue]
     let onSuccess: [JSONValue]
     let onFailure: [JSONValue]
@@ -317,7 +313,7 @@ public enum AgenticToolHostInvocationContract {
         let callUnion = callUnionSchema(
             modelCapabilities,
             description:
-                "One AgentToolCall specialized to model-facing tools registered for this host session."
+                "One FunctionCall specialized to model-facing tools registered for this host session."
         )
 
         let direct = JSONSchema.oneOf(
@@ -332,9 +328,9 @@ public enum AgenticToolHostInvocationContract {
 
         let batch = JSONSchema.array(
             description:
-                "Non-empty batch of independent AgentToolCall values. Use ToolPlan when execution targeting or dependencies are needed.",
+                "Non-empty batch of independent FunctionCall values. Use ToolPlan when execution targeting or dependencies are needed.",
             items: .reference(
-                "#/$defs/AgentToolCall"
+                "#/$defs/FunctionCall"
             ),
             minItems: 1
         )
@@ -346,7 +342,7 @@ public enum AgenticToolHostInvocationContract {
         )
 
         var definitions = callDefinitions
-        definitions["AgentToolCall"] = callUnion
+        definitions["FunctionCall"] = callUnion
         definitions["AgentToolExecution"] =
             executionSchema()
         definitions["ToolPlanNode"] =
@@ -381,13 +377,13 @@ public enum AgenticToolHostInvocationContract {
             )
         )
 
-        let call = ToolCall(
+        let call = FunctionCall(
             id: "example-call",
-            tool: capability.identifier,
+            name: capability.identifier.rawValue,
             input: input
         )
 
-        let execution = ToolInvocation.Execution(
+        let execution = ToolInvocation.Target(
             workspace: WorkspaceTarget(
                 subpath: "DependentPackage"
             )
@@ -520,7 +516,7 @@ private extension AgenticToolHostInvocationContract {
     }
 
     static func executionSchema() -> JSONSchema {
-        ToolInvocation.Execution.jsonschema
+        ToolInvocation.Target.jsonschema
     }
 
     static func planSchema() -> JSONSchema {
@@ -707,7 +703,7 @@ private extension AgenticToolHostInvocationContract {
                 replacing(
                     property,
                     schema: .reference(
-                        "#/$defs/AgentToolCall"
+                        "#/$defs/FunctionCall"
                     ),
                     isRequired: true
                 )

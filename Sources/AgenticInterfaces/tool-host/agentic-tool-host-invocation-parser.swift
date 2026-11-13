@@ -93,7 +93,7 @@ public struct AgenticToolHostInvocationParser:
                         JSONIssue(
                             kind: .typeMismatch,
                             path: JSONCodingPath(),
-                            reason: "Expected a direct invocation object, non-empty AgentToolCall array, or ToolPlan object."
+                            reason: "Expected a direct invocation object, non-empty FunctionCall array, or ToolPlan object."
                         ),
                     ]
                 )

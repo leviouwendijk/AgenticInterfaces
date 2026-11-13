@@ -2,7 +2,7 @@ import Agentic
 
 public struct AgenticApprovalPrompt: Sendable, Codable, Hashable {
     public var title: String
-    public var toolCall: ToolCall?
+    public var functionCall: FunctionCall?
     public var preflight: ToolPreflight
     public var requirement: ApprovalRequirement
     public var review: ToolInvocation.Review?
@@ -10,14 +10,14 @@ public struct AgenticApprovalPrompt: Sendable, Codable, Hashable {
 
     public init(
         title: String? = nil,
-        toolCall: ToolCall? = nil,
+        functionCall: FunctionCall? = nil,
         preflight: ToolPreflight,
         requirement: ApprovalRequirement,
         review: ToolInvocation.Review? = nil,
         metadata: [String: String] = [:]
     ) {
         self.title = title ?? "Tool approval requested"
-        self.toolCall = toolCall
+        self.functionCall = functionCall
         self.preflight = preflight
         self.requirement = requirement
         self.review = review
@@ -31,9 +31,9 @@ public struct AgenticApprovalPrompt: Sendable, Codable, Hashable {
     ) {
         self.init(
             title: title,
-            toolCall: ToolCall(
+            functionCall: FunctionCall(
                 id: review.invocation.id,
-                tool: review.invocation.tool,
+                name: review.invocation.tool.rawValue,
                 input: review.invocation.arguments
             ),
             preflight: review.preflight,
@@ -44,7 +44,7 @@ public struct AgenticApprovalPrompt: Sendable, Codable, Hashable {
     }
 
     public var toolName: String {
-        toolCall?.tool.rawValue ?? preflight.tool.rawValue
+        functionCall?.name ?? preflight.tool.rawValue
     }
 
     public var guidelineReferences: [Reference.Guideline] {

@@ -110,7 +110,7 @@ struct ConversationStructuredSmoke {
         try check(longPreview.last?.contains("more rows") == true, "Truncation is explicit")
         let history = AgenticConversationIterationPresentation(
             id: "run:iteration:1", number: 1, assistantBody: "Draft",
-            events: ["assistant_response · draft"], toolCallIDs: ["graph"]
+            events: ["assistant_response · draft"], callIDs: ["graph"]
         )
         let message = AgenticConversationMessagePresentation(
             id: "run-assistant", role: .assistant, body: "Final",

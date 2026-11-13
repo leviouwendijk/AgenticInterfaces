@@ -2,6 +2,7 @@ import Agentic
 import AgenticInterfaces
 import Difference
 import Terminal
+import TerminalGhostty
 
 /// Confirms that native tree+text layouts survive the preflight presentation seam.
 enum AgenticNativeDifferenceRenderSmoke {
@@ -316,6 +317,48 @@ enum AgenticNativeDifferenceRenderSmoke {
                   frame.resolved().columns == outerColumns else {
                 throw Failure.incorrect_embedded_width
             }
+            // Verify the actual terminal rows, not only frame dimensions.
+            let screen = try GhosttyTerminalScreen(
+                columns: outerColumns,
+                rows: region.rows
+            )
+            var renderer = TerminalFrameRenderer()
+            screen.feed(renderer.encode(frame))
+
+            var physicalRows = try screen.snapshot()
+                .components(separatedBy: "\n")
+            if physicalRows.last == "" {
+                physicalRows.removeLast()
+            }
+
+            // OSC-bearing spans need a separate hyperlink-aware
+            // comparison. ANSI SGR spans can be compared directly.
+            let comparableSpans = documentSpans.filter {
+                !$0.content.isEmpty
+                    && !$0.content.contains("\u{001B}]")
+                    && TerminalDisplay.width(of: $0.content) > 0
+            }
+
+            guard !comparableSpans.isEmpty,
+                  physicalRows.count <= region.rows,
+                  comparableSpans.allSatisfy({ span in
+                      guard span.row < physicalRows.count else {
+                          return false
+                      }
+
+                      let expected = TerminalDisplay.fitted(
+                          stripANSI(span.content),
+                          columns: span.columns
+                      )
+                      let actual = TerminalDisplay.slice(
+                          physicalRows[span.row],
+                          columns: span.leading..<(span.leading + span.columns)
+                      )
+                      return actual == expected
+                  }) else {
+                throw Failure.incorrect_embedded_width
+            }
+
             // Subsequent widths reflow the same open document at its end.
             _ = workflow.handle(.end)
         }

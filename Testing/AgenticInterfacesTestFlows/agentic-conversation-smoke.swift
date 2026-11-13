@@ -917,8 +917,8 @@ enum AgenticConversationSmoke {
                 role: .assistant,
                 body: "final iteration text",
                 iterations: [
-                    .init(id: "iteration-1", number: 1, assistantBody: "earlier iteration text", events: [], toolCallIDs: []),
-                    .init(id: "iteration-2", number: 2, assistantBody: "final iteration text", events: [], toolCallIDs: []),
+                    .init(id: "iteration-1", number: 1, assistantBody: "earlier iteration text", events: [], callIDs: []),
+                    .init(id: "iteration-2", number: 2, assistantBody: "final iteration text", events: [], callIDs: []),
                 ]
             ),
         ]

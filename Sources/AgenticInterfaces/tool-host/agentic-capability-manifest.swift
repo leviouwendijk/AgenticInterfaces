@@ -146,7 +146,7 @@ private extension AgenticCapabilityManifestRenderer {
     static func protocolLines() -> [String] {
         [
             "    - Treat the Invocation schema as the authoritative local host-call grammar and the registered tool variants inside it as the authoritative tool surface for this session.",
-            "    - Submit a DirectInvocation, non-empty AgentToolCall array, or ToolPlan directly. Do not invent action/request/tool_call/tool_calls wrappers that are not present in the Invocation schema.",
+            "    - Submit a DirectInvocation, non-empty FunctionCall array, or ToolPlan directly. Do not invent action/request/tool_call/tool_calls wrappers that are not present in the Invocation schema.",
             "    - model_exposure is explicit. model_facing tools have a captured typed parser and semantic_input_schema and appear in the Invocation schema; host_only tools remain registered for trusted host/runtime use but are not model-invokable.",
             "    - For multi-step or dependent work, prefer one ToolPlan with sequence, batch, and outcome branches rather than issuing unrelated invocation envelopes.",
             "    - Use sequence for ordered success-gated dependencies; it stops after the first non-success and skips remaining siblings.",

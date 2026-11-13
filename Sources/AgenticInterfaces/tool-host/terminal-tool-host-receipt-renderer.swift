@@ -179,7 +179,7 @@ private extension TerminalToolHostReceiptRenderer {
         }
 
         var lines = [
-            "\(record.call.tool.rawValue)  \(details.joined(separator: " · "))"
+            "\(record.call.name)  \(details.joined(separator: " · "))"
         ]
 
         if let intent = invocation?.review.preflight.summary,
@@ -263,7 +263,7 @@ private extension TerminalToolHostReceiptRenderer {
     }
 
     func projectionBody(
-        _ projection: ToolCall.ResultProjection?
+        _ projection: ToolExecution.Projection?
     ) -> String? {
         guard let projection,
               !projection.facts.isEmpty
@@ -283,7 +283,7 @@ private extension TerminalToolHostReceiptRenderer {
     }
 
     func projectionFactLines(
-        _ fact: ToolCall.ResultProjection.Fact,
+        _ fact: ToolExecution.Projection.Fact,
         prefix: String = ""
     ) -> [String] {
         labeledValueLines(

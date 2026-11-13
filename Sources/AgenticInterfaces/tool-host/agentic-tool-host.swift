@@ -21,18 +21,18 @@ public struct AgenticToolHostRequest:
 {
     public let action: AgenticToolHostAction
     public let name: String?
-    public let call: ToolCall?
-    public let calls: [ToolCall]?
+    public let call: FunctionCall?
+    public let calls: [FunctionCall]?
     public let plan: ToolPlan?
-    public let execution: ToolInvocation.Execution?
+    public let execution: ToolInvocation.Target?
 
     public init(
         action: AgenticToolHostAction,
         name: String? = nil,
-        call: ToolCall? = nil,
-        calls: [ToolCall]? = nil,
+        call: FunctionCall? = nil,
+        calls: [FunctionCall]? = nil,
         plan: ToolPlan? = nil,
-        execution: ToolInvocation.Execution? = nil
+        execution: ToolInvocation.Target? = nil
     ) {
         self.action = action
         self.name = name
@@ -92,7 +92,7 @@ public enum AgenticToolHostError:
             return "Tool host action '\(action.rawValue)' requires a tool name."
 
         case .missingCall(let action):
-            return "Tool host action '\(action.rawValue)' requires an ToolCall."
+            return "Tool host action '\(action.rawValue)' requires an FunctionCall."
 
         case .invalidInvocationPayload(let message):
             return message
@@ -102,7 +102,7 @@ public enum AgenticToolHostError:
 
 public struct AgenticToolHost {
     public let registry: ToolRegistry
-    public let invoker: ToolInvoker
+    public let tools: ToolExecutor
     public let workspace: WorkspaceContext?
     public let sessionID: String?
     public let approvalHandler: (any ToolApprovalHandler)?
@@ -115,7 +115,7 @@ public struct AgenticToolHost {
         approvalHandler: (any ToolApprovalHandler)? = nil
     ) {
         self.registry = registry
-        self.invoker = ToolInvoker(
+        self.tools = ToolExecutor(
             registry: registry,
             policy: policy
         )
@@ -198,13 +198,13 @@ public struct AgenticToolHost {
     }
 
     public func preflight(
-        _ call: ToolCall,
-        execution: ToolInvocation.Execution? = nil
+        _ call: FunctionCall,
+        execution: ToolInvocation.Target? = nil
     ) async throws -> AgenticToolHostEnvelope {
-        let review = try await invoker.review(
+        let review = try await tools.review(
             ToolInvocation(
                 id: call.id,
-                tool: call.tool,
+                tool: ToolIdentifier(call.name),
                 arguments: call.input,
                 execution: execution
             ),
@@ -218,13 +218,13 @@ public struct AgenticToolHost {
     }
 
     public func invoke(
-        _ call: ToolCall,
-        execution: ToolInvocation.Execution? = nil
+        _ call: FunctionCall,
+        execution: ToolInvocation.Target? = nil
     ) async throws -> AgenticToolHostEnvelope {
-        let invocation = try await invoker.invoke(
+        let invocation = try await tools.invoke(
             ToolInvocation(
                 id: call.id,
-                tool: call.tool,
+                tool: ToolIdentifier(call.name),
                 arguments: call.input,
                 execution: execution
             ),
@@ -240,11 +240,11 @@ public struct AgenticToolHost {
     }
 
     public func invoke(
-        _ calls: [ToolCall]
+        _ calls: [FunctionCall]
     ) async throws -> AgenticToolHostEnvelope {
         guard !calls.isEmpty else {
             throw AgenticToolHostError.invalidInvocationPayload(
-                "Tool host batch invocation requires at least one ToolCall."
+                "Tool host batch invocation requires at least one FunctionCall."
             )
         }
 
@@ -264,7 +264,7 @@ public struct AgenticToolHost {
     public func invoke(
         _ plan: ToolPlan
     ) async throws -> AgenticToolHostEnvelope {
-        let result = try await invoker.invoke(
+        let result = try await tools.invoke(
             plan,
             in: context(),
             approvalHandler: approvalHandler
@@ -328,7 +328,7 @@ private extension AgenticToolHost {
         }
 
         throw AgenticToolHostError.invalidInvocationPayload(
-            "Tool host invoke requires an ToolCall, call batch, or ToolPlan."
+            "Tool host invoke requires an FunctionCall, call batch, or ToolPlan."
         )
     }
 }

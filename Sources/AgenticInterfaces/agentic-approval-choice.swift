@@ -59,7 +59,7 @@ public enum AgenticApprovalChoice: String, Sendable, Codable, Hashable, CaseIter
 public enum AgenticInterfaceEvent: Sendable, Codable, Hashable {
     case runStarted(prompt: String)
     case modeRunStarted(AgenticRunCommandModel)
-    case toolCallProposed(ToolCall)
+    case functionCallProposed(FunctionCall)
     case toolPreflight(ToolPreflight)
     case approvalRequested(AgenticApprovalPrompt)
     case approvalChoice(AgenticApprovalChoice)
@@ -295,12 +295,12 @@ private extension TerminalAgenticRunPresenter {
                 fields: fields
             )
 
-        case .toolCallProposed(let toolCall):
+        case .functionCallProposed(let functionCall):
             return block(
                 title: "Tool proposed",
                 fields: [
-                    .init("tool", toolCall.tool.rawValue),
-                    .init("id", toolCall.id),
+                    .init("tool", functionCall.name),
+                    .init("id", functionCall.id),
                 ]
             )
 

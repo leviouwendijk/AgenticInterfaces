@@ -148,7 +148,7 @@ public enum AgenticToolHostJSONError:
             return "Encoded Agentic tool-host JSON was not valid UTF-8."
 
         case .invalidInvocationRequest:
-            return "Expected canonical Agentic host invocation JSON matching the capability manifest: DirectInvocation, non-empty AgentToolCall array, or ToolPlan."
+            return "Expected canonical Agentic host invocation JSON matching the capability manifest: DirectInvocation, non-empty FunctionCall array, or ToolPlan."
 
         case .malformedInvocation(let error):
             return error.errorDescription
