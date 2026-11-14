@@ -577,17 +577,18 @@ enum AgenticConversationSmoke {
             throw Failure.settingsPresentationMissing
         }
 
-        // Browse by Domain, then Type; availability and visibility are separate.
+        // Capabilities fold open by domain, then type; availability and
+        // visibility are separate.
         var browserControl = AgenticConversationControl(snapshot: fixture())
         _ = browserControl.handle(.escape)
         _ = browserControl.handle(.escape)
         _ = browserControl.handle(.char("s"))
         for _ in 0..<4 { _ = browserControl.handle(.char("j")) }
-        _ = browserControl.handle(.enter) // Capabilities
-        _ = browserControl.handle(.char("j")) // Domain first
-        _ = browserControl.handle(.enter)
-        _ = browserControl.handle(.enter) // Core domain
-        _ = browserControl.handle(.enter) // Tools
+        _ = browserControl.handle(.enter) // Capabilities opens
+        _ = browserControl.handle(.char("j")) // Core
+        _ = browserControl.handle(.enter) // Core opens, its types already open
+        _ = browserControl.handle(.char("j")) // Tools
+        _ = browserControl.handle(.char("j")) // inspect_workspace
         guard browserControl.handle(.enter) == .capabilitySelectionChanged(
             available: .init(tools: ["inspect_workspace"]),
             visible: .none
@@ -624,15 +625,15 @@ enum AgenticConversationSmoke {
             throw Failure.capabilityBrowserPresentationMissing
         }
         _ = browserControl.handle(.char("/"))
-        for character in "mutate" { _ = browserControl.handle(.char(String(character))) }
+        for character in "mutate_files" { _ = browserControl.handle(.char(String(character))) }
         _ = browserControl.handle(.enter)
         var searchFrame = TerminalFrame(rows: 28, columns: 100)
         browserControl.render(into: &searchFrame,
             in: TerminalRegion(rows: 28, columns: 100))
         let searchText = stripANSI(searchFrame.resolved().spans.map(\.content).joined(separator: "\n"))
-        guard searchText.contains("Conversation settings / Capabilities / Search"),
-              searchText.contains("/mutate"),
-              searchText.contains("matches"),
+        guard searchText.contains("Conversation settings / Capabilities / Core / Tools"),
+              searchText.contains("/mutate_files"),
+              searchText.contains("1 match"),
               searchText.contains("mutate_files"),
               !searchText.contains("inspect_workspace") else {
             throw Failure.capabilityBrowserPresentationMissing
@@ -703,6 +704,7 @@ enum AgenticConversationSmoke {
         _ = responseControl.handle(
             .enter
         )
+        _ = responseControl.handle(.char("j")) // Streaming
         _ = responseControl.handle(
             .char("j")
         )
@@ -722,12 +724,10 @@ enum AgenticConversationSmoke {
         _ = invocationControl.handle(.char("s"))
         _ = invocationControl.handle(.char("j"))
         _ = invocationControl.handle(.char("j"))
-        _ = invocationControl.handle(.enter)
-        _ = invocationControl.handle(.enter)
+        _ = invocationControl.handle(.enter) // Invocation options opens
         _ = invocationControl.handle(.char("j"))
-        _ = invocationControl.handle(.char("j"))
-        _ = invocationControl.handle(.char("j"))
-        _ = invocationControl.handle(.char("j"))
+        _ = invocationControl.handle(.enter) // Request timeout opens
+        for _ in 0..<5 { _ = invocationControl.handle(.char("j")) } // 30 minutes
         guard invocationControl.handle(.enter) == .invocationOptionsSelectionChanged(
             .init(timeoutseconds: 1_800)
         ),
@@ -746,7 +746,7 @@ enum AgenticConversationSmoke {
         _ = autonomyControl.handle(.char("j"))
         _ = autonomyControl.handle(.char("j"))
         _ = autonomyControl.handle(.enter)
-        _ = autonomyControl.handle(.char("j"))
+        for _ in 0..<3 { _ = autonomyControl.handle(.char("j")) } // Auto bounded mutate
         guard autonomyControl.handle(.enter) == .autonomySelectionChanged(
             .auto_bounded_mutate
         ),
@@ -778,7 +778,7 @@ enum AgenticConversationSmoke {
             .enter
         )
         _ = nonStreamingControl.handle(
-            .char("k")
+            .char("j")
         )
         guard nonStreamingControl.handle(
             .enter
