@@ -93,6 +93,8 @@ public struct AgenticHostConsoleRunPresentation:
     /// The run's Agent and its delegated workers, parents before their
     /// children; empty when the run delegated nothing.
     public var agents: [AgenticHostConsoleAgentPresentation]
+    /// For a worker's run, the run of the Agent that delegated to it.
+    public var parentID: String?
 
     public init(
         id: String,
@@ -101,7 +103,8 @@ public struct AgenticHostConsoleRunPresentation:
         state: AgenticHostConsoleRunState,
         iteration: Int? = nil,
         steps: [AgenticHostConsoleStepPresentation] = [],
-        agents: [AgenticHostConsoleAgentPresentation] = []
+        agents: [AgenticHostConsoleAgentPresentation] = [],
+        parentID: String? = nil
     ) {
         self.id = id
         self.title = title
@@ -110,6 +113,7 @@ public struct AgenticHostConsoleRunPresentation:
         self.iteration = iteration
         self.steps = steps
         self.agents = agents
+        self.parentID = parentID
     }
 }
 
@@ -177,6 +181,13 @@ public struct AgenticHostConsoleAgentPresentation:
     public var state: AgenticHostConsoleAgentState
     /// What it was asked to do, e.g. a worker's requested scope.
     public var detail: String?
+    /// The model its latest turn was sent to.
+    public var model: String?
+    /// Its current iteration out of its own run limit.
+    public var iteration: Int?
+    public var iterationLimit: Int?
+    /// What it has cost so far, e.g. `0.0123 USD`.
+    public var cost: String?
 
     public init(
         id: String,
@@ -184,7 +195,11 @@ public struct AgenticHostConsoleAgentPresentation:
         depth: Int,
         title: String,
         state: AgenticHostConsoleAgentState,
-        detail: String? = nil
+        detail: String? = nil,
+        model: String? = nil,
+        iteration: Int? = nil,
+        iterationLimit: Int? = nil,
+        cost: String? = nil
     ) {
         self.id = id
         self.parentID = parentID
@@ -192,6 +207,21 @@ public struct AgenticHostConsoleAgentPresentation:
         self.title = title
         self.state = state
         self.detail = detail
+        self.model = model
+        self.iteration = iteration
+        self.iterationLimit = iterationLimit
+        self.cost = cost
+    }
+
+    /// `deepseek-v4-flash · iteration 3/12 · 0.0021 USD`
+    public var usageLine: String {
+        var parts: [String] = []
+        if let model { parts.append(model) }
+        if let iteration {
+            parts.append("iteration \(iteration)" + (iterationLimit.map { "/\($0)" } ?? ""))
+        }
+        if let cost { parts.append(cost) }
+        return parts.joined(separator: " · ")
     }
 }
 

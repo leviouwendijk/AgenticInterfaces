@@ -86,8 +86,8 @@ struct AgenticConversationRunReviewControl:
 
     private(set) var runID: String
 
-    private let interruptionID: String
-    private let stepID: String
+    private var interruptionID: String
+    private var stepID: String
     private var snapshot: AgenticHostConsoleSnapshot
     private var interruption: AgenticHostConsoleInterruptionPresentation
     private var items: [Item]
@@ -126,11 +126,24 @@ struct AgenticConversationRunReviewControl:
     }
 
     var footer: String {
+        let others = position.map { "  [/] review \($0.index + 1) of \($0.count)" } ?? ""
         if openedDocumentKind != nil {
-            return "j/k scroll  pgup/pgdn  home/end  y copy  Y visible  q actions"
+            return "j/k scroll  pgup/pgdn  home/end  y copy  Y visible  q actions" + others
         }
 
-        return "j/k choose  enter open  q back"
+        return "j/k choose  enter open  q back" + others
+    }
+
+    /// Where this review sits among the run's open reviews, when there are
+    /// several, e.g. one per worker's staged changes.
+    var position: (index: Int, count: Int)? {
+        let reviews = siblings
+        guard reviews.count > 1,
+              let index = reviews.firstIndex(where: { $0.id == interruptionID })
+        else {
+            return nil
+        }
+        return (index, reviews.count)
     }
 
     var selectedText: String? { openedDocumentKind == nil ? nil : document.selectedText }
@@ -148,15 +161,26 @@ struct AgenticConversationRunReviewControl:
     mutating func update(
         _ snapshot: AgenticHostConsoleSnapshot
     ) -> Bool {
-        guard let interruption = snapshot.interruptions.first(where: {
+        let current = snapshot.interruptions.first(where: {
             $0.id == interruptionID
                 && $0.runID == runID
                 && $0.stepID == stepID
                 && Self.isReviewableInterruptionKind(
                     $0.kind
                 )
+        })
+        // A decided review gives way to the run's next one.
+        guard let interruption = current ?? snapshot.interruptions.first(where: {
+            $0.runID == runID && Self.isReviewableInterruptionKind($0.kind)
         }) else {
             return false
+        }
+        if current == nil {
+            interruptionID = interruption.id
+            stepID = interruption.stepID
+            selectedIndex = 0
+            openedDocumentKind = nil
+            document.moveToStart()
         }
 
         let selectedID = currentItem?.id
@@ -197,6 +221,10 @@ struct AgenticConversationRunReviewControl:
     mutating func handle(
         _ key: TerminalKey
     ) -> AgenticConversationRunReviewEvent? {
+        if key == .char("]") || key == .char("[") {
+            step(by: key == .char("]") ? 1 : -1)
+            return nil
+        }
         if openedDocumentKind != nil {
             return handleDocument(
                 key
@@ -285,6 +313,33 @@ struct AgenticConversationRunReviewControl:
 }
 
 private extension AgenticConversationRunReviewControl {
+    var siblings: [AgenticHostConsoleInterruptionPresentation] {
+        snapshot.interruptions.filter {
+            $0.runID == runID && Self.isReviewableInterruptionKind($0.kind)
+        }
+    }
+
+    /// Moves to the run's next or previous review, keeping an open document
+    /// kind open so diffs can be compared side by side in turn.
+    mutating func step(by delta: Int) {
+        let reviews = siblings
+        guard reviews.count > 1,
+              let index = reviews.firstIndex(where: { $0.id == interruptionID })
+        else {
+            return
+        }
+        let next = reviews[(index + delta + reviews.count) % reviews.count]
+        interruptionID = next.id
+        stepID = next.stepID
+        interruption = next
+        items = Self.makeItems(snapshot: snapshot, interruption: next)
+        selectedIndex = 0
+        if let kind = openedDocumentKind, matchingDocument(kind: kind) == nil {
+            openedDocumentKind = nil
+        }
+        document.moveToStart()
+    }
+
     private var currentItem: Item? {
         guard !items.isEmpty else {
             return nil
@@ -465,7 +520,8 @@ private extension AgenticConversationRunReviewControl {
         let content = overlay.render(
             into: &frame,
             in: region,
-            title: interruption.title,
+            title: interruption.title
+                + (position.map { " · \($0.index + 1) of \($0.count)" } ?? ""),
             zIndex: overlayLayer
         )
         let width = max(

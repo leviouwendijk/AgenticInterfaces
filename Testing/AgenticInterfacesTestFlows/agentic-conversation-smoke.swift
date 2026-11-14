@@ -204,7 +204,10 @@ enum AgenticConversationSmoke {
             state: .awaitingApproval,
             agents: [
                 .init(id: "delegating-run", parentID: nil, depth: 0, title: "orchestrator", state: .waiting),
-                .init(id: "w1", parentID: "delegating-run", depth: 1, title: "implementer", state: .running, detail: "edit the parser"),
+                .init(
+                    id: "w1", parentID: "delegating-run", depth: 1, title: "implementer", state: .running,
+                    detail: "edit the parser", model: "deepseek-v4-flash", iteration: 3, iterationLimit: 12, cost: "0.0021 USD"
+                ),
                 .init(id: "w1a", parentID: "w1", depth: 2, title: "reviewer", state: .queued),
                 .init(id: "w2", parentID: "delegating-run", depth: 1, title: "tester", state: .completed),
             ]
@@ -217,7 +220,7 @@ enum AgenticConversationSmoke {
               delegatingCard.tone == .active,
               delegatingCard.body == [
                 "◌ orchestrator  waiting on workers",
-                "├ ● implementer  running · edit the parser",
+                "├ ● implementer  running · deepseek-v4-flash · iteration 3/12 · 0.0021 USD",
                 "│ └ ○ reviewer  queued",
                 "└ ✓ tester  done",
               ].joined(separator: "\n")

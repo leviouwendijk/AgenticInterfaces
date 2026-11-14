@@ -14,6 +14,7 @@ enum AgenticConversationRunReviewSmoke {
         case reviewShortcutDidNotOpen
         case reviewShortcutActionChanged
         case noPendingReviewFeedbackChanged
+        case stagedReviewsChanged
     }
 
     static func run() throws {
@@ -106,6 +107,8 @@ enum AgenticConversationRunReviewSmoke {
         ), shortcutControl.focus.current == .transcript else {
             throw Failure.reviewShortcutActionChanged
         }
+
+        try runStagedReviews()
 
         var noReviewControl = AgenticConversationControl(
             snapshot: AgenticConversationSmoke.fixture()
@@ -209,6 +212,73 @@ enum AgenticConversationRunReviewSmoke {
 
         guard control.focus.current == .transcript else {
             throw Failure.reviewDidNotCloseAfterAction
+        }
+    }
+
+    /// One staged review per worker: `]` steps between them, and deciding
+    /// one keeps the menu open on the next.
+    static func runStagedReviews() throws {
+        func review(_ worker: String) -> AgenticHostConsoleInterruptionPresentation {
+            .init(
+                id: "staged-\(worker)",
+                runID: "conversation-run",
+                stepID: "staged-\(worker)",
+                kind: .publication,
+                title: "Staged · \(worker)",
+                summary: "\(worker) staged 1 file",
+                actions: [.publish, .discard, .skip]
+            )
+        }
+        func diff(_ worker: String) -> AgenticHostConsoleDocumentPresentation {
+            .init(
+                id: "staged-\(worker)-diff",
+                runID: "conversation-run",
+                stepID: "staged-\(worker)",
+                kind: .diff,
+                title: "Staged · \(worker)",
+                body: "+\(worker) change"
+            )
+        }
+        var snapshot = AgenticConversationSmoke.fixture()
+        snapshot.hostConsole = AgenticHostConsoleSnapshot(
+            runs: [.init(id: "conversation-run", title: "Delegating", state: .completed)],
+            interruptions: [review("implementer"), review("tester")],
+            documents: [diff("implementer"), diff("tester")]
+        )
+        var control = AgenticConversationControl(snapshot: snapshot)
+        _ = control.handle(.escape)
+        _ = control.handle(.escape)
+        _ = control.handle(.char("a"))
+        func shown() -> String {
+            var frame = TerminalFrame(rows: 30, columns: 100)
+            control.render(into: &frame, in: TerminalRegion(rows: 30, columns: 100))
+            return frame.spans.map(\.content).joined(separator: "\n")
+        }
+        guard control.focus.current == .runReview,
+              shown().contains("Staged · implementer · 1 of 2") else {
+            throw Failure.stagedReviewsChanged
+        }
+        _ = control.handle(.char("]"))
+        guard shown().contains("Staged · tester · 2 of 2") else {
+            throw Failure.stagedReviewsChanged
+        }
+        // Diff, then Publish.
+        _ = control.handle(.char("j"))
+        guard control.handle(.enter) == .run(.actionRequested(
+            interruptionID: "staged-tester",
+            runID: "conversation-run",
+            stepID: "staged-tester",
+            action: .publish
+        )), control.focus.current == .runReview else {
+            throw Failure.stagedReviewsChanged
+        }
+        snapshot.hostConsole.interruptions.removeAll { $0.id == "staged-tester" }
+        snapshot.hostConsole.documents.removeAll { $0.stepID == "staged-tester" }
+        control.update(snapshot)
+        guard control.focus.current == .runReview,
+              shown().contains("Staged · implementer"),
+              !shown().contains("of 2") else {
+            throw Failure.stagedReviewsChanged
         }
     }
 }

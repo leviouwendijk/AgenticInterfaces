@@ -1295,8 +1295,12 @@ private extension AgenticConversationControl {
             let stepID,
             let action
         ):
-            self.runReview = nil
-            _ = focus.pop()
+            // Deciding one of several staged reviews keeps the menu open;
+            // the next one takes its place once this one is gone.
+            if runReview.position == nil || (action != .publish && action != .discard) {
+                self.runReview = nil
+                _ = focus.pop()
+            }
 
             return .run(
                 .actionRequested(

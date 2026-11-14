@@ -306,7 +306,8 @@ public struct AgenticConversationRunCardPresentation:
         )
     }
 
-    /// The delegation tree, one line per Agent: `├ ● implementer  running`.
+    /// The delegation tree, one line per Agent:
+    /// `├ ● implementer  running · deepseek-v4-flash · iteration 3/12`.
     static func agentLines(
         _ agents: [AgenticHostConsoleAgentPresentation]
     ) -> [String] {
@@ -330,12 +331,9 @@ public struct AgenticConversationRunCardPresentation:
                 }
                 prefix += continues(after: index, depth: agent.depth) ? "├ " : "└ "
             }
-            var line = prefix + agent.state.mark + " " + agent.title + "  " + agent.state.title
-            if let detail = agent.detail?.split(separator: "\n").first, !detail.isEmpty {
-                let limit = 48
-                line += " · " + (detail.count > limit ? detail.prefix(limit - 1) + "…" : String(detail))
-            }
-            return line
+            let usage = agent.usageLine
+            return prefix + agent.state.mark + " " + agent.title + "  " + agent.state.title
+                + (usage.isEmpty ? "" : " · " + usage)
         }
     }
 
