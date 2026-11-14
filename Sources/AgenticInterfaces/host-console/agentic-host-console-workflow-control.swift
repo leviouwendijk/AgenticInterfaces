@@ -1636,14 +1636,16 @@ private extension AgenticHostConsoleWorkflowControl {
              .continue_run,
              .create_fix_branch,
              .run_limit_continue,
-             .run_limit_unlimited:
+             .run_limit_unlimited,
+             .publish:
             return TerminalStyle.bold.apply(
                 text
             )
 
         case .deny,
              .stop_run,
-             .run_limit_stop:
+             .run_limit_stop,
+             .discard:
             return TerminalStyle(
                 .red
             ).apply(
@@ -1672,6 +1674,9 @@ private extension AgenticHostConsoleInterruptionKind {
 
         case .run_limit:
             return "run limit reached"
+
+        case .publication:
+            return "staged changes awaiting review"
         }
     }
 }

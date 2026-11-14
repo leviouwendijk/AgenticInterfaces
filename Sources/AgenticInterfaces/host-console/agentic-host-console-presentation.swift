@@ -118,6 +118,8 @@ public enum AgenticHostConsoleInterruptionKind:
     case workspace_access
     case recovery
     case run_limit
+    /// Changes staged by finished work, awaiting publication.
+    case publication
 }
 
 public enum AgenticHostConsoleAction:
@@ -137,6 +139,8 @@ public enum AgenticHostConsoleAction:
     case run_limit_continue(iterations: Int)
     case run_limit_unlimited
     case run_limit_stop
+    case publish
+    case discard
 
     public var id: String {
         switch self {
@@ -164,6 +168,10 @@ public enum AgenticHostConsoleAction:
             return "run_limit_unlimited"
         case .run_limit_stop:
             return "run_limit_stop"
+        case .publish:
+            return "publish"
+        case .discard:
+            return "discard"
         }
     }
 
@@ -197,6 +205,10 @@ public enum AgenticHostConsoleAction:
             return "Remove iteration limit"
         case .run_limit_stop:
             return "Stop run"
+        case .publish:
+            return "Publish"
+        case .discard:
+            return "Discard"
         }
     }
 
@@ -226,6 +238,10 @@ public enum AgenticHostConsoleAction:
             return "Remove the iteration limit and continue the same checkpoint."
         case .run_limit_stop:
             return "Stop this run without converting the limit into a failure."
+        case .publish:
+            return "Write the reviewed staged changes to disk."
+        case .discard:
+            return "Withdraw the reviewed staged changes and release their files."
         }
     }
 }

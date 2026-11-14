@@ -349,6 +349,8 @@ public struct AgenticConversationRunCardPresentation:
             switch interruption.kind {
             case .approval, .workspace_access, .run_limit:
                 return "a review · Enter inspect"
+            case .publication:
+                return "staged changes · Enter to review"
             case .recovery:
                 return "Enter for run details"
             }

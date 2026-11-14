@@ -304,7 +304,8 @@ private extension AgenticConversationRunReviewControl {
         switch kind {
         case .approval,
              .workspace_access,
-             .run_limit:
+             .run_limit,
+             .publication:
             return true
 
         case .recovery:
@@ -345,7 +346,9 @@ private extension AgenticConversationRunReviewControl {
                      .grant_for_session,
                      .run_limit_continue,
                      .run_limit_unlimited,
-                     .run_limit_stop:
+                     .run_limit_stop,
+                     .publish,
+                     .discard:
                     return .action(
                         action
                     )
