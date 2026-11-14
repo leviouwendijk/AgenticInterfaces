@@ -1317,6 +1317,8 @@ private extension AgenticConversationControl {
         pendingSubmission != nil
             || snapshot.pendingUserInput != nil
             || snapshot.hostConsole.runs.contains { run in
+                // A worker's run is settled through its delegator's.
+                guard run.parentID == nil else { return false }
                 switch run.state {
                 case .interrupted,
                      .completed,
