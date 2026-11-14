@@ -90,6 +90,9 @@ public struct AgenticHostConsoleRunPresentation:
     public var state: AgenticHostConsoleRunState
     public var iteration: Int?
     public var steps: [AgenticHostConsoleStepPresentation]
+    /// The run's Agent and its delegated workers, parents before their
+    /// children; empty when the run delegated nothing.
+    public var agents: [AgenticHostConsoleAgentPresentation]
 
     public init(
         id: String,
@@ -97,7 +100,8 @@ public struct AgenticHostConsoleRunPresentation:
         summary: String? = nil,
         state: AgenticHostConsoleRunState,
         iteration: Int? = nil,
-        steps: [AgenticHostConsoleStepPresentation] = []
+        steps: [AgenticHostConsoleStepPresentation] = [],
+        agents: [AgenticHostConsoleAgentPresentation] = []
     ) {
         self.id = id
         self.title = title
@@ -105,6 +109,89 @@ public struct AgenticHostConsoleRunPresentation:
         self.state = state
         self.iteration = iteration
         self.steps = steps
+        self.agents = agents
+    }
+}
+
+public enum AgenticHostConsoleAgentState:
+    String,
+    Sendable,
+    Codable,
+    Hashable
+{
+    case queued
+    case running
+    /// Suspended until its own workers settle.
+    case waiting
+    case awaitingReview
+    case awaitingInput
+    case completed
+    case interrupted
+    case failed
+
+    public var mark: String {
+        switch self {
+        case .queued: "○"
+        case .running: "●"
+        case .waiting: "◌"
+        case .awaitingReview, .awaitingInput: "!"
+        case .completed: "✓"
+        case .interrupted: "■"
+        case .failed: "✗"
+        }
+    }
+
+    public var title: String {
+        switch self {
+        case .queued: "queued"
+        case .running: "running"
+        case .waiting: "waiting on workers"
+        case .awaitingReview: "awaiting review"
+        case .awaitingInput: "awaiting input"
+        case .completed: "done"
+        case .interrupted: "interrupted"
+        case .failed: "failed"
+        }
+    }
+
+    public var isSettled: Bool {
+        switch self {
+        case .completed, .interrupted, .failed: true
+        default: false
+        }
+    }
+}
+
+/// One Agent in a run's delegation tree.
+public struct AgenticHostConsoleAgentPresentation:
+    Sendable,
+    Codable,
+    Hashable,
+    Identifiable
+{
+    /// The Agent's session; the root's is the run's.
+    public var id: String
+    public var parentID: String?
+    public var depth: Int
+    public var title: String
+    public var state: AgenticHostConsoleAgentState
+    /// What it was asked to do, e.g. a worker's requested scope.
+    public var detail: String?
+
+    public init(
+        id: String,
+        parentID: String?,
+        depth: Int,
+        title: String,
+        state: AgenticHostConsoleAgentState,
+        detail: String? = nil
+    ) {
+        self.id = id
+        self.parentID = parentID
+        self.depth = depth
+        self.title = title
+        self.state = state
+        self.detail = detail
     }
 }
 

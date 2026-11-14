@@ -46,6 +46,8 @@ enum AgenticConversationComposerEvent:
     case focusTranscriptRequested
     case archiveRequested
     case showWorkRequested
+    /// An ex command the editor does not know but the host does.
+    case hostCommandRequested(String)
 }
 
 struct AgenticConversationComposerControl:
@@ -61,6 +63,9 @@ struct AgenticConversationComposerControl:
         AgenticConversationComposerQuitChoice
     >
     private(set) var isQuitConfirmationPresented: Bool
+    /// Ex commands, without `:`, forwarded to the host instead of
+    /// rejected as unknown editor commands.
+    var hostCommands: Set<String> = []
 
     init(keyConfiguration: AgenticConversationKeyConfiguration = .init()) {
         var keyMap = TerminalKeyMap<
@@ -294,6 +299,11 @@ struct AgenticConversationComposerControl:
             if !isExpanded {
                 return .focusTranscriptRequested
             }
+
+        case .invalidCommand(let command)?
+            where hostCommands.contains(command):
+            surface.setCommandStatus(":" + command)
+            return .hostCommandRequested(command)
 
         case .changed?,
              .copyRequested(_)?,

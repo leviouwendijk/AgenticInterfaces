@@ -55,11 +55,14 @@ enum AgenticConversationScrollingSmoke {
             throw Failure.visibleCopy
         }
         _ = control.handle(.home)
-        _ = render(&control)
-        // Body of the first message occupies row 4 with two cells of indentation.
-        _ = control.handle(.mouse(.init(kind: .press, row: 4, column: 2)))
-        _ = control.handle(.mouse(.init(kind: .drag, row: 4, column: 6)))
-        _ = control.handle(.mouse(.init(kind: .release, row: 4, column: 6)))
+        let homeFrame = render(&control)
+        // The first message's body, two cells of indentation in.
+        guard let bodyRow = homeFrame.spans.first(where: { $0.content.hasPrefix("  First message") })?.row else {
+            throw Failure.selectionCopy
+        }
+        _ = control.handle(.mouse(.init(kind: .press, row: bodyRow, column: 2)))
+        _ = control.handle(.mouse(.init(kind: .drag, row: bodyRow, column: 6)))
+        _ = control.handle(.mouse(.init(kind: .release, row: bodyRow, column: 6)))
         _ = render(&control)
         guard control.handle(.char("y")) == .copyRequested(text: "First", title: "selection"),
               control.handle(.control("C")) == .copyRequested(text: "First", title: "selection") else {

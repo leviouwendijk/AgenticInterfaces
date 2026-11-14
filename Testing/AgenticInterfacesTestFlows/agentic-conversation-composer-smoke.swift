@@ -217,6 +217,17 @@ enum AgenticConversationComposerSmoke {
             throw Failure.invalidCommandStatusChanged
         }
 
+        control.hostCommands = ["publish"]
+        _ = control.handle(.char(":"))
+        for character in "publish" {
+            _ = control.handle(.char(String(character)))
+        }
+        guard control.handle(.enter) == .hostCommandRequested("publish"),
+              !rendered(control).contains("E492")
+        else {
+            throw Failure.invalidCommandStatusChanged
+        }
+
         enterCommand(
             "q",
             in: &control

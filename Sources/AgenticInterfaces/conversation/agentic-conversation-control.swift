@@ -21,6 +21,8 @@ public enum AgenticConversationFocus: Sendable, Hashable {
 public enum AgenticConversationEvent: Sendable, Hashable {
     case archiveRequested
     case showWorkRequested
+    /// `:command` from the composer, for one of `hostCommands`.
+    case hostCommandRequested(String)
     case voiceStartRequested
     case voiceStopRequested
     case voiceCancelRequested
@@ -761,6 +763,9 @@ private extension AgenticConversationControl {
 
         case .showWorkRequested?:
             return .showWorkRequested
+
+        case .hostCommandRequested(let command)?:
+            return .hostCommandRequested(command)
 
         case nil:
             return nil
@@ -1619,7 +1624,7 @@ private extension AgenticConversationControl {
         let vertical = TerminalLayout.vertical(
             in: region,
             [
-                .fixed(3),
+                .fixed(4),
                 .flex(1),
                 .fixed(controlRows),
                 .fixed(1),
@@ -1658,11 +1663,12 @@ private extension AgenticConversationControl {
             [
                 TerminalStyle.bold.apply(snapshot.title),
                 TerminalStyle.dim.apply(
-                    "\(snapshot.workspace) · \(modelTitle) · \(snapshot.visibleCapabilities.tools.count) visible tools · \(instructionTitle)"
+                    "\(modelTitle) · \(snapshot.visibleCapabilities.tools.count) visible tools · \(instructionTitle)"
                 ),
                 [activity, TerminalStyle.dim.apply(snapshot.usage.shortSummary)]
                     .filter { !$0.isEmpty }
                     .joined(separator: " · "),
+                TerminalStyle.dim.apply(snapshot.workspace),
             ],
             in: vertical[0]
         )
@@ -2560,5 +2566,13 @@ public extension AgenticConversationControl {
         runReview = review
         focus.push(.runReview)
         return true
+    }
+}
+
+public extension AgenticConversationControl {
+    /// Ex commands the host handles, without `:`, e.g. `publish`.
+    var hostCommands: Set<String> {
+        get { composer.hostCommands }
+        set { composer.hostCommands = newValue }
     }
 }

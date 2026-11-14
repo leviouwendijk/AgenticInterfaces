@@ -66,6 +66,9 @@ enum AgenticConversationLab {
                 case .showWorkRequested:
                     snapshot.activity = "Work dashboard unavailable in the standalone lab"
                     control.update(snapshot)
+                case .hostCommandRequested(let command):
+                    snapshot.activity = ":\(command) unavailable in the standalone lab"
+                    control.update(snapshot)
                 case .submissionRequested(let submission),
                      .supersedingSubmissionRequested(let submission):
                     let userID = "lab-user-\(nextMessageOrdinal)"

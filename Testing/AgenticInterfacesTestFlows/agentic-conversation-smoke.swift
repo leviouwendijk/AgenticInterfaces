@@ -198,6 +198,45 @@ enum AgenticConversationSmoke {
             throw Failure.runCardProjectionChanged
         }
 
+        let delegatingRun = AgenticHostConsoleRunPresentation(
+            id: "delegating-run",
+            title: "Delegating fixture",
+            state: .awaitingApproval,
+            agents: [
+                .init(id: "delegating-run", parentID: nil, depth: 0, title: "orchestrator", state: .waiting),
+                .init(id: "w1", parentID: "delegating-run", depth: 1, title: "implementer", state: .running, detail: "edit the parser"),
+                .init(id: "w1a", parentID: "w1", depth: 2, title: "reviewer", state: .queued),
+                .init(id: "w2", parentID: "delegating-run", depth: 1, title: "tester", state: .completed),
+            ]
+        )
+        let delegatingCard = AgenticConversationRunCardPresentation.project(
+            run: delegatingRun,
+            hostConsole: AgenticHostConsoleSnapshot(runs: [delegatingRun])
+        )
+        guard delegatingCard.title == "Run · running · 1 of 3 workers",
+              delegatingCard.tone == .active,
+              delegatingCard.body == [
+                "◌ orchestrator  waiting on workers",
+                "├ ● implementer  running · edit the parser",
+                "│ └ ○ reviewer  queued",
+                "└ ✓ tester  done",
+              ].joined(separator: "\n")
+        else {
+            throw Failure.runCardProjectionChanged
+        }
+
+        var reviewingRun = delegatingRun
+        reviewingRun.agents[1].state = .awaitingReview
+        let reviewingCard = AgenticConversationRunCardPresentation.project(
+            run: reviewingRun,
+            hostConsole: AgenticHostConsoleSnapshot(runs: [reviewingRun])
+        )
+        guard reviewingCard.title == "Run · awaiting review · implementer",
+              reviewingCard.tone == .warning
+        else {
+            throw Failure.runCardProjectionChanged
+        }
+
         let toneExpectations: [
             (
                 AgenticHostConsoleRunState,

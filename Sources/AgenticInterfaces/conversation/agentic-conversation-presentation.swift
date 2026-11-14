@@ -243,6 +243,11 @@ public struct AgenticConversationRunCardPresentation:
             )
         }
 
+        let delegates = run.agents.count > 1
+        if delegates {
+            body.append(contentsOf: agentLines(run.agents))
+        }
+
         let summary: String?
         if let interruption {
             summary = interruption.summary
@@ -264,10 +269,32 @@ public struct AgenticConversationRunCardPresentation:
             )
         }
 
+        var cardTitle = title(
+            for: run.state
+        )
+        var cardTone = tone(
+            for: run.state
+        )
+        let workers = run.agents.filter { $0.parentID != nil }
+        if delegates, !isTerminal {
+            // The root's own state lags while its workers run: it is only
+            // republished when the root resumes.
+            let reviewing = workers.first {
+                $0.state == .awaitingReview || $0.state == .awaitingInput
+            }
+            let running = workers.filter { $0.state == .running }.count
+            if interruption != nil || reviewing != nil {
+                cardTitle = "Run · awaiting review"
+                    + (reviewing.map { " · " + $0.title } ?? "")
+                cardTone = .warning
+            } else if running > 0 {
+                cardTitle = "Run · running · \(running) of \(workers.count) workers"
+                cardTone = .active
+            }
+        }
+
         return Self(
-            title: title(
-                for: run.state
-            ),
+            title: cardTitle,
             body: body.joined(
                 separator: "\n"
             ),
@@ -275,10 +302,41 @@ public struct AgenticConversationRunCardPresentation:
                 for: run.state,
                 interruption: interruption
             ),
-            tone: tone(
-                for: run.state
-            )
+            tone: cardTone
         )
+    }
+
+    /// The delegation tree, one line per Agent: `├ ● implementer  running`.
+    static func agentLines(
+        _ agents: [AgenticHostConsoleAgentPresentation]
+    ) -> [String] {
+        // Whether another row at `depth` follows before the tree climbs
+        // above it, i.e. whether that level's branch continues.
+        func continues(after index: Int, depth: Int) -> Bool {
+            for later in agents[(index + 1)...] {
+                if later.depth < depth { return false }
+                if later.depth == depth { return true }
+            }
+            return false
+        }
+        let base = agents.map(\.depth).min() ?? 0
+        return agents.indices.map { index in
+            let agent = agents[index]
+            let depth = agent.depth - base
+            var prefix = ""
+            if depth > 0 {
+                for level in 1..<depth {
+                    prefix += continues(after: index, depth: level + base) ? "│ " : "  "
+                }
+                prefix += continues(after: index, depth: agent.depth) ? "├ " : "└ "
+            }
+            var line = prefix + agent.state.mark + " " + agent.title + "  " + agent.state.title
+            if let detail = agent.detail?.split(separator: "\n").first, !detail.isEmpty {
+                let limit = 48
+                line += " · " + (detail.count > limit ? detail.prefix(limit - 1) + "…" : String(detail))
+            }
+            return line
+        }
     }
 
     private static func tone(
