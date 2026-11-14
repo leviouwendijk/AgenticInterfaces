@@ -2541,3 +2541,24 @@ private extension AgenticConversationControl {
         }
     }
 }
+
+public extension AgenticConversationControl {
+    /// Opens the review of this conversation's staged changes; false when
+    /// the snapshot has none.
+    mutating func openStagedReview() -> Bool {
+        guard let staged = snapshot.hostConsole.interruptions.first(where: {
+            $0.kind == .publication
+        }),
+              let review = AgenticConversationRunReviewControl(
+                  snapshot: snapshot.hostConsole,
+                  runID: staged.runID,
+                  interruptionID: staged.id
+              )
+        else {
+            return false
+        }
+        runReview = review
+        focus.push(.runReview)
+        return true
+    }
+}

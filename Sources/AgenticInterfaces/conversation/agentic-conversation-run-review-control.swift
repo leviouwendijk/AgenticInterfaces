@@ -95,12 +95,15 @@ struct AgenticConversationRunReviewControl:
     private var openedDocumentKind: AgenticHostConsoleDocumentKind?
     private var document: TerminalScrollableDocument
 
+    /// The run's first reviewable interruption, or exactly `interruptionID`.
     init?(
         snapshot: AgenticHostConsoleSnapshot,
-        runID: String
+        runID: String,
+        interruptionID: String? = nil
     ) {
         guard let interruption = snapshot.interruptions.first(where: {
             $0.runID == runID
+                && (interruptionID == nil || $0.id == interruptionID)
                 && Self.isReviewableInterruptionKind(
                     $0.kind
                 )
