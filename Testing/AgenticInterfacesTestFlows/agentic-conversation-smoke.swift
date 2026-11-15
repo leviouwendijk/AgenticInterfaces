@@ -589,6 +589,36 @@ enum AgenticConversationSmoke {
             throw Failure.settingsPresentationMissing
         }
 
+        // Workspace: roots and their restrictions; Enter removes what was
+        // added, through the same `:path rm`.
+        var workspaceSnapshot = fixture()
+        workspaceSnapshot.workingDirectory = "/w/project"
+        workspaceSnapshot.workspaceRoots = [
+            .init(id: "project", label: "project", path: "/w/project", access: "all", source: "configured",
+                  isDefault: true, isRemovable: false),
+            .init(id: "notes", label: "notes", path: "/w/notes", access: "list, read, scan · session", source: "added",
+                  isDefault: false, isRemovable: true,
+                  restrictions: [.init(id: "deny-1", pattern: "*.secret")]),
+        ]
+        var workspaceControl = AgenticConversationControl(snapshot: workspaceSnapshot)
+        _ = workspaceControl.handle(.escape)
+        _ = workspaceControl.handle(.escape)
+        _ = workspaceControl.handle(.char("s"))
+        for _ in 0..<5 { _ = workspaceControl.handle(.char("j")) }
+        _ = workspaceControl.handle(.enter) // Workspace opens
+        _ = workspaceControl.handle(.char("j")) // project
+        guard case .feedbackRequested(let kept)? = workspaceControl.handle(.enter),
+              kept.contains("configured root")
+        else { throw Failure.settingsPresentationMissing }
+        _ = workspaceControl.handle(.char("j")) // notes
+        guard workspaceControl.handle(.enter) == .hostCommandRequested("path rm notes") else {
+            throw Failure.settingsPresentationMissing
+        }
+        _ = workspaceControl.handle(.char("j")) // deny *.secret
+        guard workspaceControl.handle(.enter) == .hostCommandRequested("path rm deny-1") else {
+            throw Failure.settingsPresentationMissing
+        }
+
         // Capabilities fold open by domain, then type; availability and
         // visibility are separate.
         var browserControl = AgenticConversationControl(snapshot: fixture())

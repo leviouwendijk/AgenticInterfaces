@@ -459,6 +459,52 @@ public struct AgenticConversationMessagePresentation: Sendable, Hashable {
     }
 }
 
+/// One workspace root as the conversation shows it.
+public struct AgenticWorkspaceRootPresentation: Sendable, Hashable, Identifiable {
+    public struct Restriction: Sendable, Hashable, Identifiable {
+        public var id: String
+        public var pattern: String
+
+        public init(id: String, pattern: String) {
+            self.id = id
+            self.pattern = pattern
+        }
+    }
+
+    public var id: String
+    public var label: String
+    /// The directory, or the single files it grants.
+    public var path: String
+    /// "list, read, scan · session", or "ask".
+    public var access: String
+    /// "configured", "added", "model request", "settings".
+    public var source: String
+    public var isDefault: Bool
+    /// Configured roots stay; everything added this session can go.
+    public var isRemovable: Bool
+    public var restrictions: [Restriction]
+
+    public init(
+        id: String,
+        label: String,
+        path: String,
+        access: String,
+        source: String,
+        isDefault: Bool,
+        isRemovable: Bool,
+        restrictions: [Restriction] = []
+    ) {
+        self.id = id
+        self.label = label
+        self.path = path
+        self.access = access
+        self.source = source
+        self.isDefault = isDefault
+        self.isRemovable = isRemovable
+        self.restrictions = restrictions
+    }
+}
+
 /// What a message sent while a run is active does. `:queue` sets it.
 public enum AgenticQueuePolicy: String, Sendable, Codable, Hashable, CaseIterable {
     /// Stop the run at the earliest safe boundary, then send.
@@ -593,6 +639,10 @@ public struct AgenticConversationSnapshot: Sendable, Hashable {
     public var usage: AgenticConversationUsagePresentation
     /// What a message sent during a run does.
     public var queuePolicy: AgenticQueuePolicy
+    /// The session's roots, restrictions included; empty until known.
+    public var workspaceRoots: [AgenticWorkspaceRootPresentation] = []
+    /// Where relative paths resolve.
+    public var workingDirectory: String?
 
     public init(
         title: String = "agentic conversation",

@@ -22,7 +22,10 @@ struct AgenticConversationSettingsControl: Sendable {
     }
 
     fileprivate enum RowID: Sendable, Hashable {
-        case model, response, invocationoptions, requesttimeout, autonomy, capabilities, usage
+        case model, response, invocationoptions, requesttimeout, autonomy, capabilities, usage, workspace
+        case workspaceRoot(String)
+        case workspaceRestriction(String)
+        case workspaceAdd
         case usageTokens, usageCost, usageProvenance
         case modelProfile(AgentModelProfileIdentifier)
         case responseDelivery(AgentModelResponseDelivery)
@@ -110,8 +113,22 @@ struct AgenticConversationSettingsControl: Sendable {
     {
         switch id {
         case .model, .response, .invocationoptions, .requesttimeout, .autonomy, .capabilities, .usage,
-             .usageTokens, .usageCost, .usageProvenance, .domain, .type:
+             .usageTokens, .usageCost, .usageProvenance, .domain, .type, .workspace:
             return nil
+        case .workspaceAdd:
+            return .conversation(.feedbackRequested(
+                "Add a root with :path add <dir> [--read|--ask], or a named scope with :paths add <name>."
+            ))
+        case .workspaceRoot(let id):
+            guard snapshot.workspaceRoots.first(where: { $0.id == id })?.isRemovable == true else {
+                return .conversation(.feedbackRequested(
+                    "A configured root stays for the session; change the workspace configuration to remove it."
+                ))
+            }
+            // The same traced operation as typing it.
+            return .conversation(.hostCommandRequested("path rm \(id)"))
+        case .workspaceRestriction(let id):
+            return .conversation(.hostCommandRequested("path rm \(id)"))
         case .capability(let identifier):
             return toggle(identifier, availability: false, snapshot: &snapshot)
         case .modelProfile(let identifier):
@@ -257,8 +274,66 @@ private extension AgenticConversationSettingsControl {
                 ),
                 children: capabilities
             ),
+            workspaceSection(snapshot),
             section(.usage, "Usage", value: snapshot.usage.shortSummary, usageRows(snapshot.usage)),
         ])
+    }
+
+    /// Roots with their restrictions; Enter removes what was added this
+    /// session, through the same `:path rm` as typing it.
+    static func workspaceSection(
+        _ snapshot: AgenticConversationSnapshot
+    ) -> Node {
+        // Roots and their restrictions are sibling rows, so Enter acts on
+        // each instead of folding a root open.
+        let roots = snapshot.workspaceRoots.flatMap { root -> [Node] in
+            let rootRow = Node(.init(
+                id: .workspaceRoot(root.id),
+                title: (root.isDefault ? "* " : "") + root.label,
+                value: "\(root.access) · \(root.source)",
+                detail: .init(
+                    title: root.label,
+                    fields: [
+                        .init("path", root.path),
+                        .init("access", root.access),
+                        .init("source", root.source),
+                        .init("restrictions", "\(root.restrictions.count)"),
+                    ],
+                    body: root.isRemovable
+                        ? "Enter removes this root (:path rm \(root.id)), with its restrictions."
+                        : "A configured root; it stays for the session."
+                ),
+                keywords: root.path
+            ))
+            return [rootRow] + root.restrictions.map { restriction in
+                Node(.init(
+                    id: .workspaceRestriction(restriction.id),
+                    title: "  deny " + restriction.pattern,
+                    value: root.label,
+                    detail: .init(
+                        title: "deny " + restriction.pattern,
+                        body: "Enter removes this restriction (:path rm \(restriction.pattern))."
+                    )
+                ))
+            }
+        }
+        let add = Node(.init(
+            id: .workspaceAdd,
+            title: "add…",
+            detail: .init(
+                title: "Add to the workspace",
+                body: ":path add <dir|file> [--read|--ask] · :paths add <name> · :path deny <pattern> · :cd <dir>"
+            )
+        ))
+        return Node(
+            .init(
+                id: .workspace,
+                title: "Workspace",
+                value: snapshot.workingDirectory.map { "\(snapshot.workspaceRoots.count) roots · \($0)" }
+                    ?? "\(snapshot.workspaceRoots.count) roots"
+            ),
+            children: roots + [add]
+        )
     }
 
     static func section(
