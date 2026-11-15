@@ -95,6 +95,9 @@ public struct AgenticHostConsoleRunPresentation:
     public var agents: [AgenticHostConsoleAgentPresentation]
     /// For a worker's run, the run of the Agent that delegated to it.
     public var parentID: String?
+    /// What the session holds besides the run: queued messages, a
+    /// requested interrupt, commands issued during it.
+    public var notes: [String]
 
     public init(
         id: String,
@@ -104,7 +107,8 @@ public struct AgenticHostConsoleRunPresentation:
         iteration: Int? = nil,
         steps: [AgenticHostConsoleStepPresentation] = [],
         agents: [AgenticHostConsoleAgentPresentation] = [],
-        parentID: String? = nil
+        parentID: String? = nil,
+        notes: [String] = []
     ) {
         self.id = id
         self.title = title
@@ -114,6 +118,7 @@ public struct AgenticHostConsoleRunPresentation:
         self.steps = steps
         self.agents = agents
         self.parentID = parentID
+        self.notes = notes
     }
 }
 

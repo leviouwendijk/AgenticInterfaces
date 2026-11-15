@@ -228,6 +228,18 @@ enum AgenticConversationSmoke {
             throw Failure.runCardProjectionChanged
         }
 
+        var notedRun = delegatingRun
+        notedRun.notes = ["1 message queued · after the current run", "interrupt requested · after this iteration"]
+        let notedCard = AgenticConversationRunCardPresentation.project(
+            run: notedRun,
+            hostConsole: AgenticHostConsoleSnapshot(runs: [notedRun])
+        )
+        guard notedCard.body.hasSuffix(
+            "1 message queued · after the current run\ninterrupt requested · after this iteration"
+        ) else {
+            throw Failure.runCardProjectionChanged
+        }
+
         var reviewingRun = delegatingRun
         reviewingRun.agents[1].state = .awaitingReview
         let reviewingCard = AgenticConversationRunCardPresentation.project(

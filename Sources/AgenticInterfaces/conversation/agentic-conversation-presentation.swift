@@ -270,6 +270,8 @@ public struct AgenticConversationRunCardPresentation:
             )
         }
 
+        body.append(contentsOf: run.notes)
+
         var cardTitle = title(
             for: run.state
         )
