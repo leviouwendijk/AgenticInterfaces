@@ -70,7 +70,8 @@ enum AgenticConversationLab {
                     snapshot.activity = ":\(command) unavailable in the standalone lab"
                     control.update(snapshot)
                 case .submissionRequested(let submission),
-                     .supersedingSubmissionRequested(let submission):
+                     .supersedingSubmissionRequested(let submission),
+                     .queuedSubmissionRequested(let submission):
                     let userID = "lab-user-\(nextMessageOrdinal)"
                     let assistantID = "lab-assistant-\(nextMessageOrdinal)"
                     nextMessageOrdinal += 1

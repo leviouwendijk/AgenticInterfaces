@@ -169,13 +169,18 @@ enum AgenticConversationPendingSmoke {
             throw Failure.pendingNavigationBlocked
         }
 
-        guard control.handle(
+        // Sending during a run follows the queue policy, never a sheet;
+        // under `next` (not available yet) the message stays in the draft.
+        var steering = control.snapshot
+        steering.queuePolicy = .next
+        control.update(steering)
+        guard case .feedbackRequested? = control.handle(
             TerminalKeyStroke(
                 key: .enter,
                 modifiers: .control
             )
-        ) == nil,
-              control.focus.current == .confirmation,
+        ),
+              control.focus.current == .composer,
               control.draftText == "x",
               control.isResponsePending
         else {
@@ -184,15 +189,10 @@ enum AgenticConversationPendingSmoke {
 
         control.setWorkRunning(false)
         control.setWorkRunning(true)
-        guard control.handle(.control("G")) == .stopRequested,
-              control.focus.current == .confirmation else {
+        guard control.handle(.control("G")) == .stopRequested else {
             throw Failure.globalStopUnavailable
         }
         control.setWorkRunning(false)
-
-        _ = control.handle(
-            .escape
-        )
 
         guard control.focus.current == .composer,
               control.draftText == "x",

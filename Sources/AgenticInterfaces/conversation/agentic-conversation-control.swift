@@ -30,6 +30,8 @@ public enum AgenticConversationEvent: Sendable, Hashable {
     case contentPinned(AgenticConversationContentPresentation)
     case submissionRequested(AgenticConversationSubmission)
     case supersedingSubmissionRequested(AgenticConversationSubmission)
+    /// Sent during a run under `:queue await`: held until the run settles.
+    case queuedSubmissionRequested(AgenticConversationSubmission)
     case stopRequested
     case programInvocationRequested(
         invocation: AgenticConversationProgramInvocation,
@@ -63,9 +65,6 @@ private enum AgenticConversationTranscriptReveal: Sendable {
 private enum AgenticConversationConfirmationPurpose:
     Sendable
 {
-    case supersede(
-        AgenticConversationSubmission
-    )
     case stop(
         runID: String,
         control: AgenticHostConsoleRunControl
@@ -207,6 +206,18 @@ public struct AgenticConversationControl: Sendable {
                 message.role == .assistant
                     && !existing_assistant_ids_at_submission.contains(message.id)
             }
+    }
+
+    /// The draft and the pins the submission took, gone from the composer.
+    private mutating func clearSubmitted(
+        _ submission: AgenticConversationSubmission
+    ) {
+        composer.clearAfterSubmission()
+        draftOrigin = .typed
+        let submittedContentIDs = Set(submission.contents.map(\.id))
+        pendingContents.removeAll { submittedContentIDs.contains($0.id) }
+        excludedPendingContentIDs.formIntersection(Set(pendingContents.map(\.id)))
+        pinnedContent.update(contents: pendingContents)
     }
 
     public mutating func beginPendingTurn(
@@ -798,20 +809,21 @@ private extension AgenticConversationControl {
             autonomyMode: snapshot.selectedAutonomyMode
         )
 
+        // During a run the conversation's queue policy decides, with no
+        // confirmation sheet: the message shows at once, labeled pending.
         if hasUnsettledRun {
-            confirmation = AgenticConversationConfirmationControl(
-                title: "Replace current run?",
-                message: "Sending this message will stop the current run at the earliest safe boundary, preserve already-streamed assistant output, then start this message as the next turn.",
-                confirmTitle: "Stop and send",
-                cancelTitle: "Keep current run"
-            )
-            confirmationPurpose = .supersede(
-                submission
-            )
-            focus.push(
-                .confirmation
-            )
-            return nil
+            switch snapshot.queuePolicy {
+            case .force:
+                clearSubmitted(submission)
+                return .supersedingSubmissionRequested(submission)
+            case .await:
+                clearSubmitted(submission)
+                return .queuedSubmissionRequested(submission)
+            case .next:
+                return .feedbackRequested(
+                    "Steering (:queue next) is not available yet; the message stays in the draft. Use :queue await or :queue force."
+                )
+            }
         }
 
         do {
@@ -1367,29 +1379,6 @@ private extension AgenticConversationControl {
 
         case .confirmed:
             switch purpose {
-            case .supersede(let submission):
-                composer.clearAfterSubmission()
-                draftOrigin = .typed
-
-                let submittedContentIDs = Set(
-                    submission.contents.map(\.id)
-                )
-                pendingContents.removeAll { content in
-                    submittedContentIDs.contains(content.id)
-                }
-                excludedPendingContentIDs.formIntersection(
-                    Set(
-                        pendingContents.map(\.id)
-                    )
-                )
-                pinnedContent.update(
-                    contents: pendingContents
-                )
-
-                return .supersedingSubmissionRequested(
-                    submission
-                )
-
             case .stop(
                 runID: let runID,
                 control: let control
@@ -1858,6 +1847,7 @@ private extension AgenticConversationControl {
                     TerminalDisplay.fitted(label, columns: width)
                 )
                 : TerminalStyle.bold.apply(label)
+                    + (message.pending.map { "  " + TerminalStyle.dim.apply($0) } ?? "")
         )
         let selectedIteration = selectedIterationIndices[message.id].flatMap { index in
             message.iterations.indices.contains(index) ? message.iterations[index] : nil

@@ -1,4 +1,5 @@
 import Agentic
+import Foundation
 
 
 public enum AgenticConversationContentKind: String, Sendable, Hashable {
@@ -435,19 +436,43 @@ public struct AgenticConversationMessagePresentation: Sendable, Hashable {
     public var body: String
     public var attachments: [AgenticConversationAttachmentPresentation]
     public var iterations: [AgenticConversationIterationPresentation]
+    /// Accepted but not yet part of a run, and why, e.g. "pending · after
+    /// the current run". Cleared once the message is applied.
+    public var pending: String?
 
     public init(
         id: String,
         role: MessageRole,
         body: String,
         attachments: [AgenticConversationAttachmentPresentation] = [],
-        iterations: [AgenticConversationIterationPresentation] = []
+        iterations: [AgenticConversationIterationPresentation] = [],
+        pending: String? = nil
     ) {
         self.id = id
         self.role = role
         self.body = body
         self.attachments = attachments
         self.iterations = iterations
+        self.pending = pending
+    }
+}
+
+/// What a message sent while a run is active does. `:queue` sets it.
+public enum AgenticQueuePolicy: String, Sendable, Codable, Hashable, CaseIterable {
+    /// Stop the run at the earliest safe boundary, then send.
+    case force
+    /// Join the run at its next model request (steering).
+    case next
+    /// Send once the run has settled.
+    case await
+
+    /// The pending label of a message held under this policy.
+    public var pendingLabel: String {
+        switch self {
+        case .force: return "pending · stopping the run, then sends"
+        case .next: return "pending · next model request"
+        case .await: return "pending · after the current run"
+        }
     }
 }
 
@@ -486,6 +511,8 @@ public struct AgenticConversationInstructionPresentation: Sendable, Hashable {
 }
 
 public struct AgenticConversationSubmission: Sendable, Hashable {
+    /// Identifies the transcript message a queued submission shows as.
+    public var id: String
     public var body: String
     public var origin: AgenticConversationInputOrigin
     public var contents: [AgenticConversationContentPresentation]
@@ -507,8 +534,10 @@ public struct AgenticConversationSubmission: Sendable, Hashable {
         visibleCapabilities: AgentCapabilitySet = .none,
         responseDelivery: AgentModelResponseDelivery = .stream,
         invocationoptions: AgentModelInvocationOptions = .default,
-        autonomyMode: AutonomyMode = .auto_observe
+        autonomyMode: AutonomyMode = .auto_observe,
+        id: String = UUID().uuidString
     ) {
+        self.id = id
         self.body = body
         self.origin = origin
         self.contents = contents
@@ -560,6 +589,8 @@ public struct AgenticConversationSnapshot: Sendable, Hashable {
     public var visibleCapabilities: AgentCapabilitySet
     public var hostConsole: AgenticHostConsoleSnapshot
     public var usage: AgenticConversationUsagePresentation
+    /// What a message sent during a run does.
+    public var queuePolicy: AgenticQueuePolicy
 
     public init(
         title: String = "agentic conversation",
@@ -582,7 +613,8 @@ public struct AgenticConversationSnapshot: Sendable, Hashable {
         availableCapabilities: AgentCapabilitySet = .none,
         visibleCapabilities: AgentCapabilitySet = .none,
         hostConsole: AgenticHostConsoleSnapshot = .init(),
-        usage: AgenticConversationUsagePresentation = .init()
+        usage: AgenticConversationUsagePresentation = .init(),
+        queuePolicy: AgenticQueuePolicy = .await
     ) {
         self.title = title
         self.workspace = workspace
@@ -605,5 +637,6 @@ public struct AgenticConversationSnapshot: Sendable, Hashable {
         self.visibleCapabilities = visibleCapabilities.intersecting(availableCapabilities)
         self.hostConsole = hostConsole
         self.usage = usage
+        self.queuePolicy = queuePolicy
     }
 }

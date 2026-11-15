@@ -20,6 +20,7 @@ enum AgenticConversationComposerSmoke {
         case leaderNavigationChanged
         case insertLeaderTextChanged
         case completionChanged
+        case queuePolicyChanged
     }
 
     static func run() throws {
@@ -27,6 +28,41 @@ enum AgenticConversationComposerSmoke {
         try runExpandedCommandProbe()
         try runTabProbe()
         try runNavigationProbe()
+        try runQueuePolicyProbe()
+    }
+
+    /// During a run, sending follows the queue policy without a sheet.
+    private static func runQueuePolicyProbe() throws {
+        var control = AgenticConversationControl(snapshot: AgenticConversationSmoke.fixture())
+        control.beginPendingTurn(.init(body: "first", contents: [], preferredModelProfileID: control.snapshot.preferredModelProfileID, instructionIDs: []))
+
+        func send(_ text: String) -> AgenticConversationEvent? {
+            for character in text {
+                _ = control.handle(.char(String(character)))
+            }
+            return control.handle(submitStroke)
+        }
+
+        guard case .queuedSubmissionRequested(let queued)? = send("later"),
+              queued.body == "later",
+              control.draftText.isEmpty,
+              !rendered(control).contains("Replace current run")
+        else { throw Failure.queuePolicyChanged }
+
+        var forced = control.snapshot
+        forced.queuePolicy = .force
+        control.update(forced)
+        guard case .supersedingSubmissionRequested(let replacement)? = send("instead"),
+              replacement.body == "instead"
+        else { throw Failure.queuePolicyChanged }
+
+        var steering = control.snapshot
+        steering.queuePolicy = .next
+        control.update(steering)
+        guard case .feedbackRequested(let message)? = send("steer"),
+              message.contains(":queue next"),
+              control.draftText == "steer"
+        else { throw Failure.queuePolicyChanged }
     }
 
     private static func runCompactAndSubmissionProbe() throws {
