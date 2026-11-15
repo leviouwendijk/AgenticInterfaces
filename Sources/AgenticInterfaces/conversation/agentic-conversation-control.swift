@@ -32,6 +32,8 @@ public enum AgenticConversationEvent: Sendable, Hashable {
     case supersedingSubmissionRequested(AgenticConversationSubmission)
     /// Sent during a run under `:queue await`: held until the run settles.
     case queuedSubmissionRequested(AgenticConversationSubmission)
+    /// Sent during a run under `:queue next`: joins its next model request.
+    case steeringRequested(AgenticConversationSubmission)
     case stopRequested
     case programInvocationRequested(
         invocation: AgenticConversationProgramInvocation,
@@ -820,9 +822,8 @@ private extension AgenticConversationControl {
                 clearSubmitted(submission)
                 return .queuedSubmissionRequested(submission)
             case .next:
-                return .feedbackRequested(
-                    "Steering (:queue next) is not available yet; the message stays in the draft. Use :queue await or :queue force."
-                )
+                clearSubmitted(submission)
+                return .steeringRequested(submission)
             }
         }
 

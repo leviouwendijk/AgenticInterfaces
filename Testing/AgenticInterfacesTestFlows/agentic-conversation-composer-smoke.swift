@@ -59,9 +59,9 @@ enum AgenticConversationComposerSmoke {
         var steering = control.snapshot
         steering.queuePolicy = .next
         control.update(steering)
-        guard case .feedbackRequested(let message)? = send("steer"),
-              message.contains(":queue next"),
-              control.draftText == "steer"
+        guard case .steeringRequested(let steering)? = send("steer"),
+              steering.body == "steer",
+              control.draftText.isEmpty
         else { throw Failure.queuePolicyChanged }
     }
 

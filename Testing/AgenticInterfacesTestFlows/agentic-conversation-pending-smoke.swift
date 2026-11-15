@@ -169,24 +169,6 @@ enum AgenticConversationPendingSmoke {
             throw Failure.pendingNavigationBlocked
         }
 
-        // Sending during a run follows the queue policy, never a sheet;
-        // under `next` (not available yet) the message stays in the draft.
-        var steering = control.snapshot
-        steering.queuePolicy = .next
-        control.update(steering)
-        guard case .feedbackRequested? = control.handle(
-            TerminalKeyStroke(
-                key: .enter,
-                modifiers: .control
-            )
-        ),
-              control.focus.current == .composer,
-              control.draftText == "x",
-              control.isResponsePending
-        else {
-            throw Failure.pendingSupersedeGateMissing
-        }
-
         control.setWorkRunning(false)
         control.setWorkRunning(true)
         guard control.handle(.control("G")) == .stopRequested else {

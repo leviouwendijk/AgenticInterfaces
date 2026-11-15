@@ -71,7 +71,8 @@ enum AgenticConversationLab {
                     control.update(snapshot)
                 case .submissionRequested(let submission),
                      .supersedingSubmissionRequested(let submission),
-                     .queuedSubmissionRequested(let submission):
+                     .queuedSubmissionRequested(let submission),
+                     .steeringRequested(let submission):
                     let userID = "lab-user-\(nextMessageOrdinal)"
                     let assistantID = "lab-assistant-\(nextMessageOrdinal)"
                     nextMessageOrdinal += 1
