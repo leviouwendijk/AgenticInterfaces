@@ -19,6 +19,7 @@ enum AgenticConversationComposerSmoke {
         case exploreNavigationChanged
         case leaderNavigationChanged
         case insertLeaderTextChanged
+        case completionChanged
     }
 
     static func run() throws {
@@ -238,6 +239,30 @@ enum AgenticConversationComposerSmoke {
         else {
             throw Failure.invalidCommandStatusChanged
         }
+
+        // Completion: ctrl-n selects, Enter puts it in place, Enter again runs.
+        control.commandCompleter = { text in
+            guard text.hasPrefix("path add ~/n") else { return nil }
+            return .init(
+                replacing: "~/n".count,
+                candidates: [
+                    .init(text: "~/notes/", title: "notes/"),
+                    .init(text: "~/news/", title: "news/"),
+                ]
+            )
+        }
+        _ = control.handle(.char(":"))
+        for character in "path add ~/n" {
+            _ = control.handle(.char(String(character)))
+        }
+        _ = control.handle(.control("N"))
+        guard rendered(control).contains("› notes/"),
+              control.handle(.enter) == nil,
+              control.handle(.enter) == .hostCommandRequested("path add ~/notes/")
+        else {
+            throw Failure.completionChanged
+        }
+        control.commandCompleter = nil
 
         enterCommand(
             "q",

@@ -2582,4 +2582,10 @@ public extension AgenticConversationControl {
         get { composer.hostCommands }
         set { composer.hostCommands = newValue }
     }
+
+    /// Completes the `:` command line, e.g. paths for `path add`.
+    var commandCompleter: AgenticCommandCompleter? {
+        get { composer.commandCompleter }
+        set { composer.commandCompleter = newValue }
+    }
 }

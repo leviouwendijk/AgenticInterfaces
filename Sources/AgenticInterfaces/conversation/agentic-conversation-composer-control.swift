@@ -66,6 +66,12 @@ struct AgenticConversationComposerControl:
     /// Ex command names, without `:`, forwarded to the host with their
     /// arguments instead of rejected as unknown editor commands.
     var hostCommands: Set<String> = []
+    /// Completes the command line as it is typed; the host supplies it.
+    var commandCompleter: AgenticCommandCompleter?
+    private var completion: AgenticCommandCompletion?
+    private var completionIndex: Int?
+    // The command line's row, from the last render; the list sits above.
+    private var commandLineRow: TerminalRegion?
 
     init(keyConfiguration: AgenticConversationKeyConfiguration = .init()) {
         var keyMap = TerminalKeyMap<
@@ -243,6 +249,12 @@ struct AgenticConversationComposerControl:
     private mutating func handleEditorKey(
         _ key: TerminalKey
     ) -> AgenticConversationComposerEvent? {
+        if surface.commandLine.isActive,
+           let event = handleCompletionKey(key)
+        {
+            return event
+        }
+        defer { refreshCompletion() }
         if key == .control("F"),
            !surface.commandLine.isActive
         {
@@ -333,6 +345,9 @@ struct AgenticConversationComposerControl:
             isFocused: isFocused
                 && !isQuitConfirmationPresented
         )
+        if !isExpanded {
+            commandLineRow = Self.lastRow(of: region)
+        }
         surface.setSurfacePresentation(
             presentation
         )
@@ -348,6 +363,10 @@ struct AgenticConversationComposerControl:
                 in: root
             )
         }
+
+        renderCompletion(
+            into: &frame
+        )
 
         if isQuitConfirmationPresented {
             renderQuitConfirmation(
@@ -426,6 +445,9 @@ private extension AgenticConversationComposerControl {
             content.rows - (showsCommandLine ? 0 : 1)
         )
 
+        if showsCommandLine {
+            commandLineRow = Self.lastRow(of: content)
+        }
         if surfaceRows > 0 {
             surface.render(
                 into: &frame,
@@ -500,6 +522,113 @@ private extension AgenticConversationComposerControl {
                     )
                 )
                 : value
+        }
+    }
+}
+
+private extension AgenticConversationComposerControl {
+    static let completionRows = 8
+
+    static func lastRow(
+        of region: TerminalRegion
+    ) -> TerminalRegion? {
+        guard region.rows > 0 else { return nil }
+        return TerminalRegion(
+            top: region.bottom - 1,
+            leading: region.leading,
+            rows: 1,
+            columns: region.columns
+        )
+    }
+
+    /// ctrl-n / ctrl-p move through the candidates; Enter on one puts it
+    /// in the command line. `.some(nil)` consumes the key.
+    mutating func handleCompletionKey(
+        _ key: TerminalKey
+    ) -> AgenticConversationComposerEvent?? {
+        guard let completion, !completion.candidates.isEmpty else { return nil }
+        let count = completion.candidates.count
+
+        switch key {
+        case .control("N"), .down:
+            completionIndex = completionIndex.map { ($0 + 1) % count } ?? 0
+            return .some(nil)
+
+        case .control("P"), .up:
+            completionIndex = completionIndex.map { ($0 + count - 1) % count } ?? count - 1
+            return .some(nil)
+
+        case .enter:
+            guard let index = completionIndex else { return nil }
+            let text = surface.commandLine.text
+            surface.replaceCommandLine(
+                String(text.dropLast(completion.replacing))
+                    + completion.candidates[index].text
+            )
+            // Accepted: the next Enter runs the command unless a new
+            // candidate is selected.
+            self.completion = nil
+            refreshCompletion()
+            return .some(nil)
+
+        default:
+            return nil
+        }
+    }
+
+    mutating func refreshCompletion() {
+        guard surface.commandLine.isActive, let commandCompleter else {
+            completion = nil
+            completionIndex = nil
+            return
+        }
+        let next = commandCompleter(surface.commandLine.text)
+        if next != completion {
+            completion = next
+            completionIndex = nil
+        }
+    }
+
+    func renderCompletion(
+        into frame: inout TerminalFrame
+    ) {
+        guard surface.commandLine.isActive,
+              let completion,
+              !completion.candidates.isEmpty,
+              let anchor = commandLineRow
+        else { return }
+
+        let rows = min(Self.completionRows, completion.candidates.count, anchor.top)
+        guard rows > 0 else { return }
+        // Keep the selection in view.
+        let selected = completionIndex ?? 0
+        let first = min(
+            max(0, selected - rows + 1),
+            completion.candidates.count - rows
+        )
+        let width = min(
+            anchor.columns,
+            (completion.candidates.map { TerminalDisplay.width(of: $0.title) }.max() ?? 0) + 4
+        )
+
+        for row in 0..<rows {
+            let index = first + row
+            let candidate = completion.candidates[index]
+            let isSelected = index == completionIndex
+            let line = TerminalDisplay.clipped(
+                (isSelected ? "› " : "  ") + candidate.title,
+                columns: width
+            )
+            let padded = line + String(repeating: " ", count: max(0, width - TerminalDisplay.width(of: line)))
+            frame.write(
+                isSelected ? TerminalStyle.bold.apply(padded) : TerminalStyle.dim.apply(padded),
+                in: TerminalRegion(
+                    top: anchor.top - rows + row,
+                    leading: anchor.leading,
+                    rows: 1,
+                    columns: width
+                )
+            )
         }
     }
 }
