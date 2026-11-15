@@ -63,8 +63,8 @@ struct AgenticConversationComposerControl:
         AgenticConversationComposerQuitChoice
     >
     private(set) var isQuitConfirmationPresented: Bool
-    /// Ex commands, without `:`, forwarded to the host instead of
-    /// rejected as unknown editor commands.
+    /// Ex command names, without `:`, forwarded to the host with their
+    /// arguments instead of rejected as unknown editor commands.
     var hostCommands: Set<String> = []
 
     init(keyConfiguration: AgenticConversationKeyConfiguration = .init()) {
@@ -301,7 +301,9 @@ struct AgenticConversationComposerControl:
             }
 
         case .invalidCommand(let command)?
-            where hostCommands.contains(command):
+            where hostCommands.contains(
+                command.split(separator: " ", maxSplits: 1).first.map(String.init) ?? command
+            ):
             surface.setCommandStatus(":" + command)
             return .hostCommandRequested(command)
 

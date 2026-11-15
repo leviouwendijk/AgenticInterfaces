@@ -228,6 +228,17 @@ enum AgenticConversationComposerSmoke {
             throw Failure.invalidCommandStatusChanged
         }
 
+        control.hostCommands = ["path"]
+        _ = control.handle(.char(":"))
+        for character in "path add ~/notes --read" {
+            _ = control.handle(.char(String(character)))
+        }
+        guard control.handle(.enter) == .hostCommandRequested("path add ~/notes --read"),
+              !rendered(control).contains("E492")
+        else {
+            throw Failure.invalidCommandStatusChanged
+        }
+
         enterCommand(
             "q",
             in: &control

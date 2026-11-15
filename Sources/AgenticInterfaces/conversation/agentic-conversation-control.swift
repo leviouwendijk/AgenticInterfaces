@@ -21,7 +21,8 @@ public enum AgenticConversationFocus: Sendable, Hashable {
 public enum AgenticConversationEvent: Sendable, Hashable {
     case archiveRequested
     case showWorkRequested
-    /// `:command` from the composer, for one of `hostCommands`.
+    /// `:command args` from the composer, as typed without `:`, whose
+    /// name is one of `hostCommands`.
     case hostCommandRequested(String)
     case voiceStartRequested
     case voiceStopRequested
