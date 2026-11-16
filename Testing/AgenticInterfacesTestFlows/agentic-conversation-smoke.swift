@@ -1030,6 +1030,46 @@ enum AgenticConversationSmoke {
             throw Failure.presentationMissing("command trace")
         }
 
+        // A context change is shown where it happened, never silently.
+        var changeSnapshot = fixture()
+        changeSnapshot.messages = [
+            .init(
+                id: "change-context",
+                role: .system,
+                body: "context · 2 results shortened",
+                attachments: [.change(.init(
+                    id: "change-1",
+                    kind: .context,
+                    runID: "run-1",
+                    iteration: 3,
+                    summary: "2 results shortened",
+                    reason: AgenticChangePresentation.contextReason("repeated_result"),
+                    items: [
+                        .init(id: "a", subject: "read_file · call_9", detail: "→ see call_4", isRecoverable: true),
+                        .init(id: "b", subject: "read_file · call_10", detail: "→ see call_5", isRecoverable: true),
+                    ],
+                    isLossy: true
+                ))]
+            ),
+        ]
+        var changeControl = AgenticConversationControl(snapshot: changeSnapshot)
+        _ = changeControl.handle(.escape)
+        _ = changeControl.handle(.escape)
+        var changeFrame = TerminalFrame(rows: 22, columns: 80)
+        changeControl.render(into: &changeFrame, in: TerminalRegion(rows: 22, columns: 80))
+        let changeCard = stripANSI(changeFrame.resolved().spans.map(\.content).joined(separator: "\n"))
+        guard changeCard.contains("context · 2 results shortened · iteration 3"),
+              changeCard.contains("replaced by a pointer"),
+              changeCard.contains("read_file · call_9")
+        else {
+            throw Failure.presentationMissing("change card: \(changeCard)")
+        }
+        guard case .change(let change) = changeSnapshot.messages[0].attachments[0],
+              change.detailsBody.contains("call_10  → see call_5  · recoverable")
+        else {
+            throw Failure.presentationMissing("change details")
+        }
+
         var iterationSnapshot = fixture()
         iterationSnapshot.messages = [
             AgenticConversationMessagePresentation(

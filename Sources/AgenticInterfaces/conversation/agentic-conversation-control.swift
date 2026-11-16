@@ -1119,6 +1119,7 @@ private extension AgenticConversationControl {
             case .content(let content): source = content.body
             case .program(let program): source = program.detailsBody
             case .command(let command): source = command.detailsBody
+            case .change(let change): source = change.detailsBody
             default: source = nil
             }
             return .copyRequested(
@@ -1876,8 +1877,10 @@ private extension AgenticConversationControl {
         }
         let displayedBody = earlierIteration ?? message.body
         let showsCommand = message.attachments.contains {
-            if case .command = $0 { return true }
-            return false
+            switch $0 {
+            case .command, .change: return true
+            default: return false
+            }
         }
         if showsCommand {
             // The command's card carries its text and outcome.
@@ -1922,6 +1925,30 @@ private extension AgenticConversationControl {
 
             case .trace:
                 lines.append(TerminalStyle.dim.apply("  [Execution trace · Enter to inspect]"))
+
+            case .change(let change):
+                let block = TerminalInteractiveBlock(
+                    title: change.transcriptTitle,
+                    body: change.transcriptBody,
+                    hint: "Enter for every item",
+                    state: TerminalInteractiveBlock.resolvedState(
+                        isFocused: selected
+                    ),
+                    style: runCardStyle(
+                        for: change.isLossy ? .warning : .neutral
+                    )
+                )
+                let blockStart = lines.count
+                lines.append(
+                    contentsOf: block.render(
+                        width: bodyWidth
+                    ).map { line in
+                        "  " + line
+                    }
+                )
+                nestedInteractiveRows.formUnion(
+                    blockStart..<lines.count
+                )
 
             case .command(let command):
                 let block = TerminalInteractiveBlock(
@@ -2277,6 +2304,13 @@ private extension AgenticConversationControl {
             }
             attachmentDocument.update(
                 text: lines.joined(separator: "\n"),
+                columns: body.columns,
+                visibleRows: body.rows,
+                wrapping: .word
+            )
+        case .change(let change):
+            attachmentDocument.update(
+                text: change.detailsBody,
                 columns: body.columns,
                 visibleRows: body.rows,
                 wrapping: .word

@@ -63,6 +63,7 @@ public enum AgenticConversationAttachmentPresentation: Sendable, Hashable {
     case trace(runID: String)
     case run(runID: String)
     case command(AgenticCommandOutcomePresentation)
+    case change(AgenticChangePresentation)
 
     public var id: String {
         switch self {
@@ -78,6 +79,8 @@ public enum AgenticConversationAttachmentPresentation: Sendable, Hashable {
             return runID
         case .command(let command):
             return command.id
+        case .change(let change):
+            return change.id
         }
     }
 
@@ -95,6 +98,8 @@ public enum AgenticConversationAttachmentPresentation: Sendable, Hashable {
             return hostConsole.runs.first { $0.id == runID }?.title ?? "Run"
         case .command(let command):
             return command.transcriptTitle
+        case .change(let change):
+            return change.transcriptTitle
         }
     }
 
@@ -115,6 +120,8 @@ public enum AgenticConversationAttachmentPresentation: Sendable, Hashable {
             return "run · \(runID) · \(run.state.rawValue)"
         case .command(let command):
             return "command · \(command.isRefused ? "refused" : "done") · \(command.trace.count) traced"
+        case .change(let change):
+            return "change · \(change.kind.title) · \(change.items.count) items"
         }
     }
 }
