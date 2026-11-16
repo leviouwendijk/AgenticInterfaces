@@ -994,6 +994,42 @@ enum AgenticConversationSmoke {
             throw Failure.presentationMissing("selection:follow_fifth")
         }
 
+        // A command leaves one card: outcome, what the model will see of
+        // it, and the Host's trace behind Enter.
+        var commandSnapshot = fixture()
+        commandSnapshot.messages = [
+            .init(
+                id: "command-path",
+                role: .system,
+                body: ":path add notes\nadded notes",
+                attachments: [.command(.init(
+                    id: "command-path-outcome",
+                    command: "path add notes",
+                    outcome: "added notes  /w/notes · list, read · session",
+                    contextEffect: .note,
+                    trace: ["operator_command  :path add notes → added notes", "workspace_changed  added notes"]
+                ))]
+            ),
+        ]
+        var commandControl = AgenticConversationControl(snapshot: commandSnapshot)
+        _ = commandControl.handle(.escape)
+        _ = commandControl.handle(.escape)
+        var commandFrame = TerminalFrame(rows: 22, columns: 80)
+        commandControl.render(into: &commandFrame, in: TerminalRegion(rows: 22, columns: 80))
+        let commandCard = stripANSI(commandFrame.resolved().spans.map(\.content).joined(separator: "\n"))
+        guard commandCard.contains(":path add notes"),
+              commandCard.contains("added notes  /w/notes"),
+              commandCard.contains("the next request opens with a note"),
+              commandCard.components(separatedBy: ":path add notes").count == 2
+        else {
+            throw Failure.presentationMissing("command card: \(commandCard)")
+        }
+        guard case .command(let outcome) = commandSnapshot.messages[0].attachments[0],
+              outcome.detailsBody.contains("workspace_changed  added notes")
+        else {
+            throw Failure.presentationMissing("command trace")
+        }
+
         var iterationSnapshot = fixture()
         iterationSnapshot.messages = [
             AgenticConversationMessagePresentation(

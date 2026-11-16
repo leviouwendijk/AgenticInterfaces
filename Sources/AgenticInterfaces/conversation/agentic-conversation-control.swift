@@ -1118,6 +1118,7 @@ private extension AgenticConversationControl {
             switch currentAttachment {
             case .content(let content): source = content.body
             case .program(let program): source = program.detailsBody
+            case .command(let command): source = command.detailsBody
             default: source = nil
             }
             return .copyRequested(
@@ -1874,7 +1875,13 @@ private extension AgenticConversationControl {
                 : (selected.assistantBody ?? selected.events.joined(separator: "\n"))
         }
         let displayedBody = earlierIteration ?? message.body
-        if message.role == .assistant {
+        let showsCommand = message.attachments.contains {
+            if case .command = $0 { return true }
+            return false
+        }
+        if showsCommand {
+            // The command's card carries its text and outcome.
+        } else if message.role == .assistant {
             let structured = MarkdownStructuredContentParser.parse(
                 displayedBody
             )
@@ -1915,6 +1922,30 @@ private extension AgenticConversationControl {
 
             case .trace:
                 lines.append(TerminalStyle.dim.apply("  [Execution trace · Enter to inspect]"))
+
+            case .command(let command):
+                let block = TerminalInteractiveBlock(
+                    title: command.transcriptTitle,
+                    body: command.transcriptBody,
+                    hint: "Enter for the trace",
+                    state: TerminalInteractiveBlock.resolvedState(
+                        isFocused: selected
+                    ),
+                    style: runCardStyle(
+                        for: command.isRefused ? .failure : .neutral
+                    )
+                )
+                let blockStart = lines.count
+                lines.append(
+                    contentsOf: block.render(
+                        width: bodyWidth
+                    ).map { line in
+                        "  " + line
+                    }
+                )
+                nestedInteractiveRows.formUnion(
+                    blockStart..<lines.count
+                )
 
             case .program(let program):
                 let tone: AgenticConversationRunCardTone
@@ -2246,6 +2277,13 @@ private extension AgenticConversationControl {
             }
             attachmentDocument.update(
                 text: lines.joined(separator: "\n"),
+                columns: body.columns,
+                visibleRows: body.rows,
+                wrapping: .word
+            )
+        case .command(let command):
+            attachmentDocument.update(
+                text: command.detailsBody,
                 columns: body.columns,
                 visibleRows: body.rows,
                 wrapping: .word

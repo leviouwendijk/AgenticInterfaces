@@ -62,6 +62,7 @@ public enum AgenticConversationAttachmentPresentation: Sendable, Hashable {
     case structured(AgenticConversationStructuredPresentation)
     case trace(runID: String)
     case run(runID: String)
+    case command(AgenticCommandOutcomePresentation)
 
     public var id: String {
         switch self {
@@ -75,6 +76,8 @@ public enum AgenticConversationAttachmentPresentation: Sendable, Hashable {
             return "trace-" + runID
         case .run(let runID):
             return runID
+        case .command(let command):
+            return command.id
         }
     }
 
@@ -90,6 +93,8 @@ public enum AgenticConversationAttachmentPresentation: Sendable, Hashable {
             return "Execution trace"
         case .run(let runID):
             return hostConsole.runs.first { $0.id == runID }?.title ?? "Run"
+        case .command(let command):
+            return command.transcriptTitle
         }
     }
 
@@ -108,6 +113,8 @@ public enum AgenticConversationAttachmentPresentation: Sendable, Hashable {
                 return "run · \(runID) · unavailable"
             }
             return "run · \(runID) · \(run.state.rawValue)"
+        case .command(let command):
+            return "command · \(command.isRefused ? "refused" : "done") · \(command.trace.count) traced"
         }
     }
 }
