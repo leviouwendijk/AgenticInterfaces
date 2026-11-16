@@ -405,6 +405,7 @@ private extension AgenticConversationRunReviewControl {
                      .run_limit_continue,
                      .run_limit_unlimited,
                      .run_limit_stop,
+                     .compact_and_continue,
                      .publish,
                      .discard:
                     return .action(

@@ -1637,6 +1637,7 @@ private extension AgenticHostConsoleWorkflowControl {
              .create_fix_branch,
              .run_limit_continue,
              .run_limit_unlimited,
+             .compact_and_continue,
              .publish:
             return TerminalStyle.bold.apply(
                 text
