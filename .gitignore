@@ -7,3 +7,8 @@ DerivedData/
 .swiftpm/xcode/package.xcworkspace/contents.xcworkspacedata
 .netrc
 .conany
+
+# auto-added ignorables:
+compiled.pkl
+/compiled.pkl
+**/compiled.pkl

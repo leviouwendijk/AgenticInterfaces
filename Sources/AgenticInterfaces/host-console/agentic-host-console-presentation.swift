@@ -265,6 +265,10 @@ public enum AgenticHostConsoleAction:
     case compact_and_continue
     case publish
     case discard
+    /// A written change, reviewed: it stays.
+    case keep
+    /// A written change, reviewed: undone from its recorded pre-image.
+    case roll_back
 
     public var id: String {
         switch self {
@@ -298,6 +302,10 @@ public enum AgenticHostConsoleAction:
             return "publish"
         case .discard:
             return "discard"
+        case .keep:
+            return "keep"
+        case .roll_back:
+            return "roll_back"
         }
     }
 
@@ -337,6 +345,10 @@ public enum AgenticHostConsoleAction:
             return "Publish"
         case .discard:
             return "Discard"
+        case .keep:
+            return "Keep"
+        case .roll_back:
+            return "Roll back"
         }
     }
 
@@ -372,6 +384,10 @@ public enum AgenticHostConsoleAction:
             return "Write the reviewed staged changes to disk."
         case .discard:
             return "Withdraw the reviewed staged changes and release their files."
+        case .keep:
+            return "Keep the written changes; they leave the review."
+        case .roll_back:
+            return "Undo the written changes, refused if their files changed since."
         }
     }
 }

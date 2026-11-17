@@ -1638,7 +1638,8 @@ private extension AgenticHostConsoleWorkflowControl {
              .run_limit_continue,
              .run_limit_unlimited,
              .compact_and_continue,
-             .publish:
+             .publish,
+             .keep:
             return TerminalStyle.bold.apply(
                 text
             )
@@ -1646,7 +1647,8 @@ private extension AgenticHostConsoleWorkflowControl {
         case .deny,
              .stop_run,
              .run_limit_stop,
-             .discard:
+             .discard,
+             .roll_back:
             return TerminalStyle(
                 .red
             ).apply(

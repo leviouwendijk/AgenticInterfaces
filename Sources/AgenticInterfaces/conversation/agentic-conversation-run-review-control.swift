@@ -407,7 +407,9 @@ private extension AgenticConversationRunReviewControl {
                      .run_limit_stop,
                      .compact_and_continue,
                      .publish,
-                     .discard:
+                     .discard,
+                     .keep,
+                     .roll_back:
                     return .action(
                         action
                     )
