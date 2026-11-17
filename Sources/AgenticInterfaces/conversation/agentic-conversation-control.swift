@@ -2021,8 +2021,15 @@ private extension AgenticConversationControl {
                    value.iteration != selectedIteration.number {
                     continue
                 }
+                // Set apart from the answer above: a blank line and a rule
+                // carrying the attachment's title.
+                lines.append("")
                 let blockStart = lines.count
-                lines.append(TerminalStyle.bold.apply("  " + value.title))
+                let rule = max(0, bodyWidth - TerminalDisplay.width(of: value.title) - 4)
+                lines.append(
+                    "  " + TerminalStyle.dim.apply("── ") + TerminalStyle.bold.apply(value.title)
+                        + " " + TerminalStyle.dim.apply(String(repeating: "─", count: rule))
+                )
                 lines += value.previewRows(columns: bodyWidth).map { "  " + $0 }
                 lines.append(TerminalStyle.dim.apply("  [Enter to inspect · " + value.summary + "]"))
                 nestedInteractiveRows.formUnion(blockStart..<lines.count)

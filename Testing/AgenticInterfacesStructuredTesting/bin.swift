@@ -24,10 +24,10 @@ struct ConversationStructuredSmoke {
         ]
         let refs: [GraphTool.Reference] = [.init(id: "main", target: "root")]
         func presented(_ input: GraphTool.Input) throws -> ReportDocument {
-            guard let document = GraphTool().present(try GraphTool.evaluate(input), input: input) else {
+            guard let presentation = GraphTool().present(try GraphTool.evaluate(input), input: input) else {
                 throw SmokeFailure.check("graph presentation")
             }
-            return document
+            return presentation.document
         }
         let graph = try presented(.init(nodes: nodes, edges: edges, references: refs))
         let graphView = AgenticConversationStructuredPresentation(
