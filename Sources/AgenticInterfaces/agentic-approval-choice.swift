@@ -58,7 +58,6 @@ public enum AgenticApprovalChoice: String, Sendable, Codable, Hashable, CaseIter
 
 public enum AgenticInterfaceEvent: Sendable, Codable, Hashable {
     case runStarted(prompt: String)
-    case modeRunStarted(AgenticRunCommandModel)
     case functionCallProposed(FunctionCall)
     case toolPreflight(ToolPreflight)
     case approvalRequested(AgenticApprovalPrompt)
@@ -260,39 +259,6 @@ private extension TerminalAgenticRunPresenter {
                 fields: [
                     .init("prompt", prompt),
                 ]
-            )
-
-        case .modeRunStarted(let command):
-            var fields: [TerminalField] = [
-                .init("mode", command.modeID.rawValue),
-                .init("purpose", command.routePurpose.rawValue),
-                .init("autonomy", command.autonomyMode.rawValue),
-                .init("budget", command.budgetPosture.rawValue),
-                .init("approval", command.approvalStrictness.rawValue),
-                .init("prompt", command.prompt),
-            ]
-
-            if !command.exposedToolNames.isEmpty {
-                fields.append(
-                    .init(
-                        "tools",
-                        command.exposedToolNames.joined(separator: ",")
-                    )
-                )
-            }
-
-            if !command.loadedInstructionIDs.isEmpty {
-                fields.append(
-                    .init(
-                        "instructions",
-                        command.loadedInstructionIDs.map(\.rawValue).joined(separator: ",")
-                    )
-                )
-            }
-
-            return block(
-                title: "Agentic mode run",
-                fields: fields
             )
 
         case .functionCallProposed(let functionCall):
