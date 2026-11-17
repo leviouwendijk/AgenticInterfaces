@@ -35,6 +35,8 @@ public enum AgenticConversationEvent: Sendable, Hashable {
     case queuedSubmissionRequested(AgenticConversationSubmission)
     /// Sent during a run under `:queue next`: joins its next model request.
     case steeringRequested(AgenticConversationSubmission)
+    /// `x` on a pending message: withdraw it if it is still held.
+    case pendingMessageCancelRequested(messageID: String)
     case stopRequested
     case programInvocationRequested(
         invocation: AgenticConversationProgramInvocation,
@@ -224,6 +226,22 @@ public struct AgenticConversationControl: Sendable {
         let submittedContentIDs = Set(submission.contents.map(\.id))
         pendingContents.removeAll { submittedContentIDs.contains($0.id) }
         excludedPendingContentIDs.formIntersection(Set(pendingContents.map(\.id)))
+        pinnedContent.update(contents: pendingContents)
+    }
+
+    /// A message that was not sent, or was cancelled while held: its text
+    /// goes back below any draft and its pinned content back to the pins.
+    public mutating func restoreUnsent(
+        _ submission: AgenticConversationSubmission
+    ) {
+        let draft = composer.text
+        composer.replace(
+            with: draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                ? submission.body
+                : draft + "\n\n" + submission.body
+        )
+        let pinned = Set(pendingContents.map(\.id))
+        pendingContents += submission.contents.filter { !pinned.contains($0.id) }
         pinnedContent.update(contents: pendingContents)
     }
 
@@ -1086,6 +1104,9 @@ private extension AgenticConversationControl {
         case .char("t"):
             return openCurrentTrace()
         case .char("x"):
+            if let currentMessage, currentMessage.pending != nil {
+                return .pendingMessageCancelRequested(messageID: currentMessage.id)
+            }
             return openCurrentRunActions()
         case .enter:
             return openCurrentMessage()
@@ -2558,11 +2579,13 @@ private extension AgenticConversationControl {
             return "esc back"
                 + voiceFooter
         case .transcript:
-            return "[n]j/k msg  J/K ↑/↓ scroll  ctrl-d/u  gg/G  y copy  Y visible  tab composer"
+            // A held message's one action goes first; the footer is clipped at the end.
+            return (currentMessage?.pending == nil ? "" : "x cancel message  ")
+                + "[n]j/k msg  J/K ↑/↓ scroll  ctrl-d/u  gg/G  y copy  Y visible  tab composer"
                 + "  enter inspect  a review  m model  s settings"
                 + (pendingContents.isEmpty ? "" : "  p pins")
                 + (snapshot.pendingUserInput == nil ? "" : "  u answer  r run")
-                + "  x run actions"
+                + (currentMessage?.pending == nil ? "  x run actions" : "")
                 + voiceFooter
         case .pinnedContent:
             return pinnedContent.footer

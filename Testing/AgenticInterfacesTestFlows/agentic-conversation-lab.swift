@@ -147,6 +147,7 @@ enum AgenticConversationLab {
                     snapshot.activity = "instructions selected"
                     control.update(snapshot)
                 case .stopRequested,
+                     .pendingMessageCancelRequested,
                      .voiceStartRequested,
                      .voiceStopRequested,
                      .voiceCancelRequested,

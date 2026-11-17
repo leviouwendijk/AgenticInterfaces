@@ -21,6 +21,8 @@ enum AgenticConversationComposerSmoke {
         case insertLeaderTextChanged
         case completionChanged
         case queuePolicyChanged
+        case pendingCancelChanged
+        case unsentRestoreChanged
     }
 
     static func run() throws {
@@ -29,6 +31,40 @@ enum AgenticConversationComposerSmoke {
         try runTabProbe()
         try runNavigationProbe()
         try runQueuePolicyProbe()
+        try runPendingCancelProbe()
+    }
+
+    /// `x` on a pending message asks to cancel it; on any other message it
+    /// keeps opening run actions. Unsent text returns below the draft.
+    private static func runPendingCancelProbe() throws {
+        var snapshot = AgenticConversationSmoke.fixture()
+        snapshot.messages = [
+            .init(id: "answered", role: .user, body: "first"),
+            .init(id: "held", role: .user, body: "later", pending: AgenticQueuePolicy.await.pendingLabel),
+        ]
+        var control = AgenticConversationControl(snapshot: snapshot)
+        _ = control.handle(.escape)
+        _ = control.handle(.tab)
+        guard control.currentMessage?.id == "held",
+              rendered(control).contains("x cancel message"),
+              case .pendingMessageCancelRequested(messageID: "held")? = control.handle(.char("x"))
+        else { throw Failure.pendingCancelChanged }
+        _ = control.handle(.char("k"))
+        if case .pendingMessageCancelRequested? = control.handle(.char("x")) {
+            throw Failure.pendingCancelChanged
+        }
+
+        var composer = AgenticConversationControl(snapshot: AgenticConversationSmoke.fixture())
+        let unsent = AgenticConversationSubmission(
+            body: "later",
+            contents: [],
+            preferredModelProfileID: composer.snapshot.preferredModelProfileID,
+            instructionIDs: []
+        )
+        composer.restoreUnsent(unsent)
+        guard composer.draftText == "later" else { throw Failure.unsentRestoreChanged }
+        composer.restoreUnsent(unsent)
+        guard composer.draftText == "later\n\nlater" else { throw Failure.unsentRestoreChanged }
     }
 
     /// During a run, sending follows the queue policy without a sheet.
