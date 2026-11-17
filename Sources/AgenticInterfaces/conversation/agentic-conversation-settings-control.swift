@@ -38,6 +38,7 @@ struct AgenticConversationSettingsControl: Sendable {
 
     private var tree: TerminalSettingsTreeControl<RowID>
     private var filter: Filter = .all
+    private var navigator = AgenticListNavigator()
 
     init(snapshot: AgenticConversationSnapshot) {
         let built = Self.tree(snapshot, filter: .all)
@@ -56,10 +57,12 @@ struct AgenticConversationSettingsControl: Sendable {
     }
 
     mutating func openRoot(_ snapshot: AgenticConversationSnapshot) {
+        navigator.reset()
         refresh(snapshot)
     }
 
     mutating func openModel(_ snapshot: AgenticConversationSnapshot) {
+        navigator.reset()
         refresh(snapshot)
         tree.select(.modelProfile(snapshot.preferredModelProfileID))
     }
@@ -67,6 +70,9 @@ struct AgenticConversationSettingsControl: Sendable {
     mutating func handle(_ key: TerminalKey, snapshot: inout AgenticConversationSnapshot)
         -> AgenticConversationSettingsControlEvent?
     {
+        if navigator.handle(key, tree: &tree) {
+            return nil
+        }
         if key == .char("f"), !tree.list.capturesInput {
             filter = filter.next
             refresh(snapshot)
@@ -98,6 +104,7 @@ struct AgenticConversationSettingsControl: Sendable {
     }
 
     mutating func render(into frame: inout TerminalFrame, in region: TerminalRegion) {
+        tree.pendingText = navigator.pendingText
         tree.instructions = "j/k move  h/l fold  enter select  space available  / filter  f \(filter.rawValue)  J/K detail  q back"
         tree.render(
             into: &frame,
