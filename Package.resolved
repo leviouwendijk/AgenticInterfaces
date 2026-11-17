@@ -205,7 +205,7 @@
       "location" : "https://github.com/leviouwendijk/Methods.git",
       "state" : {
         "branch" : "master",
-        "revision" : "1a98599ae3c5d65eb5793e0f02b99e869dbfc9c5"
+        "revision" : "0c1800e32bf5b0c4f2a19b2a28484b18a7edc7de"
       }
     },
     {
@@ -223,7 +223,7 @@
       "location" : "https://github.com/leviouwendijk/Parsers.git",
       "state" : {
         "branch" : "master",
-        "revision" : "5154e2bbd5bc8ac7d362d70988f578a019e18a76"
+        "revision" : "dc788020b89657e36896adbab3168bad10767ccc"
       }
     },
     {
@@ -268,7 +268,7 @@
       "location" : "https://github.com/leviouwendijk/Primitives.git",
       "state" : {
         "branch" : "master",
-        "revision" : "89448ec3f266a70dfc755edd694cc7854d5419d6"
+        "revision" : "776500d2ee4eb47ca536bd307ce1bb9d48878423"
       }
     },
     {
@@ -385,7 +385,7 @@
       "location" : "https://github.com/leviouwendijk/SwimTerminal.git",
       "state" : {
         "branch" : "master",
-        "revision" : "9e42ba70486e2393fac8fa359f48c32f25e0bb1d"
+        "revision" : "936108e05804335d9cbff114be182354ec6bffc3"
       }
     },
     {
@@ -403,7 +403,7 @@
       "location" : "https://github.com/leviouwendijk/Terminal.git",
       "state" : {
         "branch" : "master",
-        "revision" : "3c2f93473b036d96677efd7b576dde54619e4d47"
+        "revision" : "21b5b85c18c7ed62234746bde0d517135ce551c4"
       }
     },
     {
