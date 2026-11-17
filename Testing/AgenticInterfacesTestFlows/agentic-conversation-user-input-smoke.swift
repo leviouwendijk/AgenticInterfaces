@@ -109,7 +109,8 @@ enum AgenticConversationUserInputSmoke {
                 )
             )
         )
-        let columns = 24
+        // Narrow enough to wrap, wide enough that the word-wrapped value fits the field's four rows.
+        let columns = 26
         var frame = TerminalFrame(rows: 16, columns: columns)
         control.render(
             into: &frame,
