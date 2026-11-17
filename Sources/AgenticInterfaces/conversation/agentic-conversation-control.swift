@@ -2,6 +2,7 @@ import Agentic
 import Foundation
 import ParsersStructuredContent
 import Swim
+import SwimTerminal
 import Terminal
 import TerminalStructuredContent
 
@@ -106,6 +107,8 @@ public struct AgenticConversationControl: Sendable {
     private var confirmation: AgenticConversationConfirmationControl?
     private var confirmationPurpose: AgenticConversationConfirmationPurpose?
     private var transcriptCache: [String: TranscriptEntry]
+    private var navigator: SwimTerminalNavigator
+    private var navigatorFocus: AgenticConversationFocus?
 
     struct TranscriptEntry: Sendable {
         struct Key: Sendable, Equatable {
@@ -175,6 +178,8 @@ public struct AgenticConversationControl: Sendable {
         self.confirmation = nil
         self.confirmationPurpose = nil
         self.transcriptCache = [:]
+        self.navigator = SwimTerminalNavigator()
+        self.navigatorFocus = nil
 
         if pendingUserInput != nil {
             self.focus.push(
@@ -487,6 +492,27 @@ public struct AgenticConversationControl: Sendable {
     }
 
     public mutating func handle(_ key: TerminalKey) -> AgenticConversationEvent? {
+        if navigatorFocus != focus.current {
+            navigator.reset()
+            navigatorFocus = focus.current
+        }
+
+        switch focus.current {
+        case .transcript,
+             .attachment:
+            switch navigator.handle(key) {
+            case .pending,
+                 .cancelled:
+                return nil
+            case .command(let command):
+                return navigate(command)
+            case .unhandled:
+                break
+            }
+        default:
+            break
+        }
+
         if key == .control("C"), let text = selectedDocumentText {
             return .copyRequested(text: text, title: "selection")
         }
@@ -1069,6 +1095,46 @@ private extension AgenticConversationControl {
         return nil
     }
 
+    /// Counted navigation: messages in the transcript, rows in an attachment.
+    mutating func navigate(
+        _ command: TerminalNavigationCommand
+    ) -> AgenticConversationEvent? {
+        switch focus.current {
+        case .transcript:
+            switch command {
+            case .vertical(let steps):
+                moveMessage(by: steps)
+            case .first:
+                return navigate(.position(0))
+            case .last:
+                return handleTranscript(.end)
+            case .position(let index):
+                guard !snapshot.messages.isEmpty else { return nil }
+                let current = selectedMessageID.flatMap { id in
+                    snapshot.messages.firstIndex { $0.id == id }
+                } ?? snapshot.messages.count - 1
+                moveMessage(by: min(index, snapshot.messages.count - 1) - current)
+            case .page, .halfPage:
+                if let steps = command.verticalSteps(pageRows: transcript.viewport.visibleRows) {
+                    scrollTranscript(
+                        by: TerminalNavigationCommand.bounded(steps, to: transcript.lines.count)
+                    )
+                }
+            case .horizontal:
+                break
+            }
+        case .attachment:
+            if case .horizontal(let steps) = command {
+                moveAttachment(by: steps)
+            } else {
+                attachmentDocument.apply(command)
+            }
+        default:
+            break
+        }
+        return nil
+    }
+
     mutating func moveIteration(by delta: Int) {
         guard let message = currentMessage, !message.iterations.isEmpty else { return }
         let last = message.iterations.count - 1
@@ -1573,7 +1639,10 @@ private extension AgenticConversationControl {
         let current = selectedMessageID.flatMap { id in
             snapshot.messages.firstIndex { $0.id == id }
         } ?? snapshot.messages.count - 1
-        let next = min(snapshot.messages.count - 1, max(0, current + offset))
+        let next = min(
+            snapshot.messages.count - 1,
+            max(0, current + TerminalNavigationCommand.bounded(offset, to: snapshot.messages.count))
+        )
         selectedMessageID = snapshot.messages[next].id
         transcriptSelectionFollowsEnd = next == snapshot.messages.count - 1
 
@@ -1591,7 +1660,7 @@ private extension AgenticConversationControl {
         }
         attachmentIndex = min(
             currentMessage.attachments.count - 1,
-            max(0, attachmentIndex + offset)
+            max(0, attachmentIndex + TerminalNavigationCommand.bounded(offset, to: currentMessage.attachments.count))
         )
         attachmentDocument.moveToStart()
     }
@@ -1764,11 +1833,21 @@ private extension AgenticConversationControl {
         }
 
         frame.write(
-            TerminalStyle.dim.apply(
-                footer
-            ),
+            pendingNavigationLabel
+                + TerminalStyle.dim.apply(
+                    footer
+                ),
             in: vertical[3]
         )
+    }
+
+    /// A pending count or `g` prefix, shown before the footer until it is used.
+    var pendingNavigationLabel: String {
+        guard navigatorFocus == focus.current,
+              let pending = navigator.pendingText else {
+            return ""
+        }
+        return TerminalStyle.bold.apply(pending) + "  "
     }
 
     /// Lays out the transcript, reusing each message's rows until something
@@ -2459,7 +2538,7 @@ private extension AgenticConversationControl {
             case .voice:
                 return "response pending  esc back"
             case .transcript:
-                return "j/k messages  ↑/↓ scroll  y copy  Y visible  ctrl-g stop  tab composer"
+                return "j/k messages  ↑/↓ scroll  gg/G ends  y copy  Y visible  ctrl-g stop  tab composer"
             case .pinnedContent,
                  .attachment,
                  .settings,
@@ -2479,17 +2558,16 @@ private extension AgenticConversationControl {
             return "esc back"
                 + voiceFooter
         case .transcript:
-            return "j/k msg  J/K scroll  ↑/↓ rows  y copy  Y visible  tab composer  enter inspect"
-                + "  PgUp/PgDn  a review  m model  s settings"
+            return "[n]j/k msg  J/K ↑/↓ scroll  ctrl-d/u  gg/G  y copy  Y visible  tab composer"
+                + "  enter inspect  a review  m model  s settings"
                 + (pendingContents.isEmpty ? "" : "  p pins")
-                + "  tab composer  ctrl-c composer"
                 + (snapshot.pendingUserInput == nil ? "" : "  u answer  r run")
                 + "  x run actions"
                 + voiceFooter
         case .pinnedContent:
             return pinnedContent.footer
         case .attachment:
-            return "h/l sibling  j/k scroll  enter run  q back"
+            return "[n]h/l sibling  [n]j/k scroll  ctrl-d/u  gg/G  enter run  q back"
         case .settings:
             return "conversation settings"
         case .runReview:

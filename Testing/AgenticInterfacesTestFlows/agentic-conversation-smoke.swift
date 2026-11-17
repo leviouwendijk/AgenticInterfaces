@@ -61,6 +61,7 @@ enum AgenticConversationSmoke {
         try AgenticConversationComposerSmoke.run()
         try AgenticConversationPinnedContentSmoke.run()
         try AgenticConversationScrollingSmoke.run()
+        try AgenticConversationCountedNavigationSmoke.run()
 
         var programSnapshot = fixture()
         programSnapshot.programs = [
@@ -887,8 +888,8 @@ enum AgenticConversationSmoke {
         guard control.focus.current == .transcript,
               rendered.contains(selectedBody),
               rendered.contains("tab composer"),
-              rendered.contains("J/K scroll"),
-              rendered.contains("↑/↓ rows"),
+              rendered.contains("J/K ↑/↓ scroll"),
+              rendered.contains("gg/G"),
               rendered.contains("y copy"),
               rendered.contains("Y visible"),
               !rendered.contains("tab voice"),

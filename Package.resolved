@@ -7,7 +7,7 @@
       "location" : "https://github.com/leviouwendijk/Agentic.git",
       "state" : {
         "branch" : "master",
-        "revision" : "8d33865fa3b3169c980a60723c3fdb9505f237d2"
+        "revision" : "fe9f70a01ab86b51be749f2dd6ed808ac46358e7"
       }
     },
     {
@@ -16,7 +16,7 @@
       "location" : "https://github.com/leviouwendijk/AgenticIO.git",
       "state" : {
         "branch" : "master",
-        "revision" : "f0419831bb092d398a953eab198b347779db19f3"
+        "revision" : "223973971c8b8a2ce564a1e296f25f506cc5afe0"
       }
     },
     {
@@ -178,7 +178,7 @@
       "location" : "https://github.com/leviouwendijk/Macros.git",
       "state" : {
         "branch" : "master",
-        "revision" : "e01a42e9d0ee8061e861bc68c1fb2a02d26cbde4"
+        "revision" : "8f3b35eadca38087a3634402deba4cd444fc3a13"
       }
     },
     {
@@ -241,7 +241,7 @@
       "location" : "https://github.com/leviouwendijk/Partition.git",
       "state" : {
         "branch" : "master",
-        "revision" : "75c760b64555f8b5ee170f6bc9f9e5cbf8590475"
+        "revision" : "ebf72db1007486eed70c852487ae01714dec5a08"
       }
     },
     {
@@ -250,7 +250,7 @@
       "location" : "https://github.com/leviouwendijk/Path.git",
       "state" : {
         "branch" : "master",
-        "revision" : "17e26d9b121cdd7d9a8058fce990bc1a49460656"
+        "revision" : "6467fc2dce6630597499346fa449cd83a930486e"
       }
     },
     {
@@ -313,7 +313,7 @@
       "location" : "https://github.com/leviouwendijk/Schema.git",
       "state" : {
         "branch" : "master",
-        "revision" : "a3b2d62e52cb7e061d5a5cdadb63f4d31684dd4d"
+        "revision" : "af9a4e2d0b5da1239f53b405a3e04e636dd489c4"
       }
     },
     {
@@ -367,7 +367,7 @@
       "location" : "https://github.com/leviouwendijk/SwimInterpreter.git",
       "state" : {
         "branch" : "master",
-        "revision" : "21b2b7fde3ccb74f29d9bd7ba38e16f8978a455e"
+        "revision" : "72d97ff15648208b5d9e3d284f3002507b8e0c20"
       }
     },
     {
@@ -385,7 +385,7 @@
       "location" : "https://github.com/leviouwendijk/SwimTerminal.git",
       "state" : {
         "branch" : "master",
-        "revision" : "376fb6f6b87030167850cba6e66a31b813d3f23d"
+        "revision" : "9e42ba70486e2393fac8fa359f48c32f25e0bb1d"
       }
     },
     {
@@ -403,7 +403,7 @@
       "location" : "https://github.com/leviouwendijk/Terminal.git",
       "state" : {
         "branch" : "master",
-        "revision" : "9ae1b8d04f73080cf5d78d542761bef4a4d58337"
+        "revision" : "3c2f93473b036d96677efd7b576dde54619e4d47"
       }
     },
     {
@@ -457,7 +457,7 @@
       "location" : "https://github.com/leviouwendijk/Workspace.git",
       "state" : {
         "branch" : "master",
-        "revision" : "138e69f06cbbbbd1fe1e5deacb3790b5cf9cfaca"
+        "revision" : "23ecf90582ffaf3948e105c1b2fa5249d6b4ef4c"
       }
     },
     {
