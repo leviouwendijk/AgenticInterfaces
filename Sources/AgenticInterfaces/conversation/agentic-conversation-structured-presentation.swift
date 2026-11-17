@@ -3,15 +3,14 @@ import Foundation
 import Primitives
 import Reporting
 import Terminal
-import TerminalGraph
 import TerminalReporting
 
 /// A validated value with one independently selectable conversation identity.
 /// This does not imply a file artifact or an authorized action.
 public struct AgenticConversationStructuredPresentation: Sendable, Hashable, Codable {
     public enum Content: Sendable, Hashable, Codable {
-        case graph(Graph<String, JSONValue, String, JSONValue>, ReferenceSet<String, String>)
-        case report(ReportDocument)
+        /// A tool's presentation (`ToolPresenting`): reports, graphs, schedules.
+        case document(ReportDocument)
         case call_tree(Standard.Tools.CreateCallTree.Output)
     }
 
@@ -29,10 +28,8 @@ public struct AgenticConversationStructuredPresentation: Sendable, Hashable, Cod
 
     public var title: String {
         switch content {
-        case .graph:
-            return "Graph"
-        case .report(let report):
-            return report.title
+        case .document(let document):
+            return document.title
         case .call_tree:
             return "Call tree"
         }
@@ -40,10 +37,8 @@ public struct AgenticConversationStructuredPresentation: Sendable, Hashable, Cod
 
     public var summary: String {
         switch content {
-        case .graph(let graph, _):
-            return "graph · \(graph.nodes.count) nodes · \(graph.edges.count) edges"
-        case .report(let report):
-            return "report · \(report.datasets.count) datasets · \(report.blocks.count) blocks"
+        case .document(let document):
+            return Self.summary(document)
         case .call_tree(let output):
             let occurrenceCount = output.tree.walk().reduce(0) { count, _ in count + 1 }
             return "call tree · \(occurrenceCount) occurrences · \(output.provenance.rawValue)"
@@ -54,30 +49,35 @@ public struct AgenticConversationStructuredPresentation: Sendable, Hashable, Cod
     public func rows(columns: Int, includeTitle: Bool = true) -> [String] {
         let width = max(1, columns)
         switch content {
-        case .report(let document):
+        case .document(let document):
             return TerminalReporting.Renderer().rows(document, columns: width, includeTitle: includeTitle)
         case .call_tree(let output):
             return AgenticConversationCallTreeRenderer.rows(output, columns: width, includeTitle: includeTitle)
-        case .graph(let graph, let references):
-            let labels = Dictionary(uniqueKeysWithValues: graph.nodes.map { node in
-                (node.id, Self.valueLabel(node.value, fallback: node.id))
-            })
-            if let layout = try? graph.layout() {
-                return TerminalGraph.Renderer().project(
-                    layout,
-                    columns: width,
-                    label: { labels[$0] ?? $0 },
-                    references: layout.place_references(references),
-                    referenceLabel: { $0 }
-                ).lines
-            }
-            // Arbitrary graphs can contain cycles. They remain inspectable;
-            // the DAG-only multi-lane projection is not forced upon them.
-            let descriptions = graph.nodes.map { "node \($0.id) · \(labels[$0.id] ?? $0.id)" }
-                + graph.edges.map { "edge \($0.id) · \($0.source) -> \($0.destination)" }
-                + references.references.map { "reference \($0.id) -> \($0.target)" }
-            return descriptions.flatMap { TerminalTextWrap.lines($0, width: width) }
         }
+    }
+
+    /// Names the document by what it shows: a lone graph is a graph;
+    /// anything else is a report listing its kinds of block.
+    private static func summary(_ document: ReportDocument) -> String {
+        var kinds: [String] = []
+        for block in document.blocks {
+            let kind: String
+            switch block {
+            case .narrative: kind = "narrative"
+            case .table: kind = "table"
+            case .chart: kind = "chart"
+            case .facts: kind = "facts"
+            case .callout: kind = "callout"
+            case .timeline: kind = "timeline"
+            case .graph(let graph):
+                if document.blocks.count == 1 {
+                    return "graph · \(graph.nodes.count) nodes · \(graph.edges.count) edges"
+                }
+                kind = "graph"
+            }
+            if !kinds.contains(kind) { kinds.append(kind) }
+        }
+        return (["report"] + kinds.prefix(4)).joined(separator: " · ")
     }
 
     /// Transcript previews are bounded and must explicitly disclose omitted rows.
@@ -92,19 +92,5 @@ public struct AgenticConversationStructuredPresentation: Sendable, Hashable, Cod
         return Array(full.prefix(displayed)) + [
             TerminalDisplay.clipped("… \(more) more rows · Enter to inspect", columns: width)
         ]
-    }
-
-    private static func valueLabel(_ value: JSONValue, fallback: String) -> String {
-        switch value {
-        case .string(let text):
-            return text
-        case .object(let properties):
-            if case .string(let text)? = properties["label"] {
-                return text
-            }
-            return fallback
-        default:
-            return fallback
-        }
     }
 }
