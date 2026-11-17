@@ -132,8 +132,11 @@ struct AgenticConversationSettingsControl: Sendable {
         case .capability(let identifier):
             return toggle(identifier, availability: false, snapshot: &snapshot)
         case .modelProfile(let identifier):
-            guard snapshot.models.first(where: { $0.id == identifier })?.isAvailable == true else {
-                return .conversation(.feedbackRequested("Preferred model is unavailable."))
+            guard let model = snapshot.models.first(where: { $0.id == identifier }), model.isAvailable else {
+                let reason = snapshot.models.first { $0.id == identifier }?.unavailableReason
+                return .conversation(.feedbackRequested(
+                    reason.map { "This model \($0)." } ?? "Preferred model is unavailable."
+                ))
             }
             snapshot.preferredModelProfileID = identifier
             if Self.preferredModelSupportsStreaming(snapshot) == false {
@@ -232,10 +235,16 @@ private extension AgenticConversationSettingsControl {
 
         let models = snapshot.models.map { model in
             TerminalSettingsRow<RowID>(id: .modelProfile(model.id), title: model.title,
-                value: model.isAvailable ? nil : "unavailable",
+                value: model.isAvailable ? model.tier : (model.unavailableReason == nil ? "unavailable" : "not for this agent"),
                 isEnabled: model.isAvailable,
                 accessory: .radio(selected: model.id == snapshot.preferredModelProfileID),
-                detail: .init(title: model.title, body: model.detail))
+                detail: .init(
+                    title: model.title,
+                    body: ([model.detail]
+                        + [model.tier.map { "tier \($0)" }, model.provider.map { "served by \($0)" }].compactMap { $0 }
+                        + [model.unavailableReason.map { "Not selectable: this model \($0)." }].compactMap { $0 })
+                        .joined(separator: "\n")
+                ))
         }
         let capabilities = domains(entries).map { domain in
             Node(

@@ -1070,6 +1070,33 @@ enum AgenticConversationSmoke {
             throw Failure.presentationMissing("change details")
         }
 
+        // Each answer names the model that gave it; one from another model
+        // than selected shows the selection crossed out.
+        var routeSnapshot = fixture()
+        routeSnapshot.messages = [
+            .init(id: "routed-plain", role: .assistant, body: "plain",
+                  route: .init(title: "Opus 5.5", provider: "anthropic_messages")),
+            .init(id: "routed-fallback", role: .assistant, body: "fallback",
+                  route: .init(title: "Qwen 3.5", provider: "ollama", selectedTitle: "Sonnet 5.5")),
+        ]
+        let crossed = AgenticConversationControl.routeLabel(routeSnapshot.messages[1].route!)
+        guard crossed.contains(TerminalStyle(.dim, .strikethrough).apply("Sonnet 5.5")),
+              stripANSI(crossed) == "Sonnet 5.5 → Qwen 3.5 · ollama · fallback"
+        else {
+            throw Failure.presentationMissing("crossed-out label: \(crossed)")
+        }
+        var routeControl = AgenticConversationControl(snapshot: routeSnapshot)
+        _ = routeControl.handle(.escape)
+        _ = routeControl.handle(.escape)
+        var routeFrame = TerminalFrame(rows: 22, columns: 100)
+        routeControl.render(into: &routeFrame, in: TerminalRegion(rows: 22, columns: 100))
+        let routeText = routeFrame.resolved().spans.map(\.content).joined(separator: "\n")
+        guard stripANSI(routeText).contains("Opus 5.5 · anthropic_messages"),
+              stripANSI(routeText).contains("Sonnet 5.5 (not used) → Qwen 3.5 · ollama · fallback")
+        else {
+            throw Failure.presentationMissing("route labels: \(stripANSI(routeText))")
+        }
+
         var iterationSnapshot = fixture()
         iterationSnapshot.messages = [
             AgenticConversationMessagePresentation(

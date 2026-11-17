@@ -455,6 +455,8 @@ public struct AgenticConversationMessagePresentation: Sendable, Hashable {
     /// Accepted but not yet part of a run, and why, e.g. "pending · after
     /// the current run". Cleared once the message is applied.
     public var pending: String?
+    /// For an answer: the model that gave it.
+    public var route: AgenticModelRoutePresentation?
 
     public init(
         id: String,
@@ -462,8 +464,10 @@ public struct AgenticConversationMessagePresentation: Sendable, Hashable {
         body: String,
         attachments: [AgenticConversationAttachmentPresentation] = [],
         iterations: [AgenticConversationIterationPresentation] = [],
-        pending: String? = nil
+        pending: String? = nil,
+        route: AgenticModelRoutePresentation? = nil
     ) {
+        self.route = route
         self.id = id
         self.role = role
         self.body = body
@@ -544,20 +548,56 @@ public struct AgenticConversationModelPresentation: Sendable, Hashable {
     public var detail: String
     public var isAvailable: Bool
     public var supportsStreaming: Bool
+    /// `frontier`, `strong`, … when declared.
+    public var tier: String?
+    /// Who serves it, e.g. `anthropic_messages`.
+    public var provider: String?
+    /// Why it cannot be selected here, e.g. "is standard; the role needs at
+    /// least strong". Nil when it can.
+    public var unavailableReason: String?
 
     public init(
         id: AgentModelProfileIdentifier,
         title: String,
         detail: String,
         isAvailable: Bool = true,
-        supportsStreaming: Bool = true
+        supportsStreaming: Bool = true,
+        tier: String? = nil,
+        provider: String? = nil,
+        unavailableReason: String? = nil
     ) {
         self.id = id
         self.title = title
         self.detail = detail
         self.isAvailable = isAvailable
         self.supportsStreaming = supportsStreaming
+        self.tier = tier
+        self.provider = provider
+        self.unavailableReason = unavailableReason
     }
+}
+
+/// Which model answered, against what was selected.
+public struct AgenticModelRoutePresentation: Sendable, Hashable {
+    public var title: String
+    public var provider: String
+    /// The selected model's title when the answer came from another one.
+    public var selectedTitle: String?
+    public var reason: String?
+
+    public init(
+        title: String,
+        provider: String,
+        selectedTitle: String? = nil,
+        reason: String? = nil
+    ) {
+        self.title = title
+        self.provider = provider
+        self.selectedTitle = selectedTitle
+        self.reason = reason
+    }
+
+    public var isRerouted: Bool { selectedTitle != nil }
 }
 
 public struct AgenticConversationInstructionPresentation: Sendable, Hashable {

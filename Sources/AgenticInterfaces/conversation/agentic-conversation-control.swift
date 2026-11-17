@@ -1847,10 +1847,14 @@ private extension AgenticConversationControl {
         lines.append(
             selected
                 ? TerminalStyle(.inverse).apply(
-                    TerminalDisplay.fitted(label, columns: width)
+                    TerminalDisplay.fitted(
+                        label + (message.route.map { "  " + Self.routeText($0) } ?? ""),
+                        columns: width
+                    )
                 )
                 : TerminalStyle.bold.apply(label)
                     + (message.pending.map { "  " + TerminalStyle.dim.apply($0) } ?? "")
+                    + (message.route.map { "  " + Self.routeLabel($0) } ?? "")
         )
         let selectedIteration = selectedIterationIndices[message.id].flatMap { index in
             message.iterations.indices.contains(index) ? message.iterations[index] : nil
@@ -2650,5 +2654,29 @@ public extension AgenticConversationControl {
     var commandCompleter: AgenticCommandCompleter? {
         get { composer.commandCompleter }
         set { composer.commandCompleter = newValue }
+    }
+}
+
+extension AgenticConversationControl {
+    /// `Opus 5.5 · anthropic_messages`, or when the answer came from another
+    /// model than selected: `~~Sonnet 5.5~~ → Qwen 3.5 · ollama · fallback`.
+    /// The route label without styling, e.g. on a highlighted row.
+    public static func routeText(
+        _ route: AgenticModelRoutePresentation
+    ) -> String {
+        let served = "\(route.title) · \(route.provider)"
+        guard let selected = route.selectedTitle else { return served }
+        return "\(selected) (not used) → \(served) · fallback"
+    }
+
+    public static func routeLabel(
+        _ route: AgenticModelRoutePresentation
+    ) -> String {
+        let served = TerminalStyle.dim.apply("\(route.title) · \(route.provider)")
+        guard let selected = route.selectedTitle else { return served }
+        return TerminalStyle(.dim, .strikethrough).apply(selected)
+            + TerminalStyle(.yellow).apply(" → ")
+            + served
+            + TerminalStyle(.yellow).apply(" · fallback")
     }
 }
