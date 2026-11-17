@@ -18,6 +18,7 @@ public struct AgenticCommandDefinition:
         case capabilities
         case review
         case context
+        case results
 
         public var title: String {
             switch self {
@@ -26,6 +27,7 @@ public struct AgenticCommandDefinition:
             case .capabilities: "Programs and Inferences"
             case .review: "Review and publication"
             case .context: "Context window"
+            case .results: "Results and exports"
             }
         }
     }
