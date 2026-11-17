@@ -96,16 +96,42 @@ public struct AgenticConversationUsagePresentation: Sendable, Hashable {
         "\(records.count) runs · \(actualTurns) actual turns · \(projectedTurns) projected turns"
     }
 
+    /// Everything the requests read, cached or not: what a provider's
+    /// per-request "prompt tokens" counts.
+    public var totalInputTokens: Int {
+        inputTokens + cachedInputReadTokens + cachedInputWriteTokens
+    }
+
+    /// Input and output across all requests: the sum of a provider's
+    /// per-request token counts.
+    public var totalTokens: Int {
+        totalInputTokens + outputTokens
+    }
+
     public var shortSummary: String {
         guard !projections.isEmpty else { return "usage not reported" }
         let provenance = projectedTurns > 0 ? " (includes estimates)" : ""
-        var parts = ["\(inputTokens) in"]
+        var input = "in \(Self.compact(totalInputTokens))"
         if cachedInputReadTokens > 0 || cachedInputWriteTokens > 0 {
-            parts.append("\(cachedInputReadTokens) cache read")
-            parts.append("\(cachedInputWriteTokens) cache write")
+            var cache = ["\(Self.compact(cachedInputReadTokens)) cached"]
+            if cachedInputWriteTokens > 0 {
+                cache.append("\(Self.compact(cachedInputWriteTokens)) cache write")
+            }
+            input += " (" + cache.joined(separator: ", ") + ")"
         }
-        parts.append("\(outputTokens) out")
-        parts.append("peak context \(peakContextTokens)")
-        return parts.joined(separator: " / ") + provenance
+        return [
+            "\(Self.compact(totalTokens)) tok",
+            input,
+            "out \(Self.compact(outputTokens))",
+            "peak \(Self.compact(peakContextTokens))",
+        ].joined(separator: " · ") + provenance
+    }
+
+    static func compact(_ tokens: Int) -> String {
+        switch tokens {
+        case 1_000_000...: String(format: "%.2fM", Double(tokens) / 1_000_000)
+        case 1_000...: String(format: "%.1fk", Double(tokens) / 1_000)
+        default: String(tokens)
+        }
     }
 }

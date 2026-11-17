@@ -445,13 +445,16 @@ private extension AgenticConversationSettingsControl {
                 detail: .init(
                     title: "Token consumption (observed and projected)",
                     fields: [
-                        .init("input", String(usage.inputTokens)),
+                        .init("total", String(usage.totalTokens)),
+                        .init("input", String(usage.totalInputTokens)),
+                        .init("  uncached", String(usage.inputTokens)),
+                        .init("  cached reads", String(usage.cachedInputReadTokens)),
+                        .init("  cached writes", String(usage.cachedInputWriteTokens)),
                         .init("output", String(usage.outputTokens)),
-                        .init("cached reads", String(usage.cachedInputReadTokens)),
-                        .init("cached writes", String(usage.cachedInputWriteTokens)),
-                        .init("reasoning output", String(usage.reasoningOutputTokens)),
+                        .init("  reasoning", String(usage.reasoningOutputTokens)),
+                        .init("peak context", String(usage.peakContextTokens)),
                     ],
-                    body: "Token categories may overlap. These counts describe usage; they do not measure remaining context capacity."
+                    body: "Input counts every token the requests read, cached or not, as a provider's per-request token count does; the total adds output, so it matches the sum of the provider's activity. Reasoning is part of output. Peak context is the largest single request."
                 )
             ),
             .init(
