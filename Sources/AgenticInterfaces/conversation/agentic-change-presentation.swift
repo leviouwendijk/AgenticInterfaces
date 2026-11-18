@@ -120,7 +120,7 @@ public struct AgenticChangePresentation:
     }
 
     /// Readable text for a history-change reason, by its stable raw value
-    /// (`Context.HistorySelection.Change.Reason`).
+    /// (`ContextWindow.HistorySelection.Change.Reason`).
     public static func contextReason(
         _ raw: String
     ) -> String {
