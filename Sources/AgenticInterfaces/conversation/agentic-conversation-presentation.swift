@@ -555,6 +555,8 @@ public struct AgenticConversationModelPresentation: Sendable, Hashable {
     /// Why it cannot be selected here, e.g. "is standard; the role needs at
     /// least strong". Nil when it can.
     public var unavailableReason: String?
+    /// False when its provider lacks configuration, such as an API key.
+    public var isConfigured: Bool
 
     public init(
         id: AgentModelProfileIdentifier,
@@ -564,7 +566,8 @@ public struct AgenticConversationModelPresentation: Sendable, Hashable {
         supportsStreaming: Bool = true,
         tier: String? = nil,
         provider: String? = nil,
-        unavailableReason: String? = nil
+        unavailableReason: String? = nil,
+        isConfigured: Bool = true
     ) {
         self.id = id
         self.title = title
@@ -574,6 +577,7 @@ public struct AgenticConversationModelPresentation: Sendable, Hashable {
         self.tier = tier
         self.provider = provider
         self.unavailableReason = unavailableReason
+        self.isConfigured = isConfigured
     }
 }
 
@@ -697,6 +701,9 @@ public struct AgenticConversationSnapshot: Sendable, Hashable {
     public var workspaceRoots: [AgenticWorkspaceRootPresentation] = []
     /// Where relative paths resolve.
     public var workingDirectory: String?
+    /// Standing remarks shown under the header, such as a `settings.frame`
+    /// that is behind its template.
+    public var notices: [String] = []
 
     public init(
         title: String = "agentic conversation",

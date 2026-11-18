@@ -1688,41 +1688,11 @@ private extension AgenticConversationControl {
 }
 
 private extension AgenticConversationControl {
-    mutating func renderConversation(
-        into frame: inout TerminalFrame,
-        in region: TerminalRegion
-    ) {
-        let composerColumns = max(
-            1,
-            region.columns - 5
-        )
-        let composerRows = composer.compactRows(
-            columns: composerColumns
-        )
-        let pendingRows = pendingContents.isEmpty
-            ? 0
-            : 1
-        let controlRows = min(
-            max(
-                0,
-                region.rows - 4
-            ),
-            pendingRows + composerRows
-        )
-
-        let vertical = TerminalLayout.vertical(
-            in: region,
-            [
-                .fixed(4),
-                .flex(1),
-                .fixed(controlRows),
-                .fixed(1),
-            ]
-        )
-        guard vertical.count == 4 else {
-            return
-        }
-
+    /// Title, model, activity, workspace and notices, each wrapped to
+    /// `columns` before it is styled, so escapes never count as width.
+    func headerLines(
+        columns: Int
+    ) -> [String] {
         let modelTitle = snapshot.models.first {
             $0.id == snapshot.preferredModelProfileID
         }?.title ?? snapshot.preferredModelProfileID.rawValue
@@ -1741,24 +1711,69 @@ private extension AgenticConversationControl {
         }
         let activity: String
         if is_awaiting_first_assistant_response {
-            activity = TerminalStyle.dim.apply(pendingSpinner.render())
-        } else if let snapshotActivity = snapshot.activity {
-            activity = TerminalStyle.dim.apply(snapshotActivity)
+            activity = Self.plain(pendingSpinner.render())
         } else {
-            activity = ""
+            activity = snapshot.activity ?? ""
+        }
+
+        let rows: [(String, TerminalStyle)] = [
+            (snapshot.title, .bold),
+            ("\(modelTitle) · \(snapshot.visibleCapabilities.tools.count) visible tools · \(instructionTitle)", .dim),
+            ([activity, snapshot.usage.shortSummary].filter { !$0.isEmpty }.joined(separator: " · "), .dim),
+            (snapshot.workspace, .dim),
+        ] + snapshot.notices.map { ($0, TerminalStyle(.yellow)) }
+
+        return rows.flatMap { text, style in
+            style.apply(lines: TerminalTextWrap.lines(text, width: columns))
+        }
+    }
+
+    static func plain(
+        _ text: String
+    ) -> String {
+        text.replacingOccurrences(of: "\u{1B}\\[[0-9;]*[A-Za-z]", with: "", options: .regularExpression)
+    }
+
+    mutating func renderConversation(
+        into frame: inout TerminalFrame,
+        in region: TerminalRegion
+    ) {
+        let composerColumns = max(
+            1,
+            region.columns - 5
+        )
+        let composerRows = composer.compactRows(
+            columns: composerColumns
+        )
+        let pendingRows = pendingContents.isEmpty
+            ? 0
+            : 1
+        let header = headerLines(columns: region.columns)
+        // The header wraps instead of cropping, up to half the screen.
+        let headerRows = min(header.count, max(1, region.rows / 2))
+        let controlRows = min(
+            max(
+                0,
+                region.rows - headerRows
+            ),
+            pendingRows + composerRows
+        )
+
+        let vertical = TerminalLayout.vertical(
+            in: region,
+            [
+                .fixed(headerRows),
+                .flex(1),
+                .fixed(controlRows),
+                .fixed(1),
+            ]
+        )
+        guard vertical.count == 4 else {
+            return
         }
 
         frame.write(
-            [
-                TerminalStyle.bold.apply(snapshot.title),
-                TerminalStyle.dim.apply(
-                    "\(modelTitle) · \(snapshot.visibleCapabilities.tools.count) visible tools · \(instructionTitle)"
-                ),
-                [activity, TerminalStyle.dim.apply(snapshot.usage.shortSummary)]
-                    .filter { !$0.isEmpty }
-                    .joined(separator: " · "),
-                TerminalStyle.dim.apply(snapshot.workspace),
-            ],
+            Array(header.prefix(headerRows)),
             in: vertical[0]
         )
 

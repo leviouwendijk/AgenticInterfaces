@@ -242,7 +242,7 @@ private extension AgenticConversationSettingsControl {
 
         let models = snapshot.models.map { model in
             TerminalSettingsRow<RowID>(id: .modelProfile(model.id), title: model.title,
-                value: model.isAvailable ? model.tier : (model.unavailableReason == nil ? "unavailable" : "not for this agent"),
+                value: model.isAvailable ? model.tier : (!model.isConfigured ? "not configured" : model.unavailableReason == nil ? "unavailable" : "not for this agent"),
                 isEnabled: model.isAvailable,
                 accessory: .radio(selected: model.id == snapshot.preferredModelProfileID),
                 detail: .init(
