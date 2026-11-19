@@ -493,29 +493,54 @@ private extension AgenticConversationRunReviewControl {
                 region.columns - 4
             )
         )
+        let outerInsets = TerminalInsets(
+            vertical: 1,
+            horizontal: 2
+        )
+        let contentInsets = TerminalInsets(
+            vertical: 1,
+            horizontal: 2
+        )
+        // Border plus content insets around the lines.
+        let chrome = 2 + contentInsets.top + contentInsets.bottom
+        let maximumRows = max(
+            1,
+            region.rows - 4
+        )
+        let width = max(
+            1,
+            TerminalOverlay(
+                placement: .centered(
+                    columns: columns,
+                    rows: maximumRows
+                ),
+                outerInsets: outerInsets,
+                contentInsets: contentInsets
+            ).contentRegion(
+                in: region
+            ).columns
+        )
+        let lines = menuLines(
+            width: width,
+            rows: max(
+                1,
+                maximumRows - chrome
+            )
+        )
         let rows = min(
             max(
                 10,
-                items.count + 8
+                lines.count + chrome
             ),
-            max(
-                1,
-                region.rows - 4
-            )
+            maximumRows
         )
         let overlay = TerminalOverlay(
             placement: .centered(
                 columns: columns,
                 rows: rows
             ),
-            outerInsets: TerminalInsets(
-                vertical: 1,
-                horizontal: 2
-            ),
-            contentInsets: TerminalInsets(
-                vertical: 1,
-                horizontal: 2
-            )
+            outerInsets: outerInsets,
+            contentInsets: contentInsets
         )
         let overlayLayer = TerminalZIndex(
             190
@@ -530,52 +555,6 @@ private extension AgenticConversationRunReviewControl {
                 + (position.map { " · \($0.index + 1) of \($0.count)" } ?? ""),
             zIndex: overlayLayer
         )
-        let width = max(
-            1,
-            content.columns
-        )
-        var lines = TerminalTextWrap.lines(
-            interruption.summary,
-            width: width
-        )
-
-        if !lines.isEmpty {
-            lines.append("")
-        }
-
-        for index in items.indices {
-            let prefix = index == selectedIndex
-                ? "> "
-                : "  "
-            let line = TerminalDisplay.fitted(
-                prefix + items[index].title,
-                columns: width
-            )
-
-            lines.append(
-                index == selectedIndex
-                    ? TerminalStyle(
-                        .inverse
-                    ).apply(
-                        line
-                    )
-                    : line
-            )
-        }
-
-        if let currentItem {
-            lines.append("")
-            lines.append(
-                contentsOf: TerminalTextWrap.lines(
-                    currentItem.summary,
-                    width: width
-                ).map {
-                    TerminalStyle.dim.apply(
-                        $0
-                    )
-                }
-            )
-        }
 
         frame.write(
             Array(
@@ -586,6 +565,65 @@ private extension AgenticConversationRunReviewControl {
             in: content,
             zIndex: contentLayer
         )
+    }
+
+    /// The summary, the options and the selected option's description, in
+    /// at most `rows` lines. The options always show; the description and
+    /// then the summary give up lines first, cut with an ellipsis.
+    func menuLines(
+        width: Int,
+        rows: Int
+    ) -> [String] {
+        var options = items.indices.map { index in
+            let line = TerminalDisplay.fitted(
+                (index == selectedIndex ? "> " : "  ") + items[index].title,
+                columns: width
+            )
+            return index == selectedIndex
+                ? TerminalStyle(.inverse).apply(line)
+                : line
+        }
+        if options.count > rows {
+            let start = min(
+                max(0, selectedIndex - rows / 2),
+                options.count - rows
+            )
+            options = Array(options[start..<(start + rows)])
+        }
+
+        var budget = rows - options.count
+        let summary = Self.cut(
+            TerminalTextWrap.lines(interruption.summary, width: width),
+            to: budget - 1,
+            width: width
+        )
+        budget -= summary.isEmpty ? 0 : summary.count + 1
+        let description = Self.cut(
+            currentItem.map { TerminalTextWrap.lines($0.summary, width: width) } ?? [],
+            to: budget - 1,
+            width: width
+        ).map { TerminalStyle.dim.apply($0) }
+
+        var lines = summary
+        if !summary.isEmpty { lines.append("") }
+        lines += options
+        if !description.isEmpty { lines += [""] + description }
+        return lines
+    }
+
+    static func cut(
+        _ lines: [String],
+        to count: Int,
+        width: Int
+    ) -> [String] {
+        guard count > 0 else { return [] }
+        guard lines.count > count else { return lines }
+        var kept = Array(lines.prefix(count))
+        kept[count - 1] = TerminalDisplay.clipped(
+            kept[count - 1],
+            columns: max(0, width - 2)
+        ) + " …"
+        return kept
     }
 
     mutating func renderDocument(

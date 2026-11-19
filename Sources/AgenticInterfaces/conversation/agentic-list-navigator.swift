@@ -51,6 +51,28 @@ public struct AgenticListNavigator: Sendable {
         }
     }
 
+    /// For flat lists: `event` is what the motion changed, if anything.
+    /// Sideways motions pass, so `h`/`l` still move between panes.
+    public mutating func handle<Item: Sendable, ID: Hashable & Sendable>(
+        _ key: TerminalKey,
+        list: inout TerminalListControl<Item, ID>,
+        pageRows: Int,
+        event: inout TerminalListControlEvent<ID>?
+    ) -> Bool {
+        switch route(key, capturesInput: false) {
+        case .move(.horizontal):
+            return false
+        case .move(let command):
+            event = list.apply(command, pageRows: pageRows)
+            return true
+        case .consumed:
+            event = nil
+            return true
+        case .passed:
+            return false
+        }
+    }
+
     private enum Route {
         case move(TerminalNavigationCommand)
         case consumed

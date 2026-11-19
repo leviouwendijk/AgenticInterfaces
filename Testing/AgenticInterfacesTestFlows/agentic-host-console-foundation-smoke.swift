@@ -11,6 +11,7 @@ enum AgenticHostConsoleFoundationSmoke {
         case unexpectedInspectorFocus
         case unexpectedInspectorReturn
         case unexpectedRunSelection
+        case unexpectedRunMotion
         case unexpectedExecutionFollow
         case unexpectedManualSelectionPreservation
         case unexpectedExecutionControls
@@ -77,6 +78,20 @@ enum AgenticHostConsoleFoundationSmoke {
                 "recovery"
               ) else {
             throw Failure.unexpectedRunSelection
+        }
+
+        // Motions reach the runs list, and its last run stays put on `j`.
+        _ = console.handle(.char("G"))
+        let lastRunID = console.currentRunID
+        _ = console.handle(.char("j"))
+        guard lastRunID == "terminal-foundation",
+              console.currentRunID == lastRunID else {
+            throw Failure.unexpectedRunMotion
+        }
+        _ = console.handle(.char("g"))
+        _ = console.handle(.char("g"))
+        guard console.currentRunID == "persistent-host-console" else {
+            throw Failure.unexpectedRunMotion
         }
 
         try runExecutionControlPolicyProbe()

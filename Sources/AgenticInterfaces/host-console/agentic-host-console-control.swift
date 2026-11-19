@@ -60,6 +60,7 @@ public struct AgenticHostConsoleControl:
     private var traceNavigation: AgenticHostConsoleTraceNavigation?
     private var inspectedTraceDocumentIndex: Int
     private var isRunHeaderSelected: Bool
+    private var navigator = AgenticListNavigator()
 
     public init(
         snapshot: AgenticHostConsoleSnapshot,
@@ -85,6 +86,7 @@ public struct AgenticHostConsoleControl:
         self.runs = TerminalListControl(
             items: snapshot.runs,
             currentID: runID,
+            wrapMode: .clamp,
             id: {
                 $0.id
             }
@@ -92,12 +94,14 @@ public struct AgenticHostConsoleControl:
         self.steps = TerminalListControl(
             items: run?.steps ?? [],
             currentID: stepID,
+            wrapMode: .clamp,
             id: {
                 $0.id
             }
         )
         self.statuses = TerminalListControl(
             items: snapshot.statuses,
+            wrapMode: .clamp,
             id: {
                 $0.id
             }
@@ -251,30 +255,41 @@ public struct AgenticHostConsoleControl:
         if key == .tab,
            focus.current != .inspector {
             cycleBaseFocus()
+            navigator.reset()
             return nil
         }
 
-        switch focus.current {
+        let focused = focus.current
+        let event: AgenticHostConsoleEvent?
+
+        switch focused {
         case .runs:
-            return handleRuns(
+            event = handleRuns(
                 key
             )
 
         case .timeline:
-            return handleTimeline(
+            event = handleTimeline(
                 key
             )
 
         case .status:
-            return handleStatus(
+            event = handleStatus(
                 key
             )
 
         case .inspector:
-            return handleInspector(
+            event = handleInspector(
                 key
             )
         }
+
+        // A pending count belongs to the pane it was typed in.
+        if focus.current != focused {
+            navigator.reset()
+        }
+
+        return event
     }
 
     public mutating func render(
@@ -346,7 +361,14 @@ private extension AgenticHostConsoleControl {
             return nil
         }
 
-        guard let event = runs.handle(
+        var motion: TerminalListControlEvent<String>?
+        let moved = navigator.handle(
+            key,
+            list: &runs,
+            pageRows: runsDocument.viewport.visibleRows,
+            event: &motion
+        )
+        guard let event = moved ? motion : runs.handle(
             key
         ) else {
             return nil
@@ -428,11 +450,19 @@ private extension AgenticHostConsoleControl {
 
         if (key == .up || key == .char("k")),
            steps.currentIndex == 0 {
+            navigator.reset()
             isRunHeaderSelected = true
             return nil
         }
 
-        guard let event = steps.handle(
+        var motion: TerminalListControlEvent<String>?
+        let moved = navigator.handle(
+            key,
+            list: &steps,
+            pageRows: timelineDocument.viewport.visibleRows,
+            event: &motion
+        )
+        guard let event = moved ? motion : steps.handle(
             key
         ) else {
             return nil
@@ -494,7 +524,14 @@ private extension AgenticHostConsoleControl {
             return nil
         }
 
-        guard let event = statuses.handle(
+        var motion: TerminalListControlEvent<String>?
+        let moved = navigator.handle(
+            key,
+            list: &statuses,
+            pageRows: statusDocument.viewport.visibleRows,
+            event: &motion
+        )
+        guard let event = moved ? motion : statuses.handle(
             key
         ) else {
             return nil
@@ -939,7 +976,8 @@ private extension AgenticHostConsoleControl {
         if focus.current == .inspector {
             text = "j/k scroll  q back  ctrl-c quit"
         } else {
-            text = "tab focus  j/k select  h/← previous  l/→ next  enter inspect  ctrl-c quit"
+            text = (navigator.pendingText.map { "\($0)  " } ?? "")
+                + "tab focus  j/k select  gg/G ends  h/← previous  l/→ next  enter inspect  ctrl-c quit"
         }
 
         frame.write(

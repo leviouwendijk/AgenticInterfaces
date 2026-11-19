@@ -19,6 +19,7 @@ enum AgenticConversationRunReviewSmoke {
         case noPendingReviewFeedbackChanged
         case stagedReviewsChanged
         case toolNamedPreviewChanged
+        case wrappedSummaryCroppedOptions
     }
 
     static func run() throws {
@@ -131,6 +132,7 @@ enum AgenticConversationRunReviewSmoke {
 
         try runStagedReviews()
         try runToolNamedPreview()
+        try runWrappedSummary()
 
         var noReviewControl = AgenticConversationControl(
             snapshot: AgenticConversationSmoke.fixture()
@@ -291,6 +293,37 @@ enum AgenticConversationRunReviewSmoke {
         let opened = shown()
         guard opened.contains("New event"), opened.contains("Weekly session"), opened.contains("╭─") else {
             throw Failure.toolNamedPreviewChanged
+        }
+    }
+
+    /// A summary that wraps past the menu's height gives up lines; the
+    /// options never do.
+    static func runWrappedSummary() throws {
+        var snapshot = AgenticConversationSmoke.fixture()
+        snapshot.hostConsole = AgenticHostConsoleSnapshot(
+            runs: [.init(
+                id: "conversation-run", title: "Book", state: .awaitingApproval,
+                steps: [.init(id: "long-step", title: "schedule_book", state: .pending)]
+            )],
+            interruptions: [.init(
+                id: "long-approval", runID: "conversation-run", stepID: "long-step",
+                kind: .approval, title: "Approval required",
+                summary: Array(repeating: "This summary keeps going well past the menu.", count: 12)
+                    .joined(separator: " "),
+                actions: [.approve, .deny, .skip]
+            )]
+        )
+        var control = AgenticConversationControl(snapshot: snapshot)
+        _ = control.handle(.escape)
+        _ = control.handle(.escape)
+        _ = control.handle(.char("a"))
+        var frame = TerminalFrame(rows: 18, columns: 70)
+        control.render(into: &frame, in: TerminalRegion(rows: 18, columns: 70))
+        let menu = frame.resolved().spans.map(\.content).joined(separator: "\n")
+        guard control.focus.current == .runReview,
+              menu.contains("Approve"), menu.contains("Deny"), menu.contains("Skip"),
+              menu.contains("Open run console"), menu.contains("…") else {
+            throw Failure.wrappedSummaryCroppedOptions
         }
     }
 
