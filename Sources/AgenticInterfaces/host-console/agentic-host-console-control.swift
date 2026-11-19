@@ -158,6 +158,11 @@ public struct AgenticHostConsoleControl:
         statuses.currentItem
     }
 
+    /// A count or `g` typed towards a motion, for the footer.
+    public var pendingMotion: String? {
+        navigator.pendingText
+    }
+
     public mutating func update(
         _ snapshot: AgenticHostConsoleSnapshot
     ) {
@@ -976,7 +981,7 @@ private extension AgenticHostConsoleControl {
         if focus.current == .inspector {
             text = "j/k scroll  q back  ctrl-c quit"
         } else {
-            text = (navigator.pendingText.map { "\($0)  " } ?? "")
+            text = (pendingMotion.map { "\($0)  " } ?? "")
                 + "tab focus  j/k select  gg/G ends  h/← previous  l/→ next  enter inspect  ctrl-c quit"
         }
 

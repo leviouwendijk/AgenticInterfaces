@@ -1556,7 +1556,8 @@ private extension AgenticHostConsoleWorkflowControl {
             if console.focus.current == .inspector {
                 text = "j/k scroll  d details  f diff  o stdout  e stderr  q back  ctrl-c quit"
             } else {
-                text = "tab focus  j/k select  h/← previous  l/→ next  enter inspect  x run  a actions  d/f/o/e docs  ctrl-c quit"
+                text = (console.pendingMotion.map { "\($0)  " } ?? "")
+                    + "tab focus  j/k select  gg/G ends  h/l panes  enter inspect  x run  a actions  d/f/o/e docs  ctrl-c quit"
             }
         }
 
