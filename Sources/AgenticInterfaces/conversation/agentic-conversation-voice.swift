@@ -27,6 +27,17 @@ public enum AgenticConversationVoice {
         }
     }
 
+    /// Where a transcription goes: decided when recording starts.
+    public enum Target:
+        Sendable,
+        Hashable
+    {
+        /// The conversation composer's draft.
+        case composer
+        /// The active text field of the open answer menu.
+        case userInput
+    }
+
     public enum State:
         Sendable,
         Hashable
@@ -35,5 +46,12 @@ public enum AgenticConversationVoice {
         case recording
         case transcribing
         case failed(String)
+
+        public var isFailed: Bool {
+            if case .failed = self {
+                return true
+            }
+            return false
+        }
     }
 }

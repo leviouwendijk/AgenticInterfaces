@@ -56,6 +56,7 @@ enum AgenticConversationSmoke {
         try AgenticConversationUsageSmoke.run()
         try AgenticConversationUserInputSmoke.run()
         try AgenticConversationUserInputIntegrationSmoke.run()
+        try AgenticConversationUserInputVoiceSmoke.run()
         try AgenticConversationPendingSmoke.run()
         try AgenticConversationRunReviewSmoke.run()
         try AgenticConversationComposerSmoke.run()

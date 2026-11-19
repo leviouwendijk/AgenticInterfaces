@@ -94,6 +94,8 @@ public struct AgenticConversationControl: Sendable {
     private var pinnedContent: AgenticConversationPinnedContentControl
     private var nextContentOrdinal: Int
     private var voiceReturnFocus: AgenticConversationFocus
+    /// Where the current or last recording's transcription goes.
+    public private(set) var voiceTarget: AgenticConversationVoice.Target
     private var attachmentIndex: Int
     private var settings: AgenticConversationSettingsControl
     private var pendingSubmission: AgenticConversationSubmission?
@@ -157,6 +159,7 @@ public struct AgenticConversationControl: Sendable {
         )
         self.nextContentOrdinal = 1
         self.voiceReturnFocus = .composer
+        self.voiceTarget = .composer
         self.attachmentIndex = 0
         self.settings = AgenticConversationSettingsControl(
             snapshot: snapshot
@@ -390,6 +393,25 @@ public struct AgenticConversationControl: Sendable {
             return nil
         }
 
+        let target = voiceTarget
+        voiceTarget = .composer
+
+        // An answer still open takes it; one resolved meanwhile leaves it
+        // for the composer.
+        if target == .userInput,
+           resolvingUserInputID == nil,
+           snapshot.pendingUserInput != nil,
+           var userInput
+        {
+            let inserted = userInput.insertTranscription(
+                text
+            )
+            self.userInput = userInput
+            if inserted {
+                return nil
+            }
+        }
+
         switch disposition {
         case .draft:
             composer.replace(
@@ -437,6 +459,9 @@ public struct AgenticConversationControl: Sendable {
 
         case .paste(let text):
             if focus.current == .userInput {
+                guard !isVoiceBusy(for: .userInput) else {
+                    return nil
+                }
                 return handleUserInput(
                     .paste(text)
                 )
@@ -484,6 +509,16 @@ public struct AgenticConversationControl: Sendable {
             )
         }
 
+        // Voice keys come before the answer's editor, which would otherwise
+        // take Ctrl-Space, and while recording into it no key edits it.
+        if focus.current == .userInput,
+           voiceOwnsUserInputKey(keyStroke.key)
+        {
+            return handleUserInputVoice(
+                keyStroke.key
+            )
+        }
+
         // Ctrl-C stays with the answer's editor; the view decides when it leaves.
         if focus.current == .userInput {
             return handleUserInput(
@@ -505,6 +540,15 @@ public struct AgenticConversationControl: Sendable {
     }
 
     public mutating func handle(_ key: TerminalKey) -> AgenticConversationEvent? {
+        if focus.current == .userInput,
+           key != .control("G"),
+           voiceOwnsUserInputKey(key)
+        {
+            return handleUserInputVoice(
+                key
+            )
+        }
+
         if focus.current == .userInput,
            key != .control("G")
         {
@@ -743,6 +787,12 @@ public struct AgenticConversationControl: Sendable {
                 into: &frame,
                 in: region
             )
+            if isVoiceBusy(for: .userInput) {
+                renderVoice(
+                    into: &frame,
+                    in: region
+                )
+            }
         case .composer:
             composer.renderOverlay(
                 into: &frame,
@@ -2647,8 +2697,16 @@ private extension AgenticConversationControl {
             if resolvingUserInputID != nil {
                 return "submitting input…"
             }
-            return userInput?.footer
-                ?? "esc conversation"
+            guard let userInput else {
+                return "esc conversation"
+            }
+            if isVoiceBusy(for: .userInput) {
+                return snapshot.voiceState == .recording
+                    ? "enter/ctrl-space stop  esc cancel"
+                    : "transcribing..."
+            }
+            return userInput.footer
+                + (userInput.acceptsTranscription ? voiceFooter : "")
         case .run:
             return "q conversation  x run actions  a review"
         case .confirmation:
@@ -2693,12 +2751,72 @@ private extension AgenticConversationControl {
         )
     }
 
+    /// Recording or transcribing for this target.
+    func isVoiceBusy(
+        for target: AgenticConversationVoice.Target
+    ) -> Bool {
+        voiceTarget == target
+            && (snapshot.voiceState == .recording || snapshot.voiceState == .transcribing)
+    }
+
+    func voiceOwnsUserInputKey(
+        _ key: TerminalKey
+    ) -> Bool {
+        key == .controlSpace || isVoiceBusy(for: .userInput)
+    }
+
+    /// Voice keys in an answer menu: Ctrl-Space starts recording into its
+    /// text field; while recording, Enter or Ctrl-Space stops and Esc
+    /// cancels; while transcribing, keys wait.
+    mutating func handleUserInputVoice(
+        _ key: TerminalKey
+    ) -> AgenticConversationEvent? {
+        if isVoiceBusy(for: .userInput) {
+            guard snapshot.voiceState == .recording else {
+                return nil
+            }
+            switch key {
+            case .controlSpace,
+                 .enter:
+                return .voiceStopRequested
+
+            case .escape,
+                 .control("C"):
+                return .voiceCancelRequested
+
+            default:
+                return nil
+            }
+        }
+
+        guard resolvingUserInputID == nil,
+              var userInput else {
+            return nil
+        }
+
+        if snapshot.voiceState == .idle || snapshot.voiceState.isFailed,
+           snapshot.voiceAvailability == .available
+        {
+            guard userInput.prepareForTranscription() else {
+                return .feedbackRequested(
+                    "Voice needs a text answer; choose this one with the keys."
+                )
+            }
+            self.userInput = userInput
+        }
+
+        return voiceAction(
+            sourceFocus: .userInput
+        )
+    }
+
     mutating func voiceAction(
         sourceFocus: AgenticConversationFocus
     ) -> AgenticConversationEvent? {
         switch sourceFocus {
         case .composer,
-             .transcript:
+             .transcript,
+             .userInput:
             voiceReturnFocus = sourceFocus
 
         case .voice,
@@ -2706,7 +2824,6 @@ private extension AgenticConversationControl {
              .attachment,
              .settings,
              .runReview,
-             .userInput,
              .run,
              .confirmation:
             break
@@ -2728,9 +2845,16 @@ private extension AgenticConversationControl {
              .failed(_):
             switch snapshot.voiceAvailability {
             case .available:
-                focus.replace(
-                    .voice
-                )
+                // Answers keep their menu in view; the recording panel
+                // draws over it.
+                if sourceFocus == .userInput {
+                    voiceTarget = .userInput
+                } else {
+                    voiceTarget = .composer
+                    focus.replace(
+                        .voice
+                    )
+                }
                 return .voiceStartRequested
 
             case .unconfigured:

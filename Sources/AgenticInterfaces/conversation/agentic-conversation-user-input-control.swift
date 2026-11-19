@@ -367,6 +367,79 @@ package struct AgenticConversationUserInputControl:
         }
     }
 
+    /// Whether the open input has a text field a transcription can go to.
+    /// A single choice has one when it allows a custom value.
+    package var acceptsTranscription: Bool {
+        switch state {
+        case .text,
+             .form:
+            return true
+
+        case .single_choice(let single):
+            return single.specification.allowsCustomValue
+
+        case .multi_choice,
+             .confirmation:
+            return false
+        }
+    }
+
+    /// Readies the field a transcription goes to: a single choice opens its
+    /// custom value. False when the input has no text field.
+    package mutating func prepareForTranscription() -> Bool {
+        guard acceptsTranscription else {
+            return false
+        }
+
+        if case .single_choice(var single) = state,
+           single.customInput == nil
+        {
+            single.customInput = TextEditor(
+                placeholder: "custom value",
+                maximumRows: 1
+            )
+            state = .single_choice(
+                single
+            )
+        }
+        return true
+    }
+
+    /// Inserts dictated text into the active field, as a paste would,
+    /// separated from text already there. False when there is no field.
+    package mutating func insertTranscription(
+        _ text: String
+    ) -> Bool {
+        guard prepareForTranscription() else {
+            return false
+        }
+
+        let separated = activeText.map { existing in
+            existing.isEmpty || existing.last?.isWhitespace == true
+        } ?? true
+        _ = handlePaste(
+            separated ? text : " " + text
+        )
+        return true
+    }
+
+    private var activeText: String? {
+        switch state {
+        case .text(let text):
+            return text.input.text
+
+        case .single_choice(let single):
+            return single.customInput?.text
+
+        case .form(let form):
+            return form.focus.focused.flatMap { form.inputs[$0]?.text }
+
+        case .multi_choice,
+             .confirmation:
+            return nil
+        }
+    }
+
     package var footer: String {
         let base: String
 
