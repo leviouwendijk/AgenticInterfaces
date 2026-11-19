@@ -58,7 +58,7 @@ enum AgenticHostConsoleDocumentNavigationSmoke {
                 document(
                     id: "nav-diff",
                     stepID: "nav-step",
-                    kind: .diff
+                    kind: .preview
                 ),
                 document(
                     id: "other-stdout",
@@ -87,9 +87,9 @@ enum AgenticHostConsoleDocumentNavigationSmoke {
             .char("l")
         ) == .documentOpened(
             documentID: "nav-diff",
-            kind: .diff
+            kind: .preview
         ),
-              workflow.currentDocument?.kind == .diff else {
+              workflow.currentDocument?.kind == .preview else {
             throw Failure.unexpectedExistingSibling
         }
 
@@ -176,9 +176,9 @@ enum AgenticHostConsoleDocumentNavigationSmoke {
             .char("h")
         ) == .documentOpened(
             documentID: "nav-diff",
-            kind: .diff
+            kind: .preview
         ),
-              workflow.currentDocument?.kind == .diff else {
+              workflow.currentDocument?.kind == .preview else {
             throw Failure.unexpectedLeftNavigation
         }
 

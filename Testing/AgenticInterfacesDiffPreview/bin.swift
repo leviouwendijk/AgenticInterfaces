@@ -126,7 +126,7 @@ struct AgenticInterfacesDiffPreview {
         // Exercise the same serializable preflight contract as Host.
         let encoded = try JSONEncoder().encode(preparation.review)
         let review = try JSONDecoder().decode(ToolPreflight.self, from: encoded)
-        guard let difference = review.preview.difference else {
+        guard let difference = review.preview.differences.first else {
             throw Failure.missingDifference
         }
 
@@ -153,11 +153,11 @@ struct AgenticInterfacesDiffPreview {
                         id: "preview-diff",
                         runID: "preview-run",
                         stepID: "mutation",
-                        kind: .diff,
+                        kind: .preview,
                         title: difference.title ?? "File mutation preview",
                         body: rendered,
-                        differenceBody: difference,
-                        differencePrelude: "status     staged for approval"
+                        previewBody: [.difference(difference)],
+                        previewPrelude: "status     staged for approval"
                     )
                 ]
             )
@@ -168,7 +168,7 @@ struct AgenticInterfacesDiffPreview {
             )
             guard control.handle(.char("f")) == .documentOpened(
                 documentID: "preview-diff",
-                kind: .diff
+                kind: .preview
             ) else {
                 throw Failure.missingDifference
             }

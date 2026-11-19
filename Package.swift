@@ -103,6 +103,7 @@ let package = Package(
             dependencies: [
                 "AgenticInterfaces",
                 .product(name: "Agentic", package: "Agentic"),
+                .product(name: "Reporting", package: "Reporting"),
                 .product(name: "DSL", package: "DSL"),
                 .product(name: "Terminal", package: "Terminal"),
                 .product(name: "TerminalGhostty", package: "Terminal"),

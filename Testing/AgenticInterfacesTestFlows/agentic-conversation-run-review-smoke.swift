@@ -1,4 +1,7 @@
+import Agentic
 import AgenticInterfaces
+import Foundation
+import Reporting
 import Terminal
 
 enum AgenticConversationRunReviewSmoke {
@@ -15,6 +18,7 @@ enum AgenticConversationRunReviewSmoke {
         case reviewShortcutActionChanged
         case noPendingReviewFeedbackChanged
         case stagedReviewsChanged
+        case toolNamedPreviewChanged
     }
 
     static func run() throws {
@@ -55,8 +59,8 @@ enum AgenticConversationRunReviewSmoke {
                     id: "conversation-diff",
                     runID: "conversation-run",
                     stepID: "review-step",
-                    kind: .diff,
-                    title: "Mutation diff",
+                    kind: .preview,
+                    title: "Diff",
                     body: "diff --git a/a.swift b/a.swift\n+reviewed-change"
                 ),
                 AgenticHostConsoleDocumentPresentation(
@@ -126,6 +130,7 @@ enum AgenticConversationRunReviewSmoke {
         }
 
         try runStagedReviews()
+        try runToolNamedPreview()
 
         var noReviewControl = AgenticConversationControl(
             snapshot: AgenticConversationSmoke.fixture()
@@ -198,7 +203,7 @@ enum AgenticConversationRunReviewSmoke {
             .map(\.content)
             .joined(separator: "\n")
 
-        guard diff.contains("Mutation diff"),
+        guard diff.contains("Diff"),
               diff.contains("reviewed-change")
         else {
             throw Failure.diffDidNotOpen
@@ -234,6 +239,61 @@ enum AgenticConversationRunReviewSmoke {
 
     /// One staged review per worker: `]` steps between them, and deciding
     /// one keeps the menu open on the next.
+    /// A tool names its preview (`Event`); the menu shows that name and
+    /// opens the tool's card rather than a diff.
+    static func runToolNamedPreview() throws {
+        let start = Date(timeIntervalSince1970: 1_800_000_000)
+        let card = try ReportDocument(title: "Weekly session", datasets: [], blocks: [
+            .event(.init(
+                title: "Weekly session",
+                interval: .init(start: start, end: start + 5400),
+                timeZone: "Europe/Amsterdam",
+                change: .create,
+                calendar: "Trainer A"
+            )),
+        ])
+        let sections: [ToolPreflight.Preview.Section] = [.report(card, title: "Event")]
+        var snapshot = AgenticConversationSmoke.fixture()
+        snapshot.hostConsole = AgenticHostConsoleSnapshot(
+            runs: [.init(
+                id: "conversation-run", title: "Book", state: .awaitingApproval,
+                steps: [.init(id: "book-step", title: "schedule_book", state: .pending)]
+            )],
+            interruptions: [.init(
+                id: "book-approval", runID: "conversation-run", stepID: "book-step",
+                kind: .approval, title: "Approval required", summary: "Create one event.",
+                actions: [.approve, .deny]
+            )],
+            documents: [
+                .init(
+                    id: "book-preview", runID: "conversation-run", stepID: "book-step",
+                    kind: .preview, title: AgenticPreviewRenderer.title(sections),
+                    body: "Create 'Weekly session'", previewBody: sections
+                ),
+                .init(id: "book-details", runID: "conversation-run", stepID: "book-step", kind: .details, body: "{}"),
+            ]
+        )
+        var control = AgenticConversationControl(snapshot: snapshot)
+        _ = control.handle(.escape)
+        _ = control.handle(.escape)
+        _ = control.handle(.char("a"))
+        func shown() -> String {
+            var frame = TerminalFrame(rows: 40, columns: 100)
+            control.render(into: &frame, in: TerminalRegion(rows: 40, columns: 100))
+            return frame.resolved().spans.map(\.content).joined(separator: "\n")
+        }
+        let menu = shown()
+        guard control.focus.current == .runReview,
+              menu.contains("Event"), menu.contains("Details"), !menu.contains("Diff") else {
+            throw Failure.toolNamedPreviewChanged
+        }
+        _ = control.handle(.enter)
+        let opened = shown()
+        guard opened.contains("New event"), opened.contains("Weekly session"), opened.contains("╭─") else {
+            throw Failure.toolNamedPreviewChanged
+        }
+    }
+
     static func runStagedReviews() throws {
         func review(_ worker: String) -> AgenticHostConsoleInterruptionPresentation {
             .init(
@@ -251,7 +311,7 @@ enum AgenticConversationRunReviewSmoke {
                 id: "staged-\(worker)-diff",
                 runID: "conversation-run",
                 stepID: "staged-\(worker)",
-                kind: .diff,
+                kind: .preview,
                 title: "Staged · \(worker)",
                 body: "+\(worker) change"
             )

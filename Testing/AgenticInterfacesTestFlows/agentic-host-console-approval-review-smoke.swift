@@ -59,7 +59,7 @@ enum AgenticHostConsoleApprovalReviewSmoke {
         guard event == .documentRequested(
             runID: "approval-run",
             stepID: "reviewed-step",
-            kind: .diff
+            kind: .preview
         ),
               console.focus.current == .base else {
             throw Failure.unexpectedDiffShortcut
@@ -83,7 +83,7 @@ enum AgenticHostConsoleApprovalReviewSmoke {
               console.currentDocument?.id == "approval-diff",
               event == .documentOpened(
                 documentID: "approval-diff",
-                kind: .diff
+                kind: .preview
               ) else {
             throw Failure.unexpectedDiffShortcut
         }
@@ -153,7 +153,7 @@ enum AgenticHostConsoleApprovalReviewSmoke {
                     id: "approval-diff",
                     runID: "approval-run",
                     stepID: "mutate-step",
-                    kind: .diff,
+                    kind: .preview,
                     title: "Diff preview",
                     body: "--- a/file.swift\n+++ b/file.swift\n-old\n+new"
                 ),

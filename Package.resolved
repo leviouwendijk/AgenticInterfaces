@@ -7,7 +7,7 @@
       "location" : "https://github.com/leviouwendijk/Agentic.git",
       "state" : {
         "branch" : "master",
-        "revision" : "4a2872c8bdd1f08d82d97fcf96c04a41b178ae1e"
+        "revision" : "be79ad702176834d5071c92c5a1828a0a0bb7c43"
       }
     },
     {
@@ -16,7 +16,7 @@
       "location" : "https://github.com/leviouwendijk/AgenticIO.git",
       "state" : {
         "branch" : "master",
-        "revision" : "e5dee9ff1eb191ce5fced4227131515aa0aafebf"
+        "revision" : "93706aba8baf5a018fa00038a2b8aeaa5f376c7a"
       }
     },
     {
@@ -110,6 +110,15 @@
       }
     },
     {
+      "identity" : "frame",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/leviouwendijk/Frame.git",
+      "state" : {
+        "branch" : "master",
+        "revision" : "c7a53f44bf9b6fdd25217cd0e80d42ce4c5cc7d5"
+      }
+    },
+    {
       "identity" : "fuzzy",
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/leviouwendijk/Fuzzy.git",
@@ -160,7 +169,7 @@
       "location" : "https://github.com/leviouwendijk/IO.git",
       "state" : {
         "branch" : "master",
-        "revision" : "b20cc7e20efa292df16020a315354aea2de193ba"
+        "revision" : "237e8d609111f9167cdb1712b4f59524d91b1517"
       }
     },
     {
@@ -214,7 +223,7 @@
       "location" : "https://github.com/leviouwendijk/Milieu.git",
       "state" : {
         "branch" : "master",
-        "revision" : "5b6211d7b2207c8b999012584c48a33f25f15668"
+        "revision" : "8b707f48391112c86eed1c26ab354e82343f24d6"
       }
     },
     {
@@ -299,12 +308,21 @@
       }
     },
     {
+      "identity" : "references",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/leviouwendijk/References.git",
+      "state" : {
+        "branch" : "master",
+        "revision" : "7bdf6a9fdca3ccc0acd61ae5e51802cc25ea030f"
+      }
+    },
+    {
       "identity" : "reporting",
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/leviouwendijk/Reporting.git",
       "state" : {
         "branch" : "master",
-        "revision" : "e2f97c57f3fe49149eef9abb12ac1b87aa75900d"
+        "revision" : "ff2b35a57235509c62744c3de22540ebe092d515"
       }
     },
     {
@@ -403,7 +421,7 @@
       "location" : "https://github.com/leviouwendijk/Terminal.git",
       "state" : {
         "branch" : "master",
-        "revision" : "d9b654d0f516d640fb9a2e89ec6a3a40374c7907"
+        "revision" : "5f8c3f0105ad628c6aa08942c091f53be68cf890"
       }
     },
     {
@@ -466,7 +484,7 @@
       "location" : "https://github.com/leviouwendijk/Writers.git",
       "state" : {
         "branch" : "master",
-        "revision" : "18d8da065c14deeb6006077930eb63fbf148778d"
+        "revision" : "9f846f6bb04ec29a78480d9f45db41d68a2d27a9"
       }
     }
   ],

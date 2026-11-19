@@ -242,19 +242,19 @@ enum AgenticNativeDifferenceRenderSmoke {
             id: "embedded-diff",
             runID: "run",
             stepID: "step",
-            kind: .diff,
+            kind: .preview,
             body: sectionReview,
-            differenceBody: sectionPreview,
-            differencePrelude: "status     staged for approval"
+            previewBody: [.difference(sectionPreview)],
+            previewPrelude: "status     staged for approval"
         )
-        guard let semantic = embedded.differenceBody else {
+        guard case .difference(let semantic)? = embedded.previewBody?.first?.content else {
             throw Failure.incorrect_embedded_width
         }
         for columns in [80, 120, 160] {
             let lines = AgenticMutationDifferenceRenderer.rows(
                 semantic,
                 columns: columns,
-                prelude: embedded.differencePrelude
+                prelude: embedded.previewPrelude
             )
             let changed = lines.filter { $0.contains("┃") && $0.contains("│") }
             var document = TerminalScrollableDocument()
@@ -284,7 +284,7 @@ enum AgenticNativeDifferenceRenderSmoke {
             currentStepID: "step"
         )
         guard workflow.handle(.char("f")) == .documentOpened(
-            documentID: "embedded-diff", kind: .diff
+            documentID: "embedded-diff", kind: .preview
         ) else {
             throw Failure.incorrect_embedded_width
         }
@@ -296,7 +296,7 @@ enum AgenticNativeDifferenceRenderSmoke {
             let allRows = AgenticMutationDifferenceRenderer.rows(
                 sectionPreview,
                 in: content,
-                prelude: embedded.differencePrelude
+                prelude: embedded.previewPrelude
             )
             guard allRows.allSatisfy({
                 TerminalDisplay.width(of: $0) <= content.columns

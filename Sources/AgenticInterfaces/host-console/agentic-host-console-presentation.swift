@@ -399,7 +399,9 @@ public enum AgenticHostConsoleDocumentKind:
     Hashable
 {
     case details
-    case diff
+    /// What the call would do: a diff, a command, a card. The document's
+    /// title comes from the tool's preview sections, e.g. `Event`.
+    case preview
     case stdout
     case stderr
 
@@ -408,8 +410,8 @@ public enum AgenticHostConsoleDocumentKind:
         case .details:
             return "Details"
 
-        case .diff:
-            return "Diff"
+        case .preview:
+            return "Preview"
 
         case .stdout:
             return "stdout"
@@ -474,11 +476,11 @@ public struct AgenticHostConsoleDocumentPresentation:
     /// Optional typed report; rendered without replacing the canonical body.
     public var reportBody: ReportDocument?
 
-    /// Semantic diff retained until the enclosing viewport establishes its width.
-    public var differenceBody: ToolPreflight.Preview.Difference?
+    /// The tool's preview sections, laid out once the viewport's width is known.
+    public var previewBody: [ToolPreflight.Preview.Section]?
 
-    /// Text shown above the semantic diff, preserved independently of raw body.
-    public var differencePrelude: String?
+    /// Text shown above the preview, preserved independently of raw body.
+    public var previewPrelude: String?
 
     /// Read-only nodes supporting in-place trace navigation.
     public var traceRoots: [AgenticHostConsoleTraceNode]?
@@ -493,8 +495,8 @@ public struct AgenticHostConsoleDocumentPresentation:
         structuredBody: StructuredContent? = nil,
         traceRoots: [AgenticHostConsoleTraceNode]? = nil,
         reportBody: ReportDocument? = nil,
-        differenceBody: ToolPreflight.Preview.Difference? = nil,
-        differencePrelude: String? = nil
+        previewBody: [ToolPreflight.Preview.Section]? = nil,
+        previewPrelude: String? = nil
     ) {
         self.id = id
         self.runID = runID
@@ -505,8 +507,8 @@ public struct AgenticHostConsoleDocumentPresentation:
         self.structuredBody = structuredBody
         self.traceRoots = traceRoots
         self.reportBody = reportBody
-        self.differenceBody = differenceBody
-        self.differencePrelude = differencePrelude
+        self.previewBody = previewBody
+        self.previewPrelude = previewPrelude
     }
 }
 

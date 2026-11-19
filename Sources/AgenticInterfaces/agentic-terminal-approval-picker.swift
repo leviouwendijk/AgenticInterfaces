@@ -119,7 +119,7 @@ extension TerminalApprovalPicker {
     func renderDiff(
         _ prompt: AgenticApprovalPrompt
     ) {
-        guard let diffPreview = prompt.preflight.preview.difference,
+        guard let diffPreview = prompt.preflight.preview.differences.first,
               !diffPreview.isEmpty
         else {
             Terminal.write(

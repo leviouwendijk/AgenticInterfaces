@@ -28,7 +28,8 @@ struct AgenticConversationRunReviewControl:
         Hashable
     {
         case document(
-            AgenticHostConsoleDocumentKind
+            AgenticHostConsoleDocumentKind,
+            title: String
         )
         case action(
             AgenticHostConsoleAction
@@ -37,7 +38,7 @@ struct AgenticConversationRunReviewControl:
 
         var id: String {
             switch self {
-            case .document(let kind):
+            case .document(let kind, _):
                 return "document:\(kind.rawValue)"
 
             case .action(let action):
@@ -50,8 +51,8 @@ struct AgenticConversationRunReviewControl:
 
         var title: String {
             switch self {
-            case .document(let kind):
-                return kind.title
+            case .document(_, let title):
+                return title
 
             case .action(let action):
                 return action.title
@@ -63,16 +64,16 @@ struct AgenticConversationRunReviewControl:
 
         var summary: String {
             switch self {
-            case .document(.diff):
-                return "Inspect the exact diff associated with this interruption."
+            case .document(.preview, let title):
+                return "Inspect the \(title.lowercased()) this call would produce."
 
-            case .document(.details):
-                return "Inspect the full details for this interruption."
+            case .document(.details, _):
+                return "Inspect the raw request and details for this interruption."
 
-            case .document(.stdout):
+            case .document(.stdout, _):
                 return "Inspect stdout for this stage."
 
-            case .document(.stderr):
+            case .document(.stderr, _):
                 return "Inspect stderr for this stage."
 
             case .action(let action):
@@ -263,7 +264,7 @@ struct AgenticConversationRunReviewControl:
             }
 
             switch currentItem {
-            case .document(let kind):
+            case .document(let kind, _):
                 guard matchingDocument(
                     kind: kind
                 ) != nil else {
@@ -378,17 +379,19 @@ private extension AgenticConversationRunReviewControl {
         var result: [Item] = []
 
         for kind in [
-            AgenticHostConsoleDocumentKind.diff,
+            AgenticHostConsoleDocumentKind.preview,
             .details,
         ] {
-            if snapshot.documents.contains(where: {
+            if let document = snapshot.documents.first(where: {
                 $0.runID == interruption.runID
                     && $0.stepID == interruption.stepID
                     && $0.kind == kind
             }) {
+                // A preview is named by its tool (`Event`); others by kind.
                 result.append(
                     .document(
-                        kind
+                        kind,
+                        title: kind == .preview ? document.title : kind.title
                     )
                 )
             }
@@ -619,12 +622,12 @@ private extension AgenticConversationRunReviewControl {
                     ),
                 visibleRows: content.rows
             )
-        } else if let difference = currentDocument.differenceBody {
+        } else if let sections = currentDocument.previewBody {
             document.update(
-                lines: AgenticMutationDifferenceRenderer.rows(
-                    difference,
+                lines: AgenticPreviewRenderer.rows(
+                    sections,
                     in: content,
-                    prelude: currentDocument.differencePrelude
+                    prelude: currentDocument.previewPrelude
                 ),
                 visibleRows: content.rows
             )
@@ -635,7 +638,7 @@ private extension AgenticConversationRunReviewControl {
             case .details:
                 wrapping = .word
 
-            case .diff,
+            case .preview,
                  .stdout,
                  .stderr:
                 wrapping = .display

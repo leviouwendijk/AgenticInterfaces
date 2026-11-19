@@ -861,11 +861,11 @@ private extension AgenticHostConsoleWorkflowControl {
             case .details:
                 return nil
 
-            case .diff:
+            case .preview:
                 return .details
 
             case .stdout:
-                return .diff
+                return .preview
 
             case .stderr:
                 return .stdout
@@ -874,9 +874,9 @@ private extension AgenticHostConsoleWorkflowControl {
         case .char("l"):
             switch kind {
             case .details:
-                return .diff
+                return .preview
 
-            case .diff:
+            case .preview:
                 return .stdout
 
             case .stdout:
@@ -899,7 +899,7 @@ private extension AgenticHostConsoleWorkflowControl {
             return .details
 
         case .char("f"):
-            return .diff
+            return .preview
 
         case .char("o"):
             return .stdout
@@ -1365,12 +1365,12 @@ private extension AgenticHostConsoleWorkflowControl {
                     ),
                 visibleRows: content.rows
             )
-        } else if let difference = currentDocument.differenceBody {
+        } else if let sections = currentDocument.previewBody {
             document.update(
-                lines: AgenticMutationDifferenceRenderer.rows(
-                    difference,
+                lines: AgenticPreviewRenderer.rows(
+                    sections,
                     in: content,
-                    prelude: currentDocument.differencePrelude
+                    prelude: currentDocument.previewPrelude
                 ),
                 visibleRows: content.rows
             )
@@ -1381,7 +1381,7 @@ private extension AgenticHostConsoleWorkflowControl {
             case .details:
                 wrapping = .word
 
-            case .diff,
+            case .preview,
                  .stdout,
                  .stderr:
                 wrapping = .display

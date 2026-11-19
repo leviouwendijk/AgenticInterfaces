@@ -69,6 +69,7 @@ public struct AgenticConversationStructuredPresentation: Sendable, Hashable, Cod
             case .facts: kind = "facts"
             case .callout: kind = "callout"
             case .timeline: kind = "timeline"
+            case .event: kind = "event"
             case .graph(let graph):
                 if document.blocks.count == 1 {
                     return "graph · \(graph.nodes.count) nodes · \(graph.edges.count) edges"

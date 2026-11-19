@@ -92,7 +92,7 @@ enum AgenticHostConsoleWorkflowFixture {
                 id: "approval-diff",
                 runID: "approval",
                 stepID: "prepare",
-                kind: .diff,
+                kind: .preview,
                 title: "Diff preview",
                 body: "--- a/Sources/AgenticInterfaces/example.swift\n+++ b/Sources/AgenticInterfaces/example.swift\n@@\n-old behavior\n+new behavior"
             ),
