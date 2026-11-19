@@ -484,15 +484,10 @@ public struct AgenticConversationControl: Sendable {
             )
         }
 
+        // Ctrl-C stays with the answer's editor; the view decides when it leaves.
         if focus.current == .userInput {
-            let userInputStroke = keyStroke.key == .control("C")
-                ? TerminalKeyStroke(
-                    key: .escape
-                )
-                : keyStroke
-
             return handleUserInput(
-                userInputStroke
+                keyStroke
             )
         }
 
@@ -510,6 +505,16 @@ public struct AgenticConversationControl: Sendable {
     }
 
     public mutating func handle(_ key: TerminalKey) -> AgenticConversationEvent? {
+        if focus.current == .userInput,
+           key != .control("G")
+        {
+            return handleUserInput(
+                TerminalKeyStroke(
+                    key: key
+                )
+            )
+        }
+
         if navigatorFocus != focus.current {
             navigator.reset()
             navigatorFocus = focus.current
@@ -1238,12 +1243,14 @@ private extension AgenticConversationControl {
             attachmentDocument.moveToStart()
         case .end:
             attachmentDocument.moveToEnd()
+        case .char("a"):
+            return openCurrentRunReview()
         case .enter:
             guard case .run(let runID)? = currentAttachment else {
                 return nil
             }
 
-            if openPendingUserInput(
+            if openWaitingRun(
                 runID: runID
             ) {
                 return nil
@@ -1589,32 +1596,45 @@ private extension AgenticConversationControl {
             return .feedbackRequested("No message selected.")
         }
 
+        // A waiting run comes first, however many attachments sit beside it.
+        for case .run(let runID) in currentMessage.attachments
+        where openWaitingRun(runID: runID) {
+            return nil
+        }
+
         if currentMessage.attachments.count == 1,
            case .run(let runID) = currentMessage.attachments[0]
         {
-            if openPendingUserInput(
-                runID: runID
-            ) {
-                return nil
-            }
-
-            if let review = AgenticConversationRunReviewControl(
-                snapshot: snapshot.hostConsole,
-                runID: runID
-            ) {
-                runReview = review
-                focus.push(
-                    .runReview
-                )
-                return nil
-            }
-
             return openRun(
                 runID: runID
             )
         }
 
         return openCurrentAttachment()
+    }
+
+    /// Opens the run's pending question or review, if it has one.
+    mutating func openWaitingRun(
+        runID: String
+    ) -> Bool {
+        if openPendingUserInput(
+            runID: runID
+        ) {
+            return true
+        }
+
+        guard let review = AgenticConversationRunReviewControl(
+            snapshot: snapshot.hostConsole,
+            runID: runID
+        ) else {
+            return false
+        }
+
+        runReview = review
+        focus.push(
+            .runReview
+        )
+        return true
     }
 
     mutating func openCurrentAttachment() -> AgenticConversationEvent? {
@@ -2473,11 +2493,16 @@ private extension AgenticConversationControl {
         attachmentDocument.render(into: &frame, in: body, zIndex: .overlay)
 
         let position = min(message.attachments.count, attachmentIndex + 1)
-        let enterHint: String
+        let waiting = message.attachments.contains { attachment in
+            guard case .run(let runID) = attachment else { return false }
+            return AgenticConversationRunReviewControl(snapshot: snapshot.hostConsole, runID: runID) != nil
+        }
+        var enterHint = ""
         if case .run = attachment {
-            enterHint = "  enter run"
-        } else {
-            enterHint = ""
+            enterHint = waiting ? "  enter review" : "  enter run"
+        }
+        if waiting {
+            enterHint += "  a review"
         }
         frame.write(
             TerminalStyle.dim.apply(

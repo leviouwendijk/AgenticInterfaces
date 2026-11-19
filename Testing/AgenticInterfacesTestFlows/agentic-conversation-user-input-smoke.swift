@@ -496,11 +496,37 @@ enum AgenticConversationUserInputSmoke {
             )
         )
 
-        guard case .closeRequested? = control.handle(
-            TerminalKeyStroke(
-                key: .escape
+        // Esc and Ctrl-C switch the editor's mode; Ctrl-F leaves, as in the composer.
+        guard control.handle(TerminalKeyStroke(key: .escape)) == nil,
+              control.handle(TerminalKeyStroke(key: .control("C"))) == nil,
+              case .closeRequested? = control.handle(
+                TerminalKeyStroke(
+                    key: .control("F")
+                )
+              ) else {
+            throw Failure.escapeChanged
+        }
+
+        // Choice lists have no editor: Esc and Ctrl-C still close.
+        var choices = AgenticConversationUserInputControl(
+            request: try UserInputRequest(
+                prompt: "Strategy",
+                input: .single_choice(
+                    SingleChoiceUserInput(
+                        choices: [UserInputChoice(id: "direct", label: "Direct", value: "direct")],
+                        allowsCustomValue: true
+                    )
+                )
             )
-        ) else {
+        )
+        guard case .closeRequested? = choices.handle(TerminalKeyStroke(key: .control("C"))) else {
+            throw Failure.escapeChanged
+        }
+        _ = choices.handle(TerminalKeyStroke(key: .down))
+        _ = choices.handle(TerminalKeyStroke(key: .enter))
+        guard choices.handle(TerminalKeyStroke(key: .escape)) == nil,
+              choices.handle(TerminalKeyStroke(key: .control("F"))) == nil,
+              case .closeRequested? = choices.handle(TerminalKeyStroke(key: .escape)) else {
             throw Failure.escapeChanged
         }
     }

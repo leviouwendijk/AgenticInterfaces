@@ -352,19 +352,34 @@ package struct AgenticConversationUserInputControl:
         }
     }
 
+    private var isEditing: Bool {
+        switch state {
+        case .text,
+             .form:
+            return true
+
+        case .single_choice(let single):
+            return single.customInput != nil
+
+        case .multi_choice,
+             .confirmation:
+            return false
+        }
+    }
+
     package var footer: String {
         let base: String
 
         switch state {
         case .text(let text):
             base = text.specification.multiline
-                ? "enter newline  ctrl-enter submit  ctrl-c normal  esc back"
-                : "enter submit  ctrl-c normal  esc back"
+                ? "enter newline  ctrl-enter submit  ctrl-c normal  ctrl-f back"
+                : "enter submit  ctrl-c normal  ctrl-f back"
 
         case .single_choice(let single):
             base = single.customInput == nil
                 ? "j/k choose  enter select  esc back"
-                : "enter submit custom  ctrl-c normal  esc choices"
+                : "enter submit custom  ctrl-c normal  ctrl-f choices"
 
         case .multi_choice:
             base = "j/k choose  space toggle  enter submit  esc back"
@@ -373,7 +388,7 @@ package struct AgenticConversationUserInputControl:
             base = "j/k choose  enter select  esc back"
 
         case .form:
-            base = "tab/shift-tab field  ctrl-enter submit  ctrl-o include/omit optional  esc back"
+            base = "tab/shift-tab field  ctrl-enter submit  ctrl-o include/omit optional  ctrl-c normal  ctrl-f back"
         }
 
         guard request.requirement == .optional else {
@@ -412,18 +427,25 @@ package struct AgenticConversationUserInputControl:
     package mutating func handle(
         _ keyStroke: TerminalKeyStroke
     ) -> AgenticConversationUserInputEvent? {
-        if case .single_choice(var single) = state,
-           single.customInput != nil,
-           keyStroke.key == .escape
-        {
-            single.customInput = nil
-            state = .single_choice(
-                single
-            )
-            return nil
+        // Like the composer: Ctrl-F leaves, so Esc and Ctrl-C stay with the
+        // editor's modes. Choice lists have no editor and close on either.
+        if keyStroke.key == .control("F") {
+            if case .single_choice(var single) = state,
+               single.customInput != nil
+            {
+                single.customInput = nil
+                state = .single_choice(
+                    single
+                )
+                return nil
+            }
+
+            return .closeRequested
         }
 
-        if keyStroke.key == .escape {
+        if !isEditing,
+           keyStroke.key == .escape || keyStroke.key == .control("C")
+        {
             return .closeRequested
         }
 

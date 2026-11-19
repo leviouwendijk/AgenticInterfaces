@@ -81,16 +81,33 @@ enum AgenticConversationRunReviewSmoke {
         _ = shortcutControl.handle(.escape)
         _ = shortcutControl.handle(.escape)
 
-        guard shortcutControl.handle(.enter) == .attachmentOpened(
-            messageID: "assistant-run",
-            attachmentID: "trace-conversation-run"
-        ), shortcutControl.focus.current == .attachment else {
+        // A waiting run comes before the message's other attachments.
+        guard shortcutControl.handle(.enter) == nil,
+              shortcutControl.focus.current == .runReview else {
             throw Failure.inspectionNavigationChanged
         }
 
         _ = shortcutControl.handle(.char("q"))
         guard shortcutControl.focus.current == .transcript,
               shortcutControl.handle(.char("a")) == nil,
+              shortcutControl.focus.current == .runReview else {
+            throw Failure.reviewShortcutDidNotOpen
+        }
+        _ = shortcutControl.handle(.char("q"))
+
+        // From the attachment inspector, `a` and Enter on the run card reach the review.
+        guard shortcutControl.handle(.char("t")) == .attachmentOpened(
+            messageID: "assistant-run",
+            attachmentID: "trace-conversation-run"
+        ), shortcutControl.focus.current == .attachment,
+              shortcutControl.handle(.char("a")) == nil,
+              shortcutControl.focus.current == .runReview else {
+            throw Failure.reviewShortcutDidNotOpen
+        }
+        _ = shortcutControl.handle(.char("q"))
+        _ = shortcutControl.handle(.char("l"))
+        guard shortcutControl.focus.current == .attachment,
+              shortcutControl.handle(.enter) == nil,
               shortcutControl.focus.current == .runReview else {
             throw Failure.reviewShortcutDidNotOpen
         }
@@ -104,7 +121,7 @@ enum AgenticConversationRunReviewSmoke {
                 stepID: "review-step",
                 action: .approve
             )
-        ), shortcutControl.focus.current == .transcript else {
+        ), shortcutControl.focus.current == .attachment else {
             throw Failure.reviewShortcutActionChanged
         }
 

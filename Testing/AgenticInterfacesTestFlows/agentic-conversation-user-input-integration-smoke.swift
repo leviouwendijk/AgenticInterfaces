@@ -92,7 +92,7 @@ enum AgenticConversationUserInputIntegrationSmoke {
 
         let closeEvent = control.handle(
             TerminalKeyStroke(
-                key: .escape
+                key: .control("F")
             )
         )
         guard closeEvent == nil else {
@@ -133,7 +133,7 @@ enum AgenticConversationUserInputIntegrationSmoke {
         }
 
         _ = control.handle(
-            .escape
+            .control("F")
         )
         guard control.focus.current == .transcript else {
             throw Failure.closeDidNotReturnToTranscript
@@ -147,7 +147,7 @@ enum AgenticConversationUserInputIntegrationSmoke {
         }
 
         _ = control.handle(
-            .escape
+            .control("F")
         )
         guard control.focus.current == .transcript else {
             throw Failure.closeDidNotReturnToTranscript
@@ -180,7 +180,7 @@ enum AgenticConversationUserInputIntegrationSmoke {
         }
 
         _ = control.handle(
-            .escape
+            .control("F")
         )
         guard control.focus.current == .run else {
             throw Failure.pendingRunDetailsDidNotOpen
