@@ -12,22 +12,6 @@ let package = Package(
             name: "AgenticInterfaces",
             targets: ["AgenticInterfaces"]
         ),
-        .executable(
-            name: "t_aint_main",
-            targets: ["AgenticInterfacesTestFlows"]
-        ),
-        .executable(
-            name: "t_aint_reporting",
-            targets: ["AgenticInterfacesReportingTesting"]
-        ),
-        .executable(
-            name: "t_aint_structured",
-            targets: ["AgenticInterfacesStructuredTesting"]
-        ),
-        .executable(
-            name: "t_aint_diffpreview",
-            targets: ["AgenticInterfacesDiffPreview"]
-        ),
     ],
     dependencies: [
         .package(url: "https://github.com/leviouwendijk/Agentic.git", branch: "master"),
@@ -47,8 +31,6 @@ let package = Package(
         .package(url: "https://github.com/leviouwendijk/Parsers.git", branch: "master"),
         .package(url: "https://github.com/leviouwendijk/Arguments.git", branch: "master"),
         .package(url: "https://github.com/leviouwendijk/Search.git", branch: "master"),
-        .package(url: "https://github.com/leviouwendijk/AgenticIO.git", branch: "master"),
-        .package(url: "https://github.com/leviouwendijk/Path.git", branch: "master"),
     ],
     targets: [
         .target(
@@ -76,53 +58,6 @@ let package = Package(
                 .product(name: "Arguments", package: "Arguments"),
                 .product(name: "Search", package: "Search"),
             ]
-        ),
-        .executableTarget(
-            name: "AgenticInterfacesStructuredTesting",
-            dependencies: [
-                "AgenticInterfaces",
-                .product(name: "Agentic", package: "Agentic"),
-                .product(name: "AgenticStandard", package: "Agentic"),
-                .product(name: "Primitives", package: "Primitives"),
-                .product(name: "Reporting", package: "Reporting"),
-            ],
-            path: "Testing/AgenticInterfacesStructuredTesting"
-        ),
-        .executableTarget(
-            name: "AgenticInterfacesReportingTesting",
-            dependencies: [
-                "AgenticInterfaces",
-                .product(name: "DSL", package: "DSL"),
-                .product(name: "Reporting", package: "Reporting"),
-                .product(name: "Search", package: "Search"),
-                .product(name: "Terminal", package: "Terminal"),
-            ]
-        ),
-        .executableTarget(
-            name: "AgenticInterfacesTestFlows",
-            dependencies: [
-                "AgenticInterfaces",
-                .product(name: "Agentic", package: "Agentic"),
-                .product(name: "Reporting", package: "Reporting"),
-                .product(name: "DSL", package: "DSL"),
-                .product(name: "Terminal", package: "Terminal"),
-                .product(name: "TerminalGhostty", package: "Terminal"),
-                .product(name: "Difference", package: "Difference"),
-                .product(name: "Schema", package: "Schema"),
-            ],
-            path: "Testing/AgenticInterfacesTestFlows"
-        ),
-        .executableTarget(
-            name: "AgenticInterfacesDiffPreview",
-            dependencies: [
-                "AgenticInterfaces",
-                .product(name: "Agentic", package: "Agentic"),
-                .product(name: "AgenticIO", package: "AgenticIO"),
-                .product(name: "Path", package: "Path"),
-                .product(name: "Terminal", package: "Terminal"),
-                .product(name: "Workspace", package: "Workspace")
-            ],
-            path: "Testing/AgenticInterfacesDiffPreview"
         ),
     ]
 )
