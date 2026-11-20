@@ -1,3 +1,10 @@
 import Executable;
 
-let tests: Tests = .{ .primary = "t_aint_main" };
+let tests: Tests = .{
+    .primary = "t_aint_main",
+    .groups = .{
+        .diffpreview = ["t_aint_diffpreview"],
+        .reporting = ["t_aint_reporting"],
+        .structured = ["t_aint_structured"],
+    },
+};
