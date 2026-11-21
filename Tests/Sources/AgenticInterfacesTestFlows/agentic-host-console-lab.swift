@@ -162,7 +162,7 @@ enum AgenticHostConsoleLab {
                     steps: [
                         AgenticHostConsoleStepPresentation(
                             id: "mutate",
-                            title: "mutate_files",
+                            title: "mutate",
                             detail: "AgenticInterfaces/Sources/AgenticInterfaces/host-console",
                             state: .completed,
                             fields: [
@@ -221,7 +221,7 @@ enum AgenticHostConsoleLab {
                     steps: [
                         AgenticHostConsoleStepPresentation(
                             id: "failed-mutate",
-                            title: "mutate_files",
+                            title: "mutate",
                             detail: "Sources/AgenticInterfaces",
                             state: .failed,
                             fields: [

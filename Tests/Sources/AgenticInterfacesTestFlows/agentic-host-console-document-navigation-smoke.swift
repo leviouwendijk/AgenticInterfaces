@@ -38,7 +38,7 @@ enum AgenticHostConsoleDocumentNavigationSmoke {
                     steps: [
                         AgenticHostConsoleStepPresentation(
                             id: "nav-step",
-                            title: "mutate_files",
+                            title: "mutate",
                             state: .pending
                         ),
                         AgenticHostConsoleStepPresentation(

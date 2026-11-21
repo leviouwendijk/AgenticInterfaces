@@ -119,7 +119,7 @@ enum AgenticHostConsoleInspectionSurfaceSmoke {
                         steps: [
                             AgenticHostConsoleStepPresentation(
                                 id: "inspection-surface-step",
-                                title: "search_sources",
+                                title: "search",
                                 state: .completed,
                                 fields: [
                                     AgenticHostConsoleField(

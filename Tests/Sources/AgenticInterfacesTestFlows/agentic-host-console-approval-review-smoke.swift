@@ -127,7 +127,7 @@ enum AgenticHostConsoleApprovalReviewSmoke {
                         ),
                         AgenticHostConsoleStepPresentation(
                             id: "mutate-step",
-                            title: "mutate_files",
+                            title: "mutate",
                             state: .active
                         ),
                     ]

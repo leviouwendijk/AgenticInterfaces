@@ -111,7 +111,7 @@ enum AgenticConversationSmoke {
                 ),
                 AgenticHostConsoleStepPresentation(
                     id: "card-mutate",
-                    title: "mutate_files",
+                    title: "mutate",
                     state: .pending
                 ),
                 AgenticHostConsoleStepPresentation(
@@ -147,7 +147,7 @@ enum AgenticConversationSmoke {
 
         guard card.title == "Run · awaiting review",
               card.body == [
-                "Stage 2 of 3 · mutate_files",
+                "Stage 2 of 3 · mutate",
                 "Human review required",
               ].joined(separator: "\n"),
               card.hint == "a review · Enter inspect",
@@ -169,13 +169,13 @@ enum AgenticConversationSmoke {
                 ),
                 AgenticHostConsoleStepPresentation(
                     id: "warning-hidden-call",
-                    title: "mutate_files",
+                    title: "mutate",
                     detail: "Tool was registered but not exposed.",
                     state: .warning
                 ),
                 AgenticHostConsoleStepPresentation(
                     id: "warning-retry",
-                    title: "mutate_files",
+                    title: "mutate",
                     state: .completed
                 ),
             ]
@@ -647,7 +647,7 @@ enum AgenticConversationSmoke {
             "core",
             in: catalog
         )
-        guard domainMatches.contains(where: { $0.identifier == "mutate_files" }),
+        guard domainMatches.contains(where: { $0.identifier == "mutate" }),
               domainMatches.allSatisfy({ $0.domain == "Core" })
         else {
             throw Failure.capabilityBrowserPresentationMissing
@@ -656,7 +656,7 @@ enum AgenticConversationSmoke {
             "core mutate",
             in: catalog
         )
-        guard compoundMatches.first?.identifier == "mutate_files",
+        guard compoundMatches.first?.identifier == "mutate",
               !compoundMatches.contains(where: { $0.identifier == "inspect_workspace" })
         else {
             throw Failure.capabilityBrowserPresentationMissing
@@ -665,26 +665,26 @@ enum AgenticConversationSmoke {
             "mtat",
             in: catalog
         )
-        guard fuzzyMatches.contains(where: { $0.identifier == "mutate_files" })
+        guard fuzzyMatches.contains(where: { $0.identifier == "mutate" })
         else {
             throw Failure.capabilityBrowserPresentationMissing
         }
         _ = browserControl.handle(.char("/"))
-        for character in "mutate_files" { _ = browserControl.handle(.char(String(character))) }
+        for character in "mutate" { _ = browserControl.handle(.char(String(character))) }
         _ = browserControl.handle(.enter)
         var searchFrame = TerminalFrame(rows: 28, columns: 100)
         browserControl.render(into: &searchFrame,
             in: TerminalRegion(rows: 28, columns: 100))
         let searchText = stripANSI(searchFrame.resolved().spans.map(\.content).joined(separator: "\n"))
         guard searchText.contains("Conversation settings / Capabilities / Core / Tools"),
-              searchText.contains("/mutate_files"),
+              searchText.contains("/mutate"),
               searchText.contains("1 match"),
-              searchText.contains("mutate_files"),
+              searchText.contains("mutate"),
               !searchText.contains("inspect_workspace") else {
             throw Failure.capabilityBrowserPresentationMissing
         }
         guard browserControl.handle(.space) == .capabilitySelectionChanged(
-            available: .init(tools: ["inspect_workspace", "mutate_files"]),
+            available: .init(tools: ["inspect_workspace", "mutate"]),
             visible: .none
         ) else {
             throw Failure.capabilitySelectionChanged
@@ -703,8 +703,8 @@ enum AgenticConversationSmoke {
         else { throw Failure.capabilityBrowserPresentationMissing }
 
         guard browserControl.handle(.enter) == .capabilitySelectionChanged(
-            available: .init(tools: ["inspect_workspace", "mutate_files"]),
-            visible: .init(tools: ["mutate_files"])
+            available: .init(tools: ["inspect_workspace", "mutate"]),
+            visible: .init(tools: ["mutate"])
         ), browserText().contains("[● ●]")
         else { throw Failure.capabilityBrowserPresentationMissing }
 
@@ -1048,8 +1048,8 @@ enum AgenticConversationSmoke {
                     summary: "2 results shortened",
                     reason: AgenticChangePresentation.contextReason("repeated_result"),
                     items: [
-                        .init(id: "a", subject: "read_file · call_9", detail: "→ see call_4", isRecoverable: true),
-                        .init(id: "b", subject: "read_file · call_10", detail: "→ see call_5", isRecoverable: true),
+                        .init(id: "a", subject: "read · call_9", detail: "→ see call_4", isRecoverable: true),
+                        .init(id: "b", subject: "read · call_10", detail: "→ see call_5", isRecoverable: true),
                     ],
                     isLossy: true
                 ))]
@@ -1063,7 +1063,7 @@ enum AgenticConversationSmoke {
         let changeCard = stripANSI(changeFrame.resolved().spans.map(\.content).joined(separator: "\n"))
         guard changeCard.contains("context · 2 results shortened · iteration 3"),
               changeCard.contains("replaced by a pointer"),
-              changeCard.contains("read_file · call_9")
+              changeCard.contains("read · call_9")
         else {
             throw Failure.presentationMissing("change card: \(changeCard)")
         }
@@ -1417,8 +1417,8 @@ enum AgenticConversationSmoke {
             capabilityEntries: [
                 .init(kind: .tool, identifier: "inspect_workspace", namespace: "Core",
                     title: "inspect_workspace", summary: "Inspect the active workspace."),
-                .init(kind: .tool, identifier: "mutate_files", namespace: "Core",
-                    title: "mutate_files", summary: "Apply bounded file mutations."),
+                .init(kind: .tool, identifier: "mutate", namespace: "Core",
+                    title: "mutate", summary: "Apply bounded file mutations."),
                 .init(kind: .tool, identifier: "find_tools", namespace: "Intrinsics",
                     title: "find_tools", summary: "Discover installed capabilities."),
                 .init(kind: .tool, identifier: "inspect_tool_registry", namespace: "Intrinsics",

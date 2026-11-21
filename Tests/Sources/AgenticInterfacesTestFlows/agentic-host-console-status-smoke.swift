@@ -34,7 +34,7 @@ enum AgenticHostConsoleStatusSmoke {
                     steps: [
                         AgenticHostConsoleStepPresentation(
                             id: "status-step",
-                            title: "mutate_files",
+                            title: "mutate",
                             state: .pending
                         ),
                     ]

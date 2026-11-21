@@ -34,7 +34,7 @@ enum AgenticConversationRunReviewSmoke {
                     steps: [
                         AgenticHostConsoleStepPresentation(
                             id: "review-step",
-                            title: "mutate_files",
+                            title: "mutate",
                             state: .pending
                         ),
                     ]
@@ -70,7 +70,7 @@ enum AgenticConversationRunReviewSmoke {
                     stepID: "review-step",
                     kind: .details,
                     title: "Mutation details",
-                    body: "tool mutate_files\nrisk boundedmutate"
+                    body: "tool mutate\nrisk boundedmutate"
                 ),
             ]
         )

@@ -273,7 +273,7 @@ enum AgenticNativeDifferenceRenderSmoke {
             runs: [
                 .init(
                     id: "run", title: "Mutation preview", state: .awaitingApproval,
-                    steps: [.init(id: "step", title: "mutate_files", state: .active)]
+                    steps: [.init(id: "step", title: "mutate", state: .active)]
                 )
             ],
             documents: [embedded]

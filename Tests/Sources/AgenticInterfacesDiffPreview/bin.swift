@@ -92,7 +92,7 @@ struct AgenticInterfacesDiffPreview {
             execution: .init(io: .blocking, mutations: .immediate)
         )
 
-        let input = SystemIO.Tools.MutateFiles.Input(
+        let input = SystemIO.Tools.Mutate.Input(
             reason: "Preview only: multiple files, long lines, collapsed context",
             entries: [
                 .init(kind: .replace_text, path: "Sources/order.swift", content: orderNew),
@@ -102,7 +102,7 @@ struct AgenticInterfacesDiffPreview {
                 .init(kind: .delete, path: "Sources/obsolete.swift")
             ]
         )
-        let preparation = try await SystemIO.Tools.MutateFiles().prepare(
+        let preparation = try await SystemIO.Tools.Mutate().prepare(
             input,
             in: ToolContext(workspace: workspace)
         )
@@ -144,7 +144,7 @@ struct AgenticInterfacesDiffPreview {
                         title: "Mutation preview",
                         state: .awaitingApproval,
                         steps: [
-                            .init(id: "mutation", title: "mutate_files", state: .active)
+                            .init(id: "mutation", title: "mutate", state: .active)
                         ]
                     )
                 ],

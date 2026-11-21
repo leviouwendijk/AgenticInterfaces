@@ -38,7 +38,7 @@ public struct AgenticChangePresentation:
         Identifiable
     {
         public var id: String
-        /// `read_file · call_12`, or a message.
+        /// `read · call_12`, or a message.
         public var subject: String
         /// `repeated result → see call_7`
         public var detail: String
