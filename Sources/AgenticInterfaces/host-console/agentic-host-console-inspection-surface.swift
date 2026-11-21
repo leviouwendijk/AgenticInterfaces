@@ -1,7 +1,7 @@
 import Terminal
 
-package enum AgenticHostConsoleInspectionSurface {
-    package static func overlay(
+@_spi(Testing) public enum AgenticHostConsoleInspectionSurface {
+    public static func overlay(
         in region: TerminalRegion
     ) -> TerminalOverlay {
         TerminalOverlay(
@@ -20,7 +20,7 @@ package enum AgenticHostConsoleInspectionSurface {
         )
     }
 
-    package static func fieldLines(
+    public static func fieldLines(
         _ fields: [AgenticHostConsoleField],
         columns: Int
     ) -> [String] {

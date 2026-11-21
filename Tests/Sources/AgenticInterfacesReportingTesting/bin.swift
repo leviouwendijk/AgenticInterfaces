@@ -1,4 +1,4 @@
-import AgenticInterfaces
+@_spi(Testing) import AgenticInterfaces
 import DSL
 import Foundation
 import Reporting

@@ -1,6 +1,6 @@
 import Agentic
 import AgenticStandard
-import AgenticInterfaces
+@_spi(Testing) import AgenticInterfaces
 import Foundation
 import Primitives
 import Reporting

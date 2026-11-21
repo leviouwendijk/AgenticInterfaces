@@ -1,4 +1,4 @@
-import AgenticInterfaces
+@_spi(Testing) import AgenticInterfaces
 import Terminal
 
 /// A narrow viewport wraps the header, long paths included, instead of

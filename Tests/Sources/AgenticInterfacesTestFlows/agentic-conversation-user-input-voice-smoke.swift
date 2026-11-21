@@ -1,5 +1,5 @@
 import Agentic
-import AgenticInterfaces
+@_spi(Testing) import AgenticInterfaces
 import Terminal
 
 /// Dictating an answer: Ctrl-Space in an answer menu records into its text

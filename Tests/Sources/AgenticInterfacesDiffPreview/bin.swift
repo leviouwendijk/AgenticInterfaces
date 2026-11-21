@@ -1,6 +1,6 @@
 import Agentic
 import AgenticIO
-import AgenticInterfaces
+@_spi(Testing) import AgenticInterfaces
 import Foundation
 import Path
 import Terminal

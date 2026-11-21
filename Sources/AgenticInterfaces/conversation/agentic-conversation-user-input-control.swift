@@ -4,7 +4,7 @@ import Swim
 import SwimTerminal
 import Terminal
 
-package enum AgenticConversationUserInputEvent:
+@_spi(Testing) public enum AgenticConversationUserInputEvent:
     Sendable,
     Hashable
 {
@@ -13,7 +13,7 @@ package enum AgenticConversationUserInputEvent:
     case feedbackRequested(String)
 }
 
-package struct AgenticConversationUserInputControl:
+@_spi(Testing) public struct AgenticConversationUserInputControl:
     Sendable
 {
     private enum State: Sendable {
@@ -248,10 +248,10 @@ package struct AgenticConversationUserInputControl:
         }
     }
 
-    package let request: UserInputRequest
+    public let request: UserInputRequest
     private var state: State
 
-    package init(
+    public init(
         request: UserInputRequest
     ) {
         self.request = request
@@ -369,7 +369,7 @@ package struct AgenticConversationUserInputControl:
 
     /// Whether the open input has a text field a transcription can go to.
     /// A single choice has one when it allows a custom value.
-    package var acceptsTranscription: Bool {
+    public var acceptsTranscription: Bool {
         switch state {
         case .text,
              .form:
@@ -386,7 +386,7 @@ package struct AgenticConversationUserInputControl:
 
     /// Readies the field a transcription goes to: a single choice opens its
     /// custom value. False when the input has no text field.
-    package mutating func prepareForTranscription() -> Bool {
+    public mutating func prepareForTranscription() -> Bool {
         guard acceptsTranscription else {
             return false
         }
@@ -407,7 +407,7 @@ package struct AgenticConversationUserInputControl:
 
     /// Inserts dictated text into the active field, as a paste would,
     /// separated from text already there. False when there is no field.
-    package mutating func insertTranscription(
+    public mutating func insertTranscription(
         _ text: String
     ) -> Bool {
         guard prepareForTranscription() else {
@@ -440,7 +440,7 @@ package struct AgenticConversationUserInputControl:
         }
     }
 
-    package var footer: String {
+    public var footer: String {
         let base: String
 
         switch state {
@@ -471,7 +471,7 @@ package struct AgenticConversationUserInputControl:
         return base + "  ctrl-s skip"
     }
 
-    package mutating func handle(
+    public mutating func handle(
         _ event: TerminalInputEvent
     ) -> AgenticConversationUserInputEvent? {
         switch event {
@@ -497,7 +497,7 @@ package struct AgenticConversationUserInputControl:
         }
     }
 
-    package mutating func handle(
+    public mutating func handle(
         _ keyStroke: TerminalKeyStroke
     ) -> AgenticConversationUserInputEvent? {
         // Like the composer: Ctrl-F leaves, so Esc and Ctrl-C stay with the
@@ -587,7 +587,7 @@ package struct AgenticConversationUserInputControl:
         }
     }
 
-    package mutating func render(
+    public mutating func render(
         into frame: inout TerminalFrame,
         in region: TerminalRegion
     ) {

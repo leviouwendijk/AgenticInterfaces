@@ -1,4 +1,4 @@
-import AgenticInterfaces
+@_spi(Testing) import AgenticInterfaces
 import Terminal
 
 enum AgenticConversationLab {
