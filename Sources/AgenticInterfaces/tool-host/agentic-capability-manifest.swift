@@ -151,7 +151,7 @@ private extension AgenticCapabilityManifestRenderer {
             "    - For multi-step or dependent work, prefer one ToolPlan with sequence, batch, and outcome branches rather than issuing unrelated invocation envelopes.",
             "    - Use sequence for ordered success-gated dependencies; it stops after the first non-success and skips remaining siblings.",
             "    - Use onSuccess, onFailure, and onDenied when subsequent work differs by call outcome.",
-            "    - After pushing an upstream Swift package, when a later step builds or tests a dependent package and swift_package_update is declared, run swift_package_update in that dependent package first so it consumes the new upstream revision.",
+            "    - After pushing an upstream Swift package, when a later step builds or tests a dependent package and swift_tool_package_update is declared, run swift_tool_package_update in that dependent package first so it consumes the new upstream revision.",
             "    - execution.workspace.subpath is ordinary optional invocation metadata for every model-facing tool. It selects a working location beneath the workspace authority root; Workspace decides whether the target is permitted and it does not narrow or rebase authority.",
             "    - Normal invocation already performs governed preflight, policy evaluation, and approval handling before execution; do not issue a separate preflight by default.",
             "    - Use explicit preflight only when a tool call should be inspected or reviewed without executing it.",

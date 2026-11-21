@@ -106,7 +106,7 @@ enum AgenticConversationSmoke {
             steps: [
                 AgenticHostConsoleStepPresentation(
                     id: "card-inspect",
-                    title: "inspect_workspace",
+                    title: "io_tool_inspect_workspace",
                     state: .completed
                 ),
                 AgenticHostConsoleStepPresentation(
@@ -116,7 +116,7 @@ enum AgenticConversationSmoke {
                 ),
                 AgenticHostConsoleStepPresentation(
                     id: "card-parse",
-                    title: "swift_parse",
+                    title: "swift_tool_parse",
                     state: .pending
                 ),
             ]
@@ -382,8 +382,8 @@ enum AgenticConversationSmoke {
               submission.contents.isEmpty,
               submission.preferredModelProfileID.rawValue == "apple-default",
               submission.instructionIDs.isEmpty,
-              submission.availableCapabilities.tools == ["inspect_workspace"],
-              submission.visibleCapabilities.tools == ["inspect_workspace"],
+              submission.availableCapabilities.tools == ["io_tool_inspect_workspace"],
+              submission.visibleCapabilities.tools == ["io_tool_inspect_workspace"],
               submission.responseDelivery == .stream,
               submission.invocationoptions == .default,
               submission.autonomyMode == .auto_observe,
@@ -633,9 +633,9 @@ enum AgenticConversationSmoke {
         _ = browserControl.handle(.char("j")) // Core
         _ = browserControl.handle(.enter) // Core opens, its types already open
         _ = browserControl.handle(.char("j")) // Tools
-        _ = browserControl.handle(.char("j")) // inspect_workspace
+        _ = browserControl.handle(.char("j")) // io_tool_inspect_workspace
         guard browserControl.handle(.enter) == .capabilitySelectionChanged(
-            available: .init(tools: ["inspect_workspace"]),
+            available: .init(tools: ["io_tool_inspect_workspace"]),
             visible: .none
         ) else {
             throw Failure.capabilitySelectionChanged
@@ -657,7 +657,7 @@ enum AgenticConversationSmoke {
             in: catalog
         )
         guard compoundMatches.first?.identifier == "mutate",
-              !compoundMatches.contains(where: { $0.identifier == "inspect_workspace" })
+              !compoundMatches.contains(where: { $0.identifier == "io_tool_inspect_workspace" })
         else {
             throw Failure.capabilityBrowserPresentationMissing
         }
@@ -680,11 +680,11 @@ enum AgenticConversationSmoke {
               searchText.contains("/mutate"),
               searchText.contains("1 match"),
               searchText.contains("mutate"),
-              !searchText.contains("inspect_workspace") else {
+              !searchText.contains("io_tool_inspect_workspace") else {
             throw Failure.capabilityBrowserPresentationMissing
         }
         guard browserControl.handle(.space) == .capabilitySelectionChanged(
-            available: .init(tools: ["inspect_workspace", "mutate"]),
+            available: .init(tools: ["io_tool_inspect_workspace", "mutate"]),
             visible: .none
         ) else {
             throw Failure.capabilitySelectionChanged
@@ -703,13 +703,13 @@ enum AgenticConversationSmoke {
         else { throw Failure.capabilityBrowserPresentationMissing }
 
         guard browserControl.handle(.enter) == .capabilitySelectionChanged(
-            available: .init(tools: ["inspect_workspace", "mutate"]),
+            available: .init(tools: ["io_tool_inspect_workspace", "mutate"]),
             visible: .init(tools: ["mutate"])
         ), browserText().contains("[● ●]")
         else { throw Failure.capabilityBrowserPresentationMissing }
 
         guard browserControl.handle(.space) == .capabilitySelectionChanged(
-            available: .init(tools: ["inspect_workspace"]),
+            available: .init(tools: ["io_tool_inspect_workspace"]),
             visible: .none
         ), browserText().contains("[○ ○]")
         else { throw Failure.capabilityBrowserPresentationMissing }
@@ -1362,7 +1362,7 @@ enum AgenticConversationSmoke {
             ("no selected instructions", rendered.contains("no instructions")),
             ("completed run card", rendered.contains("Run · completed")),
             ("run step count", rendered.contains("1 step")),
-            ("obsolete stage detail absent", !rendered.contains("Stage 1 of 1 · inspect_workspace")),
+            ("obsolete stage detail absent", !rendered.contains("Stage 1 of 1 · io_tool_inspect_workspace")),
             ("run summary", rendered.contains("1 operation passed")),
             ("run details hint", rendered.contains("Enter for run details")),
         ]
@@ -1415,8 +1415,8 @@ enum AgenticConversationSmoke {
                ),
             ],
             capabilityEntries: [
-                .init(kind: .tool, identifier: "inspect_workspace", namespace: "Core",
-                    title: "inspect_workspace", summary: "Inspect the active workspace."),
+                .init(kind: .tool, identifier: "io_tool_inspect_workspace", namespace: "Core",
+                    title: "io_tool_inspect_workspace", summary: "Inspect the active workspace."),
                 .init(kind: .tool, identifier: "mutate", namespace: "Core",
                     title: "mutate", summary: "Apply bounded file mutations."),
                 .init(kind: .tool, identifier: "find_tools", namespace: "Intrinsics",
@@ -1426,8 +1426,8 @@ enum AgenticConversationSmoke {
                 .init(kind: .instruction, identifier: "swift-editing", namespace: "Swift",
                     title: "Swift editing", summary: "Inspect, mutate, parse, and test Swift sources."),
             ],
-            availableCapabilities: .init(tools: ["inspect_workspace"]),
-            visibleCapabilities: .init(tools: ["inspect_workspace"]),
+            availableCapabilities: .init(tools: ["io_tool_inspect_workspace"]),
+            visibleCapabilities: .init(tools: ["io_tool_inspect_workspace"]),
             hostConsole: AgenticHostConsoleSnapshot(
                 runs: [
                     AgenticHostConsoleRunPresentation(
@@ -1438,7 +1438,7 @@ enum AgenticConversationSmoke {
                         steps: [
                             AgenticHostConsoleStepPresentation(
                                 id: "inspect-step",
-                                title: "inspect_workspace",
+                                title: "io_tool_inspect_workspace",
                                 state: .completed,
                                 fields: [
                                     AgenticHostConsoleField(

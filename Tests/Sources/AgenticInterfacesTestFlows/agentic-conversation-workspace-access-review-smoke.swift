@@ -67,7 +67,7 @@ enum AgenticConversationWorkspaceAccessReviewSmoke {
                     steps: [
                         AgenticHostConsoleStepPresentation(
                             id: "workspace-access-step",
-                            title: "request_access",
+                            title: "io_tool_request_access",
                             state: .pending
                         ),
                     ]

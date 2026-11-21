@@ -30,9 +30,9 @@ enum AgenticConversationCountedNavigationSmoke {
         _ = control.handle(.char("j")) // Core
         _ = control.handle(.enter) // Core opens
         _ = control.handle(.char("2"))
-        _ = control.handle(.char("j")) // Tools, then inspect_workspace
+        _ = control.handle(.char("j")) // Tools, then io_tool_inspect_workspace
         guard control.handle(.enter) == .capabilitySelectionChanged(
-            available: .init(tools: ["inspect_workspace"]),
+            available: .init(tools: ["io_tool_inspect_workspace"]),
             visible: .none
         ) else { throw Failure.settingsCounts }
 

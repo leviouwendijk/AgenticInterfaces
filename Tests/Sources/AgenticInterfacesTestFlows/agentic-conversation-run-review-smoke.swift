@@ -259,7 +259,7 @@ enum AgenticConversationRunReviewSmoke {
         snapshot.hostConsole = AgenticHostConsoleSnapshot(
             runs: [.init(
                 id: "conversation-run", title: "Book", state: .awaitingApproval,
-                steps: [.init(id: "book-step", title: "schedule_book", state: .pending)]
+                steps: [.init(id: "book-step", title: "schedule_tool_book", state: .pending)]
             )],
             interruptions: [.init(
                 id: "book-approval", runID: "conversation-run", stepID: "book-step",
@@ -303,7 +303,7 @@ enum AgenticConversationRunReviewSmoke {
         snapshot.hostConsole = AgenticHostConsoleSnapshot(
             runs: [.init(
                 id: "conversation-run", title: "Book", state: .awaitingApproval,
-                steps: [.init(id: "long-step", title: "schedule_book", state: .pending)]
+                steps: [.init(id: "long-step", title: "schedule_tool_book", state: .pending)]
             )],
             interruptions: [.init(
                 id: "long-approval", runID: "conversation-run", stepID: "long-step",

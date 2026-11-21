@@ -174,7 +174,7 @@ enum AgenticHostConsoleLab {
                         ),
                         AgenticHostConsoleStepPresentation(
                             id: "build",
-                            title: "swift_build",
+                            title: "swift_tool_build",
                             detail: "AgenticInterfaces",
                             state: .completed,
                             fields: [
@@ -202,13 +202,13 @@ enum AgenticHostConsoleLab {
                         ),
                         AgenticHostConsoleStepPresentation(
                             id: "verify",
-                            title: "swift_build",
+                            title: "swift_tool_build",
                             detail: "AgenticInterfaces",
                             state: .pending
                         ),
                         AgenticHostConsoleStepPresentation(
                             id: "diff",
-                            title: "git_diff",
+                            title: "git_tool_diff",
                             state: .pending
                         ),
                     ]
@@ -233,7 +233,7 @@ enum AgenticHostConsoleLab {
                         ),
                         AgenticHostConsoleStepPresentation(
                             id: "skipped-build",
-                            title: "swift_build",
+                            title: "swift_tool_build",
                             state: .skipped
                         ),
                     ]
@@ -246,7 +246,7 @@ enum AgenticHostConsoleLab {
                     steps: [
                         AgenticHostConsoleStepPresentation(
                             id: "prepare",
-                            title: "git_prepare_commit",
+                            title: "git_tool_prepare_commit",
                             detail: "AgenticInterfaces",
                             state: .active,
                             fields: [

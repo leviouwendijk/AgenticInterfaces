@@ -43,7 +43,7 @@ enum AgenticHostConsoleDocumentNavigationSmoke {
                         ),
                         AgenticHostConsoleStepPresentation(
                             id: "other-step",
-                            title: "swift_parse",
+                            title: "swift_tool_parse",
                             state: .pending
                         ),
                     ]

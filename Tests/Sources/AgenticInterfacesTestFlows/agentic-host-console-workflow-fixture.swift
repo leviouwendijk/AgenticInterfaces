@@ -86,7 +86,7 @@ enum AgenticHostConsoleWorkflowFixture {
                 stepID: "prepare",
                 kind: .details,
                 title: "Staged intent details",
-                body: "tool          git_prepare_commit\nrequirement   needs_human_review\nrisk          boundedmutate\nworkspace     AgenticInterfaces"
+                body: "tool          git_tool_prepare_commit\nrequirement   needs_human_review\nrisk          boundedmutate\nworkspace     AgenticInterfaces"
             ),
             AgenticHostConsoleDocumentPresentation(
                 id: "approval-diff",
