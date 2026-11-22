@@ -49,6 +49,7 @@ let package = Package(
                 .product(name: "DSL", package: "DSL"),
                 .product(name: "Reporting", package: "Reporting"),
                 .product(name: "Search", package: "Search"),
+                .product(name: "Difference", package: "Difference"),
             ]
         ),
         .target(

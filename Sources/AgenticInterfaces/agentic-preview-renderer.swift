@@ -44,13 +44,4 @@ public enum AgenticPreviewRenderer {
             return TerminalReporting.Renderer().rows(document, columns: region.columns, includeTitle: false)
         }
     }
-
-    /// The menu entry for a set of sections: `Event`, or `Diff · Command`.
-    public static func title(
-        _ sections: [ToolPreflight.Preview.Section]
-    ) -> String {
-        sections.isEmpty
-            ? AgenticHostConsoleDocumentKind.preview.title
-            : sections.map(\.title).joined(separator: " · ")
-    }
 }

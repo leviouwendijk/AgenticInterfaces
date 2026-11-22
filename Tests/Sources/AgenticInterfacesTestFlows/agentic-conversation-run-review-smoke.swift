@@ -270,7 +270,7 @@ enum AgenticConversationRunReviewSmoke {
             documents: [
                 .init(
                     id: "book-preview", runID: "conversation-run", stepID: "book-step",
-                    kind: .preview, title: AgenticPreviewRenderer.title(sections),
+                    kind: .preview, title: sections.previewTitle,
                     body: "Create 'Weekly session'", previewBody: sections
                 ),
                 .init(id: "book-details", runID: "conversation-run", stepID: "book-step", kind: .details, body: "{}"),
