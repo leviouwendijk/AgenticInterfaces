@@ -24,7 +24,7 @@ struct ConversationStructuredSmoke {
         ]
         let refs: [GraphTool.Reference] = [.init(id: "main", target: "root")]
         func presented(_ input: GraphTool.Input) throws -> ReportDocument {
-            guard let presentation = GraphTool().present(try GraphTool.evaluate(input), input: input) else {
+            guard let presentation = GraphTool().present(try GraphTool.evaluate(input), input: input, preflight: nil) else {
                 throw SmokeFailure.check("graph presentation")
             }
             return presentation.document

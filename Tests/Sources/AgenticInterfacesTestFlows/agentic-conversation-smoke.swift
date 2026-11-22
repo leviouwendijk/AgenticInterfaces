@@ -647,7 +647,7 @@ enum AgenticConversationSmoke {
             "core",
             in: catalog
         )
-        guard domainMatches.contains(where: { $0.identifier == "mutate" }),
+        guard domainMatches.contains(where: { $0.identifier == "io_tool_mutate" }),
               domainMatches.allSatisfy({ $0.domain == "Core" })
         else {
             throw Failure.capabilityBrowserPresentationMissing
@@ -656,7 +656,7 @@ enum AgenticConversationSmoke {
             "core mutate",
             in: catalog
         )
-        guard compoundMatches.first?.identifier == "mutate",
+        guard compoundMatches.first?.identifier == "io_tool_mutate",
               !compoundMatches.contains(where: { $0.identifier == "io_tool_inspect_workspace" })
         else {
             throw Failure.capabilityBrowserPresentationMissing
@@ -665,26 +665,26 @@ enum AgenticConversationSmoke {
             "mtat",
             in: catalog
         )
-        guard fuzzyMatches.contains(where: { $0.identifier == "mutate" })
+        guard fuzzyMatches.contains(where: { $0.identifier == "io_tool_mutate" })
         else {
             throw Failure.capabilityBrowserPresentationMissing
         }
         _ = browserControl.handle(.char("/"))
-        for character in "mutate" { _ = browserControl.handle(.char(String(character))) }
+        for character in "io_tool_mutate" { _ = browserControl.handle(.char(String(character))) }
         _ = browserControl.handle(.enter)
         var searchFrame = TerminalFrame(rows: 28, columns: 100)
         browserControl.render(into: &searchFrame,
             in: TerminalRegion(rows: 28, columns: 100))
         let searchText = stripANSI(searchFrame.resolved().spans.map(\.content).joined(separator: "\n"))
         guard searchText.contains("Conversation settings / Capabilities / Core / Tools"),
-              searchText.contains("/mutate"),
+              searchText.contains("/io_tool_mutate"),
               searchText.contains("1 match"),
-              searchText.contains("mutate"),
+              searchText.contains("io_tool_mutate"),
               !searchText.contains("io_tool_inspect_workspace") else {
             throw Failure.capabilityBrowserPresentationMissing
         }
         guard browserControl.handle(.space) == .capabilitySelectionChanged(
-            available: .init(tools: ["io_tool_inspect_workspace", "mutate"]),
+            available: .init(tools: ["io_tool_inspect_workspace", "io_tool_mutate"]),
             visible: .none
         ) else {
             throw Failure.capabilitySelectionChanged
@@ -703,8 +703,8 @@ enum AgenticConversationSmoke {
         else { throw Failure.capabilityBrowserPresentationMissing }
 
         guard browserControl.handle(.enter) == .capabilitySelectionChanged(
-            available: .init(tools: ["io_tool_inspect_workspace", "mutate"]),
-            visible: .init(tools: ["mutate"])
+            available: .init(tools: ["io_tool_inspect_workspace", "io_tool_mutate"]),
+            visible: .init(tools: ["io_tool_mutate"])
         ), browserText().contains("[● ●]")
         else { throw Failure.capabilityBrowserPresentationMissing }
 
@@ -1417,8 +1417,8 @@ enum AgenticConversationSmoke {
             capabilityEntries: [
                 .init(kind: .tool, identifier: "io_tool_inspect_workspace", namespace: "Core",
                     title: "io_tool_inspect_workspace", summary: "Inspect the active workspace."),
-                .init(kind: .tool, identifier: "mutate", namespace: "Core",
-                    title: "mutate", summary: "Apply bounded file mutations."),
+                .init(kind: .tool, identifier: "io_tool_mutate", namespace: "Core",
+                    title: "io_tool_mutate", summary: "Apply bounded file mutations."),
                 .init(kind: .tool, identifier: "find_tools", namespace: "Intrinsics",
                     title: "find_tools", summary: "Discover installed capabilities."),
                 .init(kind: .tool, identifier: "inspect_tool_registry", namespace: "Intrinsics",
