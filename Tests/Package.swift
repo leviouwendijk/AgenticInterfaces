@@ -45,6 +45,7 @@ let package = Package(
             name: "AgenticInterfacesStructuredTesting",
             dependencies: [
                 .product(name: "AgenticInterfaces", package: "AgenticInterfaces"),
+                .product(name: "AgenticPresentation", package: "AgenticInterfaces"),
                 .product(name: "Agentic", package: "Agentic"),
                 .product(name: "AgenticStandard", package: "Agentic"),
                 .product(name: "Primitives", package: "Primitives"),
@@ -55,6 +56,7 @@ let package = Package(
             name: "AgenticInterfacesReportingTesting",
             dependencies: [
                 .product(name: "AgenticInterfaces", package: "AgenticInterfaces"),
+                .product(name: "AgenticPresentation", package: "AgenticInterfaces"),
                 .product(name: "DSL", package: "DSL"),
                 .product(name: "Reporting", package: "Reporting"),
                 .product(name: "Search", package: "Search"),
@@ -65,6 +67,7 @@ let package = Package(
             name: "AgenticInterfacesTestFlows",
             dependencies: [
                 .product(name: "AgenticInterfaces", package: "AgenticInterfaces"),
+                .product(name: "AgenticPresentation", package: "AgenticInterfaces"),
                 .product(name: "Agentic", package: "Agentic"),
                 .product(name: "Reporting", package: "Reporting"),
                 .product(name: "DSL", package: "DSL"),
@@ -78,6 +81,7 @@ let package = Package(
             name: "AgenticInterfacesDiffPreview",
             dependencies: [
                 .product(name: "AgenticInterfaces", package: "AgenticInterfaces"),
+                .product(name: "AgenticPresentation", package: "AgenticInterfaces"),
                 .product(name: "Agentic", package: "Agentic"),
                 .product(name: "AgenticIO", package: "AgenticIO"),
                 .product(name: "Path", package: "Path"),

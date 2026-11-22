@@ -1,5 +1,6 @@
 import Agentic
 @_spi(Testing) import AgenticInterfaces
+import AgenticPresentation
 import Terminal
 
 enum AgenticConversationUserInputIntegrationSmoke {

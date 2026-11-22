@@ -1,4 +1,5 @@
 @_spi(Testing) import AgenticInterfaces
+import AgenticPresentation
 
 private enum TraceNavigationSmokeError: Error { case failed }
 

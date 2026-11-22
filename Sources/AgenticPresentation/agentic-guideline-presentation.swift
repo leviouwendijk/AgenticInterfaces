@@ -2,8 +2,8 @@ import Agentic
 import Guidelines
 
 
-enum AgenticGuidelinePresentation {
-    static func summary(
+package enum AgenticGuidelinePresentation {
+    package static func summary(
         _ relations: [Reference.Guideline]
     ) -> String? {
         guard !relations.isEmpty else {
@@ -23,7 +23,7 @@ enum AgenticGuidelinePresentation {
         )
     }
 
-    static func details(
+    package static func details(
         _ relations: [Reference.Guideline]
     ) -> String? {
         guard !relations.isEmpty else {

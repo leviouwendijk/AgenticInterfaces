@@ -1,5 +1,6 @@
 import Agentic
 @_spi(Testing) import AgenticInterfaces
+import AgenticPresentation
 import Foundation
 import Reporting
 import Terminal

@@ -1,3 +1,4 @@
+import AgenticPresentation
 import Terminal
 
 public struct TerminalWorkspaceAccessPicker:

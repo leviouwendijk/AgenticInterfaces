@@ -1,5 +1,6 @@
 import Agentic
 @_spi(Testing) import AgenticInterfaces
+import AgenticPresentation
 
 /// Verify read-only projection does not count a turn's estimate and actual
 /// together or treat missing prices as free.

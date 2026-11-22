@@ -1,3 +1,4 @@
+import AgenticPresentation
 import Terminal
 
 @_spi(Testing) public enum AgenticHostConsoleInspectionSurface {

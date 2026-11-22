@@ -9,6 +9,10 @@ let package = Package(
     ],
     products: [
         .library(
+            name: "AgenticPresentation",
+            targets: ["AgenticPresentation"]
+        ),
+        .library(
             name: "AgenticInterfaces",
             targets: ["AgenticInterfaces"]
         ),
@@ -33,9 +37,24 @@ let package = Package(
         .package(url: "https://github.com/leviouwendijk/Search.git", branch: "master"),
     ],
     targets: [
+        // What an interface shows, with no terminal: the conversation
+        // snapshot, presentations, prompts and command definitions.
+        .target(
+            name: "AgenticPresentation",
+            dependencies: [
+                .product(name: "Agentic", package: "Agentic"),
+                .product(name: "AgenticStandard", package: "Agentic"),
+                .product(name: "Primitives", package: "Primitives"),
+                .product(name: "Guidelines", package: "Guidelines"),
+                .product(name: "DSL", package: "DSL"),
+                .product(name: "Reporting", package: "Reporting"),
+                .product(name: "Search", package: "Search"),
+            ]
+        ),
         .target(
             name: "AgenticInterfaces",
             dependencies: [
+                "AgenticPresentation",
                 .product(name: "Agentic", package: "Agentic"),
                 .product(name: "AgenticStandard", package: "Agentic"),
                 .product(name: "Workspace", package: "Workspace"),
