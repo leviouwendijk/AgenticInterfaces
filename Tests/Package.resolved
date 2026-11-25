@@ -4,7 +4,7 @@
     {
       "identity" : "agentic",
       "kind" : "remoteSourceControl",
-      "location" : "https://github.com/leviouwendijk/Agentic.git",
+      "location" : "https://github.com/swift-agentic/Agentic.git",
       "state" : {
         "branch" : "master",
         "revision" : "9531d5cd52b1732ac81e2d708d76c7b1f2a4394e"
@@ -13,7 +13,7 @@
     {
       "identity" : "agenticio",
       "kind" : "remoteSourceControl",
-      "location" : "https://github.com/leviouwendijk/AgenticIO.git",
+      "location" : "https://github.com/swift-agentic/AgenticIO.git",
       "state" : {
         "branch" : "master",
         "revision" : "0341071fb6b26e6df53f7b8b81646d025765ac3b"
