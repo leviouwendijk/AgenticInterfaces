@@ -1,5 +1,6 @@
 import AgenticPresentation
 import Terminal
+import Surface
 
 enum AgenticConversationPinnedContentEvent: Sendable, Hashable {
     case closeRequested
@@ -34,7 +35,7 @@ struct AgenticConversationPinnedContentControl: Sendable {
             : document.selectedText ?? contents.first(where: { $0.id == inspectedID })?.body
     }
 
-    mutating func handle(_ mouse: TerminalMouseEvent) {
+    mutating func handle(_ mouse: SurfaceInput.Pointer) {
         if inspectedID != nil { document.handle(mouse) }
     }
 
@@ -62,7 +63,7 @@ struct AgenticConversationPinnedContentControl: Sendable {
     }
 
     mutating func handle(
-        _ key: TerminalKey,
+        _ key: SurfaceInput.Key,
         contents: [AgenticConversationContentPresentation]
     ) -> AgenticConversationPinnedContentEvent? {
         update(

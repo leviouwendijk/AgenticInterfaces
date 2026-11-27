@@ -1,6 +1,7 @@
 @_spi(Testing) import AgenticInterfaces
 import AgenticPresentation
 import Terminal
+import Surface
 
 enum AgenticConversationPendingSmoke {
     enum Failure: Error {
@@ -35,7 +36,7 @@ enum AgenticConversationPendingSmoke {
 
         guard case .submissionRequested(let submission)? =
             control.handle(
-                TerminalKeyStroke(
+                SurfaceInput.Stroke(
                     key: .enter,
                     modifiers: .control
                 )
@@ -119,7 +120,7 @@ enum AgenticConversationPendingSmoke {
               control.isResponsePending else {
             throw Failure.pendingComposerDidNotRemainEditable
         }
-        guard control.handle(TerminalKeyStroke(key: .control("G"))) == .stopRequested,
+        guard control.handle(SurfaceInput.Stroke(key: .control("G"))) == .stopRequested,
               control.handle(.control("G")) == nil,
               control.isResponsePending,
               control.draftText == "x"
@@ -135,7 +136,7 @@ enum AgenticConversationPendingSmoke {
         guard composerCursor() == .bar else {
             throw Failure.pendingComposerDidNotRemainEditable
         }
-        _ = control.handle(TerminalKeyStroke(key: .control("C")))
+        _ = control.handle(SurfaceInput.Stroke(key: .control("C")))
         guard composerCursor() == .block else {
             throw Failure.pendingNavigationBlocked
         }

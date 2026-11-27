@@ -3,6 +3,7 @@ import Foundation
 import Swim
 import SwimTerminal
 import Terminal
+import Surface
 
 @_spi(Testing) public enum AgenticConversationUserInputEvent:
     Sendable,
@@ -18,8 +19,8 @@ import Terminal
 {
     private enum State: Sendable {
         case text(TextState)
-        case single_choice(SingleChoiceState)
-        case multi_choice(MultiChoiceState)
+        case single(SingleChoiceState)
+        case multi(MultiChoiceState)
         case confirmation(ConfirmationState)
         case form(FormState)
     }
@@ -72,15 +73,15 @@ import Terminal
 
         @discardableResult
         mutating func handle(
-            _ event: TerminalInputEvent
+            _ event: SurfaceInput
         ) -> Bool {
             let previous = surface.text
 
             switch event {
-            case .mouse:
+            case .pointer:
                 break
 
-            case .keyStroke(let keyStroke):
+            case .stroke(let keyStroke):
                 _ = handle(
                     keyStroke
                 )
@@ -101,10 +102,10 @@ import Terminal
 
         @discardableResult
         mutating func handle(
-            _ keyStroke: TerminalKeyStroke
+            _ keyStroke: SurfaceInput.Stroke
         ) -> Bool {
             let previous = surface.text
-            let key: TerminalKey =
+            let key: SurfaceInput.Key =
                 keyStroke.key == .control("C")
                 ? .escape
                 : keyStroke.key
@@ -149,7 +150,7 @@ import Terminal
     }
 
     private struct TextState: Sendable {
-        let specification: TextUserInput
+        let specification: SurfaceTextInput
         var input: TextEditor
     }
 
@@ -157,7 +158,7 @@ import Terminal
         Sendable,
         Hashable
     {
-        case choice(UserInputChoice)
+        case choice(SurfaceChoice.Option)
         case custom
 
         var id: String {
@@ -192,14 +193,14 @@ import Terminal
     }
 
     private struct SingleChoiceState: Sendable {
-        let specification: SingleChoiceUserInput
-        var list: TerminalListControl<SingleChoiceItem, String>
+        let specification: SurfaceChoice
+        var list: SurfaceList.Control<SingleChoiceItem, String>
         var customInput: TextEditor?
     }
 
     private struct MultiChoiceState: Sendable {
-        let specification: MultiChoiceUserInput
-        var list: TerminalMultiSelectControl<UserInputChoice, String>
+        let specification: SurfaceChoice
+        var list: SurfaceList.MultiSelect<SurfaceChoice.Option, String>
     }
 
     private struct ConfirmationItem: Sendable, Hashable {
@@ -208,18 +209,18 @@ import Terminal
     }
 
     private struct ConfirmationState: Sendable {
-        let specification: ConfirmationUserInput
-        var list: TerminalListControl<ConfirmationItem, Bool>
+        let specification: SurfaceConfirmation
+        var list: SurfaceList.Control<ConfirmationItem, Bool>
     }
 
     private struct FormState: Sendable {
-        let specification: FormUserInput
+        let specification: SurfaceForm
         var inputs: [String: TextEditor]
         var includedFieldIDs: Set<String>
-        var focus: TerminalFocusState<String>
+        var focus: SurfaceFocus.Ring<String>
 
         init(
-            specification: FormUserInput
+            specification: SurfaceForm
         ) {
             self.specification = specification
             self.inputs = Dictionary(
@@ -242,7 +243,7 @@ import Terminal
                         : nil
                 }
             )
-            self.focus = TerminalFocusState(
+            self.focus = SurfaceFocus.Ring(
                 order: specification.fields.map(\.id)
             )
         }
@@ -269,9 +270,9 @@ import Terminal
                 )
             )
 
-        case .single_choice(let specification):
+        case .choice(let specification) where specification.rule == .one:
             let choices = Self.orderedChoices(
-                specification.choices,
+                specification.options,
                 presentation: request.presentation
             )
             var items = choices.map(
@@ -284,14 +285,14 @@ import Terminal
                 )
             }
 
-            let currentID = specification.defaultChoiceID.map {
+            let currentID = specification.defaults.first.map {
                 "choice:\($0)"
             }
 
-            self.state = .single_choice(
+            self.state = .single(
                 SingleChoiceState(
                     specification: specification,
-                    list: TerminalListControl(
+                    list: SurfaceList.Control(
                         items: items,
                         currentID: currentID,
                         id: \.id
@@ -300,20 +301,20 @@ import Terminal
                 )
             )
 
-        case .multi_choice(let specification):
+        case .choice(let specification):
             let choices = Self.orderedChoices(
-                specification.choices,
+                specification.options,
                 presentation: request.presentation
             )
 
-            self.state = .multi_choice(
+            self.state = .multi(
                 MultiChoiceState(
                     specification: specification,
-                    list: TerminalMultiSelectControl(
+                    list: SurfaceList.MultiSelect(
                         items: choices,
-                        currentID: specification.defaultChoiceIDs.first,
+                        currentID: specification.defaults.first,
                         selectedIDs: Set(
-                            specification.defaultChoiceIDs
+                            specification.defaults
                         ),
                         id: \.id
                     )
@@ -335,7 +336,7 @@ import Terminal
             self.state = .confirmation(
                 ConfirmationState(
                     specification: specification,
-                    list: TerminalListControl(
+                    list: SurfaceList.Control(
                         items: items,
                         currentID: specification.defaultValue,
                         id: \.value
@@ -358,10 +359,10 @@ import Terminal
              .form:
             return true
 
-        case .single_choice(let single):
+        case .single(let single):
             return single.customInput != nil
 
-        case .multi_choice,
+        case .multi,
              .confirmation:
             return false
         }
@@ -375,10 +376,10 @@ import Terminal
              .form:
             return true
 
-        case .single_choice(let single):
+        case .single(let single):
             return single.specification.allowsCustomValue
 
-        case .multi_choice,
+        case .multi,
              .confirmation:
             return false
         }
@@ -391,14 +392,14 @@ import Terminal
             return false
         }
 
-        if case .single_choice(var single) = state,
+        if case .single(var single) = state,
            single.customInput == nil
         {
             single.customInput = TextEditor(
                 placeholder: "custom value",
                 maximumRows: 1
             )
-            state = .single_choice(
+            state = .single(
                 single
             )
         }
@@ -428,13 +429,13 @@ import Terminal
         case .text(let text):
             return text.input.text
 
-        case .single_choice(let single):
+        case .single(let single):
             return single.customInput?.text
 
         case .form(let form):
             return form.focus.focused.flatMap { form.inputs[$0]?.text }
 
-        case .multi_choice,
+        case .multi,
              .confirmation:
             return nil
         }
@@ -449,12 +450,12 @@ import Terminal
                 ? "enter newline  ctrl-enter submit  ctrl-c normal  ctrl-f back"
                 : "enter submit  ctrl-c normal  ctrl-f back"
 
-        case .single_choice(let single):
+        case .single(let single):
             base = single.customInput == nil
                 ? "j/k choose  enter select  esc back"
                 : "enter submit custom  ctrl-c normal  ctrl-f choices"
 
-        case .multi_choice:
+        case .multi:
             base = "j/k choose  space toggle  enter submit  esc back"
 
         case .confirmation:
@@ -472,10 +473,10 @@ import Terminal
     }
 
     public mutating func handle(
-        _ event: TerminalInputEvent
+        _ event: SurfaceInput
     ) -> AgenticConversationUserInputEvent? {
         switch event {
-        case .mouse:
+        case .pointer:
             return nil
 
         case .paste(let text):
@@ -485,12 +486,12 @@ import Terminal
 
         case .key(let key):
             return handle(
-                TerminalKeyStroke(
+                SurfaceInput.Stroke(
                     key: key
                 )
             )
 
-        case .keyStroke(let keyStroke):
+        case .stroke(let keyStroke):
             return handle(
                 keyStroke
             )
@@ -498,16 +499,16 @@ import Terminal
     }
 
     public mutating func handle(
-        _ keyStroke: TerminalKeyStroke
+        _ keyStroke: SurfaceInput.Stroke
     ) -> AgenticConversationUserInputEvent? {
         // Like the composer: Ctrl-F leaves, so Esc and Ctrl-C stay with the
         // editor's modes. Choice lists have no editor and close on either.
         if keyStroke.key == .control("F") {
-            if case .single_choice(var single) = state,
+            if case .single(var single) = state,
                single.customInput != nil
             {
                 single.customInput = nil
-                state = .single_choice(
+                state = .single(
                     single
                 )
                 return nil
@@ -545,22 +546,22 @@ import Terminal
             )
             return event
 
-        case .single_choice(var single):
+        case .single(var single):
             let event = handleSingleChoice(
                 keyStroke,
                 state: &single
             )
-            state = .single_choice(
+            state = .single(
                 single
             )
             return event
 
-        case .multi_choice(var multi):
+        case .multi(var multi):
             let event = handleMultiChoice(
                 keyStroke,
                 state: &multi
             )
-            state = .multi_choice(
+            state = .multi(
                 multi
             )
             return event
@@ -611,17 +612,17 @@ import Terminal
                 text
             )
 
-        case .single_choice(var single):
+        case .single(var single):
             renderSingleChoice(
                 &single,
                 into: &frame,
                 in: body
             )
-            state = .single_choice(
+            state = .single(
                 single
             )
 
-        case .multi_choice(let multi):
+        case .multi(let multi):
             renderMultiChoice(
                 multi,
                 into: &frame,
@@ -650,9 +651,9 @@ import Terminal
 
 private extension AgenticConversationUserInputControl {
     static func orderedChoices(
-        _ choices: [UserInputChoice],
-        presentation: UserInputPresentation?
-    ) -> [UserInputChoice] {
+        _ choices: [SurfaceChoice.Option],
+        presentation: SurfaceQuestion.Presentation?
+    ) -> [SurfaceChoice.Option] {
         guard presentation?.ordering == .alphabetical else {
             return choices
         }
@@ -676,7 +677,7 @@ private extension AgenticConversationUserInputControl {
                 value
             )
 
-        case .single_choice(var value):
+        case .single(var value):
             guard var custom = value.customInput else {
                 return nil
             }
@@ -685,7 +686,7 @@ private extension AgenticConversationUserInputControl {
                 .paste(text)
             )
             value.customInput = custom
-            state = .single_choice(
+            state = .single(
                 value
             )
 
@@ -708,7 +709,7 @@ private extension AgenticConversationUserInputControl {
                 value
             )
 
-        case .multi_choice,
+        case .multi,
              .confirmation:
             return nil
         }
@@ -717,7 +718,7 @@ private extension AgenticConversationUserInputControl {
     }
 
     private func handleText(
-        _ keyStroke: TerminalKeyStroke,
+        _ keyStroke: SurfaceInput.Stroke,
         state: inout TextState
     ) -> AgenticConversationUserInputEvent? {
         if keyStroke.key == .enter,
@@ -737,13 +738,13 @@ private extension AgenticConversationUserInputControl {
     }
 
     private func handleSingleChoice(
-        _ keyStroke: TerminalKeyStroke,
+        _ keyStroke: SurfaceInput.Stroke,
         state: inout SingleChoiceState
     ) -> AgenticConversationUserInputEvent? {
         if var custom = state.customInput {
             if keyStroke.key == .enter {
                 return .submitted(
-                    .single_choice(
+                    .choice(
                         .custom(
                             custom.text
                         )
@@ -772,8 +773,8 @@ private extension AgenticConversationUserInputControl {
         switch item {
         case .choice(let choice):
             return .submitted(
-                .single_choice(
-                    .choice(
+                .choice(
+                    .option(
                         choice.id
                     )
                 )
@@ -789,7 +790,7 @@ private extension AgenticConversationUserInputControl {
     }
 
     private func handleMultiChoice(
-        _ keyStroke: TerminalKeyStroke,
+        _ keyStroke: SurfaceInput.Stroke,
         state: inout MultiChoiceState
     ) -> AgenticConversationUserInputEvent? {
         guard let event = state.list.handle(
@@ -803,16 +804,16 @@ private extension AgenticConversationUserInputControl {
         }
 
         return .submitted(
-            .multi_choice(
-                MultiChoiceUserInputAnswer(
-                    choiceIDs: ids
+            .choice(
+                .init(
+                    selected: ids
                 )
             )
         )
     }
 
     private func handleConfirmation(
-        _ keyStroke: TerminalKeyStroke,
+        _ keyStroke: SurfaceInput.Stroke,
         state: inout ConfirmationState
     ) -> AgenticConversationUserInputEvent? {
         guard let event = state.list.handle(
@@ -833,7 +834,7 @@ private extension AgenticConversationUserInputControl {
     }
 
     private func handleForm(
-        _ keyStroke: TerminalKeyStroke,
+        _ keyStroke: SurfaceInput.Stroke,
         state: inout FormState
     ) -> AgenticConversationUserInputEvent? {
         if keyStroke.key == .enter,
@@ -925,7 +926,7 @@ private extension AgenticConversationUserInputControl {
         }
 
         return .form(
-            FormUserInputAnswer(
+            SurfaceForm.Answer(
                 values: values
             )
         )

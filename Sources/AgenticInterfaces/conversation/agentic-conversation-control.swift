@@ -3,9 +3,9 @@ import AgenticPresentation
 import Foundation
 import ParsersStructuredContent
 import Swim
-import SwimTerminal
 import Terminal
 import TerminalStructuredContent
+import Surface
 
 public enum AgenticConversationFocus: Sendable, Hashable {
     case composer
@@ -79,7 +79,7 @@ private enum AgenticConversationConfirmationPurpose:
 
 public struct AgenticConversationControl: Sendable {
     public private(set) var snapshot: AgenticConversationSnapshot
-    public private(set) var focus: TerminalFocusStack<AgenticConversationFocus>
+    public private(set) var focus: SurfaceFocus.Stack<AgenticConversationFocus>
 
     private var composer: AgenticConversationComposerControl
     private var voiceMeter: TerminalLevelMeter
@@ -112,7 +112,7 @@ public struct AgenticConversationControl: Sendable {
     private var confirmation: AgenticConversationConfirmationControl?
     private var confirmationPurpose: AgenticConversationConfirmationPurpose?
     private var transcriptCache: [String: TranscriptEntry]
-    private var navigator: SwimTerminalNavigator
+    private var navigator: SurfaceBinding.Navigation
     private var navigatorFocus: AgenticConversationFocus?
 
     struct TranscriptEntry: Sendable {
@@ -137,7 +137,7 @@ public struct AgenticConversationControl: Sendable {
         let pendingUserInput = snapshot.pendingUserInput
 
         self.snapshot = snapshot
-        self.focus = TerminalFocusStack(
+        self.focus = SurfaceFocus.Stack(
             pendingUserInput == nil
                 ? .composer
                 : .transcript
@@ -184,7 +184,7 @@ public struct AgenticConversationControl: Sendable {
         self.confirmation = nil
         self.confirmationPurpose = nil
         self.transcriptCache = [:]
-        self.navigator = SwimTerminalNavigator()
+        self.navigator = SurfaceBinding.Navigation()
         self.navigatorFocus = nil
 
         if pendingUserInput != nil {
@@ -434,10 +434,10 @@ public struct AgenticConversationControl: Sendable {
     }
 
     public mutating func handle(
-        _ event: TerminalInputEvent
+        _ event: SurfaceInput
     ) -> AgenticConversationEvent? {
         switch event {
-        case .mouse(let mouse):
+        case .pointer(let mouse):
             switch focus.current {
             case .composer, .transcript:
                 if transcript.handle(mouse) {
@@ -489,7 +489,7 @@ public struct AgenticConversationControl: Sendable {
                 key
             )
 
-        case .keyStroke(let keyStroke):
+        case .stroke(let keyStroke):
             return handle(
                 keyStroke
             )
@@ -497,7 +497,7 @@ public struct AgenticConversationControl: Sendable {
     }
 
     public mutating func handle(
-        _ keyStroke: TerminalKeyStroke
+        _ keyStroke: SurfaceInput.Stroke
     ) -> AgenticConversationEvent? {
         if keyStroke.key == .control("G"),
            workRunning || pendingSubmission != nil {
@@ -540,7 +540,7 @@ public struct AgenticConversationControl: Sendable {
         )
     }
 
-    public mutating func handle(_ key: TerminalKey) -> AgenticConversationEvent? {
+    public mutating func handle(_ key: SurfaceInput.Key) -> AgenticConversationEvent? {
         if focus.current == .userInput,
            key != .control("G"),
            voiceOwnsUserInputKey(key)
@@ -554,7 +554,7 @@ public struct AgenticConversationControl: Sendable {
            key != .control("G")
         {
             return handleUserInput(
-                TerminalKeyStroke(
+                SurfaceInput.Stroke(
                     key: key
                 )
             )
@@ -572,7 +572,7 @@ public struct AgenticConversationControl: Sendable {
             case .pending,
                  .cancelled:
                 return nil
-            case .command(let command):
+            case .navigate(let command):
                 return navigate(command)
             case .unhandled:
                 break
@@ -658,7 +658,7 @@ public struct AgenticConversationControl: Sendable {
         switch focus.current {
         case .composer:
             return handleComposer(
-                TerminalKeyStroke(
+                SurfaceInput.Stroke(
                     key: key
                 )
             )
@@ -676,7 +676,7 @@ public struct AgenticConversationControl: Sendable {
             return handleRunReview(key)
         case .userInput:
             return handleUserInput(
-                TerminalKeyStroke(
+                SurfaceInput.Stroke(
                     key: key
                 )
             )
@@ -858,7 +858,7 @@ private extension AgenticConversationControl {
     }
 
     mutating func handleComposer(
-        _ keyStroke: TerminalKeyStroke
+        _ keyStroke: SurfaceInput.Stroke
     ) -> AgenticConversationEvent? {
         switch composer.handle(
             keyStroke
@@ -1005,7 +1005,7 @@ private extension AgenticConversationControl {
     }
 
     mutating func handlePinnedContent(
-        _ key: TerminalKey
+        _ key: SurfaceInput.Key
     ) -> AgenticConversationEvent? {
         guard let event = pinnedContent.handle(
             key,
@@ -1042,7 +1042,7 @@ private extension AgenticConversationControl {
         return nil
     }
 
-    mutating func handleVoice(_ key: TerminalKey) -> AgenticConversationEvent? {
+    mutating func handleVoice(_ key: SurfaceInput.Key) -> AgenticConversationEvent? {
         if key == .escape {
             if snapshot.voiceState == .recording {
                 focus.replace(
@@ -1074,7 +1074,7 @@ private extension AgenticConversationControl {
         )
     }
 
-    mutating func handleTranscript(_ key: TerminalKey) -> AgenticConversationEvent? {
+    mutating func handleTranscript(_ key: SurfaceInput.Key) -> AgenticConversationEvent? {
         switch key {
         case .tab, .escape:
             transcript.clearSelection()
@@ -1174,7 +1174,7 @@ private extension AgenticConversationControl {
 
     /// Counted navigation: messages in the transcript, rows in an attachment.
     mutating func navigate(
-        _ command: TerminalNavigationCommand
+        _ command: SurfaceIntent.Navigation
     ) -> AgenticConversationEvent? {
         switch focus.current {
         case .transcript:
@@ -1194,7 +1194,7 @@ private extension AgenticConversationControl {
             case .page, .halfPage:
                 if let steps = command.verticalSteps(pageRows: transcript.viewport.visibleRows) {
                     scrollTranscript(
-                        by: TerminalNavigationCommand.bounded(steps, to: transcript.lines.count)
+                        by: SurfaceIntent.Navigation.bounded(steps, to: transcript.lines.count)
                     )
                 }
             case .horizontal:
@@ -1254,7 +1254,7 @@ private extension AgenticConversationControl {
         return .attachmentOpened(messageID: message.id, attachmentID: message.attachments[index].id)
     }
 
-    mutating func handleAttachment(_ key: TerminalKey) -> AgenticConversationEvent? {
+    mutating func handleAttachment(_ key: SurfaceInput.Key) -> AgenticConversationEvent? {
         switch key {
         case .char("y"):
             let source: String?
@@ -1317,7 +1317,7 @@ private extension AgenticConversationControl {
     }
 
     mutating func handleSettings(
-        _ key: TerminalKey
+        _ key: SurfaceInput.Key
     ) -> AgenticConversationEvent? {
         guard let event = settings.handle(
             key,
@@ -1336,7 +1336,7 @@ private extension AgenticConversationControl {
         }
     }
 
-    mutating func handleRun(_ key: TerminalKey) -> AgenticConversationEvent? {
+    mutating func handleRun(_ key: SurfaceInput.Key) -> AgenticConversationEvent? {
         guard var hostConsole else {
             focus.reset(to: .transcript)
             return .feedbackRequested("Run is no longer available.")
@@ -1417,7 +1417,7 @@ private extension AgenticConversationControl {
     }
 
     mutating func handleRunReview(
-        _ key: TerminalKey
+        _ key: SurfaceInput.Key
     ) -> AgenticConversationEvent? {
         guard var runReview else {
             focus.reset(
@@ -1498,7 +1498,7 @@ private extension AgenticConversationControl {
     }
 
     mutating func handleConfirmation(
-        _ key: TerminalKey
+        _ key: SurfaceInput.Key
     ) -> AgenticConversationEvent? {
         guard var confirmation,
               let purpose = confirmationPurpose else {
@@ -1733,7 +1733,7 @@ private extension AgenticConversationControl {
         } ?? snapshot.messages.count - 1
         let next = min(
             snapshot.messages.count - 1,
-            max(0, current + TerminalNavigationCommand.bounded(offset, to: snapshot.messages.count))
+            max(0, current + SurfaceIntent.Navigation.bounded(offset, to: snapshot.messages.count))
         )
         selectedMessageID = snapshot.messages[next].id
         transcriptSelectionFollowsEnd = next == snapshot.messages.count - 1
@@ -1752,7 +1752,7 @@ private extension AgenticConversationControl {
         }
         attachmentIndex = min(
             currentMessage.attachments.count - 1,
-            max(0, attachmentIndex + TerminalNavigationCommand.bounded(offset, to: currentMessage.attachments.count))
+            max(0, attachmentIndex + SurfaceIntent.Navigation.bounded(offset, to: currentMessage.attachments.count))
         )
         attachmentDocument.moveToStart()
     }
@@ -2359,7 +2359,7 @@ private extension AgenticConversationControl {
     }
 
     mutating func handleUserInput(
-        _ event: TerminalInputEvent
+        _ event: SurfaceInput
     ) -> AgenticConversationEvent? {
         guard resolvingUserInputID == nil,
               let pending = snapshot.pendingUserInput,
@@ -2379,7 +2379,7 @@ private extension AgenticConversationControl {
     }
 
     mutating func handleUserInput(
-        _ keyStroke: TerminalKeyStroke
+        _ keyStroke: SurfaceInput.Stroke
     ) -> AgenticConversationEvent? {
         guard resolvingUserInputID == nil,
               let pending = snapshot.pendingUserInput,
@@ -2761,7 +2761,7 @@ private extension AgenticConversationControl {
     }
 
     func voiceOwnsUserInputKey(
-        _ key: TerminalKey
+        _ key: SurfaceInput.Key
     ) -> Bool {
         key == .controlSpace || isVoiceBusy(for: .userInput)
     }
@@ -2770,7 +2770,7 @@ private extension AgenticConversationControl {
     /// text field; while recording, Enter or Ctrl-Space stops and Esc
     /// cancels; while transcribing, keys wait.
     mutating func handleUserInputVoice(
-        _ key: TerminalKey
+        _ key: SurfaceInput.Key
     ) -> AgenticConversationEvent? {
         if isVoiceBusy(for: .userInput) {
             guard snapshot.voiceState == .recording else {

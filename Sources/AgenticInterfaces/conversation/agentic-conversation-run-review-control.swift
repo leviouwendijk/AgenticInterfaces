@@ -2,6 +2,7 @@ import AgenticPresentation
 import DSL
 import Terminal
 import TerminalStructuredContent
+import Surface
 
 enum AgenticConversationRunReviewEvent:
     Sendable,
@@ -155,7 +156,7 @@ struct AgenticConversationRunReviewControl:
         return visible ? document.visibleText : document.selectedText ?? matchingDocument(kind: kind)?.body
     }
 
-    mutating func handle(_ mouse: TerminalMouseEvent) {
+    mutating func handle(_ mouse: SurfaceInput.Pointer) {
         if openedDocumentKind != nil { document.handle(mouse) }
     }
 
@@ -221,7 +222,7 @@ struct AgenticConversationRunReviewControl:
     }
 
     mutating func handle(
-        _ key: TerminalKey
+        _ key: SurfaceInput.Key
     ) -> AgenticConversationRunReviewEvent? {
         if key == .char("]") || key == .char("[") {
             step(by: key == .char("]") ? 1 : -1)
@@ -445,7 +446,7 @@ private extension AgenticConversationRunReviewControl {
     }
 
     mutating func handleDocument(
-        _ key: TerminalKey
+        _ key: SurfaceInput.Key
     ) -> AgenticConversationRunReviewEvent? {
         switch key {
         case .escape,

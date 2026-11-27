@@ -38,6 +38,7 @@ let package = Package(
         .package(url: "https://github.com/swift-lco/Search.git", branch: "master"),
         .package(url: "https://github.com/swift-agentic/AgenticIO.git", branch: "master"),
         .package(url: "https://github.com/swift-lco/Path.git", branch: "master"),
+        .package(url: "https://github.com/swift-lco/Surface.git", branch: "master"),
         .package(path: ".."),
     ],
     targets: [
@@ -74,6 +75,7 @@ let package = Package(
                 .product(name: "Terminal", package: "Terminal"),
                 .product(name: "TerminalGhostty", package: "Terminal"),
                 .product(name: "Difference", package: "Difference"),
+                .product(name: "Surface", package: "Surface"),
                 .product(name: "Schema", package: "Schema"),
             ]
         ),

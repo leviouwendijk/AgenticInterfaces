@@ -4,6 +4,7 @@ import Swim
 import Terminal
 import TerminalStructuredContent
 import TerminalReporting
+import Surface
 
 public enum AgenticHostConsoleWorkflowFocus:
     Sendable,
@@ -97,13 +98,13 @@ public struct AgenticHostConsoleWorkflowControl:
     Sendable
 {
     public private(set) var console: AgenticHostConsoleControl
-    public private(set) var focus: TerminalFocusStack<AgenticHostConsoleWorkflowFocus>
+    public private(set) var focus: SurfaceFocus.Stack<AgenticHostConsoleWorkflowFocus>
 
-    private var actions: TerminalListControl<
+    private var actions: SurfaceList.Control<
         AgenticHostConsoleAction,
         String
     >
-    private var runControls: TerminalListControl<
+    private var runControls: SurfaceList.Control<
         AgenticHostConsoleRunControl,
         String
     >
@@ -126,16 +127,16 @@ public struct AgenticHostConsoleWorkflowControl:
             currentRunID: currentRunID,
             currentStepID: currentStepID
         )
-        self.focus = TerminalFocusStack(
+        self.focus = SurfaceFocus.Stack(
             .base
         )
-        self.actions = TerminalListControl(
+        self.actions = SurfaceList.Control(
             items: [],
             id: {
                 $0.id
             }
         )
-        self.runControls = TerminalListControl(
+        self.runControls = SurfaceList.Control(
             items: [],
             id: {
                 $0.rawValue
@@ -294,7 +295,7 @@ public struct AgenticHostConsoleWorkflowControl:
     public var selectedText: String? { viewedDocument?.selectedText }
 
     public mutating func handle(
-        _ key: TerminalKey
+        _ key: SurfaceInput.Key
     ) -> AgenticHostConsoleWorkflowEvent? {
         if let viewedDocument {
             if key == .control("C"), let text = viewedDocument.selectedText {
@@ -351,7 +352,7 @@ public struct AgenticHostConsoleWorkflowControl:
         }
     }
 
-    public mutating func handle(_ mouse: TerminalMouseEvent) {
+    public mutating func handle(_ mouse: SurfaceInput.Pointer) {
         switch focus.current {
         case .document: document.handle(mouse)
         case .runInspector: runInspector.handle(mouse)
@@ -413,7 +414,7 @@ public struct AgenticHostConsoleWorkflowControl:
 
 private extension AgenticHostConsoleWorkflowControl {
     mutating func handleBase(
-        _ key: TerminalKey
+        _ key: SurfaceInput.Key
     ) -> AgenticHostConsoleWorkflowEvent? {
         if key == .char("x") {
             guard let run = console.currentRun,
@@ -531,7 +532,7 @@ private extension AgenticHostConsoleWorkflowControl {
     }
 
     mutating func handleRunControls(
-        _ key: TerminalKey
+        _ key: SurfaceInput.Key
     ) -> AgenticHostConsoleWorkflowEvent? {
         if key == .escape || key == .char("q") {
             return closeRunControls()
@@ -572,7 +573,7 @@ private extension AgenticHostConsoleWorkflowControl {
     }
 
     mutating func handleActions(
-        _ key: TerminalKey
+        _ key: SurfaceInput.Key
     ) -> AgenticHostConsoleWorkflowEvent? {
         if key == .escape || key == .char("q") {
             return closeInterruption()
@@ -628,7 +629,7 @@ private extension AgenticHostConsoleWorkflowControl {
     }
 
     mutating func handleDocument(
-        _ key: TerminalKey
+        _ key: SurfaceInput.Key
     ) -> AgenticHostConsoleWorkflowEvent? {
         if key == .escape || key == .char("q") {
             return closeDocument()
@@ -698,7 +699,7 @@ private extension AgenticHostConsoleWorkflowControl {
     }
 
     mutating func handleRunInspector(
-        _ key: TerminalKey
+        _ key: SurfaceInput.Key
     ) -> AgenticHostConsoleWorkflowEvent? {
         if key == .escape || key == .char("q") {
             return closeRunInspector()
@@ -749,7 +750,7 @@ private extension AgenticHostConsoleWorkflowControl {
     }
 
     mutating func handleDiagnostic(
-        _ key: TerminalKey
+        _ key: SurfaceInput.Key
     ) -> AgenticHostConsoleWorkflowEvent? {
         if key == .escape || key == .char("q") {
             return closeDiagnostic()
@@ -854,7 +855,7 @@ private extension AgenticHostConsoleWorkflowControl {
 
     func siblingDocumentKind(
         from kind: AgenticHostConsoleDocumentKind,
-        key: TerminalKey
+        key: SurfaceInput.Key
     ) -> AgenticHostConsoleDocumentKind? {
         switch key {
         case .char("h"):
@@ -893,7 +894,7 @@ private extension AgenticHostConsoleWorkflowControl {
     }
 
     func documentKind(
-        for key: TerminalKey
+        for key: SurfaceInput.Key
     ) -> AgenticHostConsoleDocumentKind? {
         switch key {
         case .char("d"):
@@ -1594,7 +1595,7 @@ private extension AgenticHostConsoleWorkflowControl {
     }
 
     func runControlLine(
-        _ row: TerminalListControlRow<
+        _ row: SurfaceList.Row<
             AgenticHostConsoleRunControl,
             String
         >
@@ -1614,7 +1615,7 @@ private extension AgenticHostConsoleWorkflowControl {
     }
 
     func actionLine(
-        _ row: TerminalListControlRow<
+        _ row: SurfaceList.Row<
             AgenticHostConsoleAction,
             String
         >

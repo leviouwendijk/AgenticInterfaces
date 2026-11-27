@@ -1,4 +1,5 @@
 import Agentic
+import Surface
 @_spi(Testing) import AgenticInterfaces
 import Terminal
 
@@ -40,7 +41,7 @@ enum AgenticConversationUserInputSmoke {
             request: try UserInputRequest(
                 prompt: "Which package workspace task would you like to perform? (e.g., inspect package graph, update dependencies, lint package)",
                 input: .text(
-                    TextUserInput(
+                    SurfaceTextInput(
                         placeholder: "Enter your choice"
                     )
                 )
@@ -103,8 +104,8 @@ enum AgenticConversationUserInputSmoke {
             request: try UserInputRequest(
                 prompt: "Long answer",
                 input: .form(
-                    FormUserInput(fields: [
-                        UserInputField(id: "note", label: "Note", defaultText: value)
+                    SurfaceForm(fields: [
+                        SurfaceForm.Field(id: "note", label: "Note", defaultText: value)
                     ])
                 )
             )
@@ -123,7 +124,7 @@ enum AgenticConversationUserInputSmoke {
             throw Failure.formInputDidNotSoftWrap
         }
         guard case .submitted(.answer(.form(let answer)))? = control.handle(
-            TerminalKeyStroke(key: .enter, modifiers: .control)
+            SurfaceInput.Stroke(key: .enter, modifiers: .control)
         ), answer.values["note"] == value else {
             throw Failure.formInputChangedByWrapping
         }
@@ -134,7 +135,7 @@ enum AgenticConversationUserInputSmoke {
             request: try UserInputRequest(
                 prompt: "Name",
                 input: .text(
-                    TextUserInput(
+                    SurfaceTextInput(
                         placeholder: "package name"
                     )
                 )
@@ -146,7 +147,7 @@ enum AgenticConversationUserInputSmoke {
         )
 
         guard control.handle(
-            TerminalKeyStroke(
+            SurfaceInput.Stroke(
                 key: .enter
             )
         ) == nil else {
@@ -158,7 +159,7 @@ enum AgenticConversationUserInputSmoke {
                 .text("AgenticFoo\n")
             )
         )? = control.handle(
-            TerminalKeyStroke(
+            SurfaceInput.Stroke(
                 key: .enter,
                 modifiers: .control
             )
@@ -172,7 +173,7 @@ enum AgenticConversationUserInputSmoke {
             request: try UserInputRequest(
                 prompt: "Notes",
                 input: .text(
-                    TextUserInput(
+                    SurfaceTextInput(
                         multiline: true
                     )
                 )
@@ -183,7 +184,7 @@ enum AgenticConversationUserInputSmoke {
             .paste("first")
         )
         _ = control.handle(
-            TerminalKeyStroke(
+            SurfaceInput.Stroke(
                 key: .enter
             )
         )
@@ -196,7 +197,7 @@ enum AgenticConversationUserInputSmoke {
                 .text("first\nsecond")
             )
         )? = control.handle(
-            TerminalKeyStroke(
+            SurfaceInput.Stroke(
                 key: .enter,
                 modifiers: .control
             )
@@ -209,21 +210,21 @@ enum AgenticConversationUserInputSmoke {
         var control = AgenticConversationUserInputControl(
             request: try UserInputRequest(
                 prompt: "Compatibility",
-                input: .single_choice(
-                    SingleChoiceUserInput(
-                        choices: [
-                            UserInputChoice(
+                input: .choice(
+                    SurfaceChoice(
+                        options: [
+                            SurfaceChoice.Option(
                                 id: "hard-cut",
                                 label: "Hard cut",
                                 value: "hard-cut"
                             ),
-                            UserInputChoice(
+                            SurfaceChoice.Option(
                                 id: "compatibility",
                                 label: "Compatibility layer",
                                 value: "compatibility"
                             ),
                         ],
-                        defaultChoiceID: "compatibility"
+                        defaults: ["compatibility"]
                     )
                 )
             )
@@ -231,15 +232,17 @@ enum AgenticConversationUserInputSmoke {
 
         guard case .submitted(
             .answer(
-                .single_choice(
-                    .choice("compatibility")
+                .choice(
+                    let answer
                 )
             )
         )? = control.handle(
-            TerminalKeyStroke(
+            SurfaceInput.Stroke(
                 key: .enter
             )
-        ) else {
+        ),
+              answer == .option("compatibility")
+        else {
             throw Failure.singleChoiceReplyChanged
         }
     }
@@ -248,10 +251,10 @@ enum AgenticConversationUserInputSmoke {
         var control = AgenticConversationUserInputControl(
             request: try UserInputRequest(
                 prompt: "Strategy",
-                input: .single_choice(
-                    SingleChoiceUserInput(
-                        choices: [
-                            UserInputChoice(
+                input: .choice(
+                    SurfaceChoice(
+                        options: [
+                            SurfaceChoice.Option(
                                 id: "direct",
                                 label: "Direct",
                                 value: "direct"
@@ -264,12 +267,12 @@ enum AgenticConversationUserInputSmoke {
         )
 
         _ = control.handle(
-            TerminalKeyStroke(
+            SurfaceInput.Stroke(
                 key: .down
             )
         )
         _ = control.handle(
-            TerminalKeyStroke(
+            SurfaceInput.Stroke(
                 key: .enter
             )
         )
@@ -279,15 +282,17 @@ enum AgenticConversationUserInputSmoke {
 
         guard case .submitted(
             .answer(
-                .single_choice(
-                    .custom("reviewed")
+                .choice(
+                    let answer
                 )
             )
         )? = control.handle(
-            TerminalKeyStroke(
+            SurfaceInput.Stroke(
                 key: .enter
             )
-        ) else {
+        ),
+              answer == .custom("reviewed")
+        else {
             throw Failure.customChoiceReplyChanged
         }
     }
@@ -296,26 +301,27 @@ enum AgenticConversationUserInputSmoke {
         var control = AgenticConversationUserInputControl(
             request: try UserInputRequest(
                 prompt: "Capabilities",
-                input: .multi_choice(
-                    MultiChoiceUserInput(
-                        choices: [
-                            UserInputChoice(
+                input: .choice(
+                    SurfaceChoice(
+                        options: [
+                            SurfaceChoice.Option(
                                 id: "read",
                                 label: "Read",
                                 value: "read"
                             ),
-                            UserInputChoice(
+                            SurfaceChoice.Option(
                                 id: "write",
                                 label: "Write",
                                 value: "write"
                             ),
-                            UserInputChoice(
+                            SurfaceChoice.Option(
                                 id: "test",
                                 label: "Test",
                                 value: "test"
                             ),
                         ],
-                        defaultChoiceIDs: [
+                        rule: .many,
+                        defaults: [
                             "read",
                         ]
                     )
@@ -324,28 +330,28 @@ enum AgenticConversationUserInputSmoke {
         )
 
         _ = control.handle(
-            TerminalKeyStroke(
+            SurfaceInput.Stroke(
                 key: .down
             )
         )
         _ = control.handle(
-            TerminalKeyStroke(
+            SurfaceInput.Stroke(
                 key: .space
             )
         )
 
         guard case .submitted(
             .answer(
-                .multi_choice(
+                .choice(
                     let answer
                 )
             )
         )? = control.handle(
-            TerminalKeyStroke(
+            SurfaceInput.Stroke(
                 key: .enter
             )
         ),
-              answer.choiceIDs == ["read", "write"]
+              answer.selected == ["read", "write"]
         else {
             throw Failure.multiChoiceReplyChanged
         }
@@ -356,7 +362,7 @@ enum AgenticConversationUserInputSmoke {
             request: try UserInputRequest(
                 prompt: "Continue?",
                 input: .confirmation(
-                    ConfirmationUserInput(
+                    SurfaceConfirmation(
                         defaultValue: false,
                         confirmLabel: "Continue",
                         cancelLabel: "Stop"
@@ -370,7 +376,7 @@ enum AgenticConversationUserInputSmoke {
                 .confirmation(false)
             )
         )? = control.handle(
-            TerminalKeyStroke(
+            SurfaceInput.Stroke(
                 key: .enter
             )
         ) else {
@@ -382,14 +388,14 @@ enum AgenticConversationUserInputSmoke {
         let request = try UserInputRequest(
             prompt: "Package setup",
             input: .form(
-                FormUserInput(
+                SurfaceForm(
                     fields: [
-                        UserInputField(
+                        SurfaceForm.Field(
                             id: "name",
                             label: "Name",
                             defaultText: "AgenticFoo"
                         ),
-                        UserInputField(
+                        SurfaceForm.Field(
                             id: "note",
                             label: "Note",
                             requirement: .optional
@@ -410,7 +416,7 @@ enum AgenticConversationUserInputSmoke {
                 )
             )
         )? = omitted.handle(
-            TerminalKeyStroke(
+            SurfaceInput.Stroke(
                 key: .enter,
                 modifiers: .control
             )
@@ -426,12 +432,12 @@ enum AgenticConversationUserInputSmoke {
             request: request
         )
         _ = explicitEmpty.handle(
-            TerminalKeyStroke(
+            SurfaceInput.Stroke(
                 key: .tab
             )
         )
         _ = explicitEmpty.handle(
-            TerminalKeyStroke(
+            SurfaceInput.Stroke(
                 key: .control("O")
             )
         )
@@ -443,7 +449,7 @@ enum AgenticConversationUserInputSmoke {
                 )
             )
         )? = explicitEmpty.handle(
-            TerminalKeyStroke(
+            SurfaceInput.Stroke(
                 key: .enter,
                 modifiers: .control
             )
@@ -466,7 +472,7 @@ enum AgenticConversationUserInputSmoke {
         )
 
         guard case .submitted(.skip)? = optional.handle(
-            TerminalKeyStroke(
+            SurfaceInput.Stroke(
                 key: .control("S")
             )
         ) else {
@@ -480,7 +486,7 @@ enum AgenticConversationUserInputSmoke {
         )
 
         guard case .feedbackRequested(_)? = required.handle(
-            TerminalKeyStroke(
+            SurfaceInput.Stroke(
                 key: .control("S")
             )
         ) else {
@@ -497,10 +503,10 @@ enum AgenticConversationUserInputSmoke {
         )
 
         // Esc and Ctrl-C switch the editor's mode; Ctrl-F leaves, as in the composer.
-        guard control.handle(TerminalKeyStroke(key: .escape)) == nil,
-              control.handle(TerminalKeyStroke(key: .control("C"))) == nil,
+        guard control.handle(SurfaceInput.Stroke(key: .escape)) == nil,
+              control.handle(SurfaceInput.Stroke(key: .control("C"))) == nil,
               case .closeRequested? = control.handle(
-                TerminalKeyStroke(
+                SurfaceInput.Stroke(
                     key: .control("F")
                 )
               ) else {
@@ -511,22 +517,22 @@ enum AgenticConversationUserInputSmoke {
         var choices = AgenticConversationUserInputControl(
             request: try UserInputRequest(
                 prompt: "Strategy",
-                input: .single_choice(
-                    SingleChoiceUserInput(
-                        choices: [UserInputChoice(id: "direct", label: "Direct", value: "direct")],
+                input: .choice(
+                    SurfaceChoice(
+                        options: [SurfaceChoice.Option(id: "direct", label: "Direct", value: "direct")],
                         allowsCustomValue: true
                     )
                 )
             )
         )
-        guard case .closeRequested? = choices.handle(TerminalKeyStroke(key: .control("C"))) else {
+        guard case .closeRequested? = choices.handle(SurfaceInput.Stroke(key: .control("C"))) else {
             throw Failure.escapeChanged
         }
-        _ = choices.handle(TerminalKeyStroke(key: .down))
-        _ = choices.handle(TerminalKeyStroke(key: .enter))
-        guard choices.handle(TerminalKeyStroke(key: .escape)) == nil,
-              choices.handle(TerminalKeyStroke(key: .control("F"))) == nil,
-              case .closeRequested? = choices.handle(TerminalKeyStroke(key: .escape)) else {
+        _ = choices.handle(SurfaceInput.Stroke(key: .down))
+        _ = choices.handle(SurfaceInput.Stroke(key: .enter))
+        guard choices.handle(SurfaceInput.Stroke(key: .escape)) == nil,
+              choices.handle(SurfaceInput.Stroke(key: .control("F"))) == nil,
+              case .closeRequested? = choices.handle(SurfaceInput.Stroke(key: .escape)) else {
             throw Failure.escapeChanged
         }
     }

@@ -2,6 +2,7 @@ import Agentic
 import AgenticPresentation
 import Primitives
 import Terminal
+import Surface
 
 /// The browser is only a projection of the Host's installed catalog.
 /// Selection is expressed as Core AgentCapabilitySet values, not UI policies.
@@ -68,7 +69,7 @@ struct AgenticConversationSettingsControl: Sendable {
         tree.select(.modelProfile(snapshot.preferredModelProfileID))
     }
 
-    mutating func handle(_ key: TerminalKey, snapshot: inout AgenticConversationSnapshot)
+    mutating func handle(_ key: SurfaceInput.Key, snapshot: inout AgenticConversationSnapshot)
         -> AgenticConversationSettingsControlEvent?
     {
         if navigator.handle(key, tree: &tree) {

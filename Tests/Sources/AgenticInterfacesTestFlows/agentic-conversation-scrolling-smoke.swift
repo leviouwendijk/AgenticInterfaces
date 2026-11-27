@@ -31,7 +31,7 @@ enum AgenticConversationScrollingSmoke {
         _ = render(&control)
 
         // Wheel scroll targets the transcript while Swim retains keyboard focus.
-        _ = control.handle(.mouse(.init(kind: .scrollUp, row: 5, column: 5)))
+        _ = control.handle(.pointer(.init(kind: .scrollUp, row: 5, column: 5)))
         guard control.focus.current == .composer, control.draftText == "hi" else {
             throw Failure.wheelFocus
         }
@@ -60,9 +60,9 @@ enum AgenticConversationScrollingSmoke {
         guard let bodyRow = homeFrame.spans.first(where: { $0.content.hasPrefix("  First message") })?.row else {
             throw Failure.selectionCopy
         }
-        _ = control.handle(.mouse(.init(kind: .press, row: bodyRow, column: 2)))
-        _ = control.handle(.mouse(.init(kind: .drag, row: bodyRow, column: 6)))
-        _ = control.handle(.mouse(.init(kind: .release, row: bodyRow, column: 6)))
+        _ = control.handle(.pointer(.init(kind: .press, row: bodyRow, column: 2)))
+        _ = control.handle(.pointer(.init(kind: .drag, row: bodyRow, column: 6)))
+        _ = control.handle(.pointer(.init(kind: .release, row: bodyRow, column: 6)))
         _ = render(&control)
         guard control.handle(.char("y")) == .copyRequested(text: "First", title: "selection"),
               control.handle(.control("C")) == .copyRequested(text: "First", title: "selection") else {

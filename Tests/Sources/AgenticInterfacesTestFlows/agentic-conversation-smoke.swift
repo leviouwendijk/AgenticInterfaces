@@ -1,6 +1,7 @@
 @_spi(Testing) import AgenticInterfaces
 import AgenticPresentation
 import Terminal
+import Surface
 
 enum AgenticConversationSmoke {
     static let assistantMarkdown = """
@@ -83,7 +84,7 @@ enum AgenticConversationSmoke {
             )
         )
         let programEvent = programControl.handle(
-            TerminalKeyStroke(
+            SurfaceInput.Stroke(
                 key: .enter,
                 modifiers: .control
             )
@@ -372,7 +373,7 @@ enum AgenticConversationSmoke {
         }
 
         let submitted = control.handle(
-            TerminalKeyStroke(
+            SurfaceInput.Stroke(
                 key: .enter,
                 modifiers: .control
             )
@@ -419,7 +420,7 @@ enum AgenticConversationSmoke {
         }
 
         let voiceSubmitted = control.handle(
-            TerminalKeyStroke(
+            SurfaceInput.Stroke(
                 key: .enter,
                 modifiers: .control
             )

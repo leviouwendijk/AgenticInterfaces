@@ -35,6 +35,7 @@ let package = Package(
         .package(url: "https://github.com/swift-langs/Parsers.git", branch: "master"),
         .package(url: "https://github.com/swift-lco/Arguments.git", branch: "master"),
         .package(url: "https://github.com/swift-lco/Search.git", branch: "master"),
+        .package(url: "https://github.com/swift-lco/Surface.git", branch: "master"),
     ],
     targets: [
         // What an interface shows, with no terminal: the conversation
@@ -49,6 +50,7 @@ let package = Package(
                 .product(name: "DSL", package: "DSL"),
                 .product(name: "Reporting", package: "Reporting"),
                 .product(name: "Search", package: "Search"),
+                .product(name: "Surface", package: "Surface"),
                 .product(name: "Difference", package: "Difference"),
             ]
         ),
@@ -76,6 +78,7 @@ let package = Package(
                 .product(name: "ParsersStructuredContent", package: "Parsers"),
                 .product(name: "Difference", package: "Difference"),
                 .product(name: "Arguments", package: "Arguments"),
+                .product(name: "Surface", package: "Surface"),
                 .product(name: "Search", package: "Search"),
             ]
         ),

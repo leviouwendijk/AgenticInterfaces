@@ -1,6 +1,7 @@
 import AgenticPresentation
 import Swim
 import Terminal
+import Surface
 
 public enum AgenticHostConsoleFocus:
     Sendable,
@@ -39,17 +40,17 @@ public struct AgenticHostConsoleControl:
     Sendable
 {
     public private(set) var snapshot: AgenticHostConsoleSnapshot
-    public private(set) var focus: TerminalFocusStack<AgenticHostConsoleFocus>
+    public private(set) var focus: SurfaceFocus.Stack<AgenticHostConsoleFocus>
 
-    private var runs: TerminalListControl<
+    private var runs: SurfaceList.Control<
         AgenticHostConsoleRunPresentation,
         String
     >
-    private var steps: TerminalListControl<
+    private var steps: SurfaceList.Control<
         AgenticHostConsoleStepPresentation,
         String
     >
-    private var statuses: TerminalListControl<
+    private var statuses: SurfaceList.Control<
         AgenticHostConsoleStatusPresentation,
         String
     >
@@ -81,10 +82,10 @@ public struct AgenticHostConsoleControl:
         )
 
         self.snapshot = snapshot
-        self.focus = TerminalFocusStack(
+        self.focus = SurfaceFocus.Stack(
             .runs
         )
-        self.runs = TerminalListControl(
+        self.runs = SurfaceList.Control(
             items: snapshot.runs,
             currentID: runID,
             wrapMode: .clamp,
@@ -92,7 +93,7 @@ public struct AgenticHostConsoleControl:
                 $0.id
             }
         )
-        self.steps = TerminalListControl(
+        self.steps = SurfaceList.Control(
             items: run?.steps ?? [],
             currentID: stepID,
             wrapMode: .clamp,
@@ -100,7 +101,7 @@ public struct AgenticHostConsoleControl:
                 $0.id
             }
         )
-        self.statuses = TerminalListControl(
+        self.statuses = SurfaceList.Control(
             items: snapshot.statuses,
             wrapMode: .clamp,
             id: {
@@ -252,7 +253,7 @@ public struct AgenticHostConsoleControl:
     }
 
     public mutating func handle(
-        _ key: TerminalKey
+        _ key: SurfaceInput.Key
     ) -> AgenticHostConsoleEvent? {
         if key == .control("C") {
             return .exitRequested
@@ -358,7 +359,7 @@ private extension AgenticHostConsoleControl {
     }
 
     mutating func handleRuns(
-        _ key: TerminalKey
+        _ key: SurfaceInput.Key
     ) -> AgenticHostConsoleEvent? {
         if key.isHorizontalNext {
             focus.replace(
@@ -367,7 +368,7 @@ private extension AgenticHostConsoleControl {
             return nil
         }
 
-        var motion: TerminalListControlEvent<String>?
+        var motion: SurfaceList.Event<String>?
         let moved = navigator.handle(
             key,
             list: &runs,
@@ -403,7 +404,7 @@ private extension AgenticHostConsoleControl {
     }
 
     mutating func handleTimeline(
-        _ key: TerminalKey
+        _ key: SurfaceInput.Key
     ) -> AgenticHostConsoleEvent? {
         if key.isHorizontalPrevious {
             focus.replace(
@@ -461,7 +462,7 @@ private extension AgenticHostConsoleControl {
             return nil
         }
 
-        var motion: TerminalListControlEvent<String>?
+        var motion: SurfaceList.Event<String>?
         let moved = navigator.handle(
             key,
             list: &steps,
@@ -521,7 +522,7 @@ private extension AgenticHostConsoleControl {
     }
 
     mutating func handleStatus(
-        _ key: TerminalKey
+        _ key: SurfaceInput.Key
     ) -> AgenticHostConsoleEvent? {
         if key.isHorizontalPrevious {
             focus.replace(
@@ -530,7 +531,7 @@ private extension AgenticHostConsoleControl {
             return nil
         }
 
-        var motion: TerminalListControlEvent<String>?
+        var motion: SurfaceList.Event<String>?
         let moved = navigator.handle(
             key,
             list: &statuses,
@@ -561,7 +562,7 @@ private extension AgenticHostConsoleControl {
     }
 
     mutating func handleInspector(
-        _ key: TerminalKey
+        _ key: SurfaceInput.Key
     ) -> AgenticHostConsoleEvent? {
         if key == .escape || key == .char("q") {
             inspectedStepID = nil
@@ -1046,7 +1047,7 @@ private extension AgenticHostConsoleControl {
     }
 
     func runLine(
-        _ row: TerminalListControlRow<
+        _ row: SurfaceList.Row<
             AgenticHostConsoleRunPresentation,
             String
         >
@@ -1075,7 +1076,7 @@ private extension AgenticHostConsoleControl {
     }
 
     func statusLine(
-        _ row: TerminalListControlRow<
+        _ row: SurfaceList.Row<
             AgenticHostConsoleStatusPresentation,
             String
         >

@@ -1,4 +1,5 @@
 import Agentic
+import Surface
 @_spi(Testing) import AgenticInterfaces
 import AgenticPresentation
 import Terminal
@@ -47,7 +48,7 @@ enum AgenticConversationUserInputIntegrationSmoke {
             .paste("reviewed")
         )
         let reply = control.handle(
-            TerminalKeyStroke(
+            SurfaceInput.Stroke(
                 key: .enter,
                 modifiers: .control
             )
@@ -73,7 +74,7 @@ enum AgenticConversationUserInputIntegrationSmoke {
             throw Failure.submittingInputReopened
         }
         let duplicateEvent = control.handle(
-            TerminalKeyStroke(key: .enter, modifiers: .control)
+            SurfaceInput.Stroke(key: .enter, modifiers: .control)
         )
         if case .userInputReplyRequested? = duplicateEvent {
             throw Failure.duplicateReplyWasNotBlocked
@@ -83,7 +84,7 @@ enum AgenticConversationUserInputIntegrationSmoke {
             throw Failure.failedInputDidNotReopen
         }
         guard control.handle(
-            TerminalKeyStroke(
+            SurfaceInput.Stroke(
                 key: .enter,
                 modifiers: .control
             )
@@ -92,7 +93,7 @@ enum AgenticConversationUserInputIntegrationSmoke {
         }
 
         let closeEvent = control.handle(
-            TerminalKeyStroke(
+            SurfaceInput.Stroke(
                 key: .control("F")
             )
         )

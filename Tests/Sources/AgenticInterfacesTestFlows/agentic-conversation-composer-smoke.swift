@@ -1,6 +1,7 @@
 @_spi(Testing) import AgenticInterfaces
 import AgenticPresentation
 import Terminal
+import Surface
 
 enum AgenticConversationComposerSmoke {
     enum Failure: Error {
@@ -108,7 +109,7 @@ enum AgenticConversationComposerSmoke {
         )
 
         for key in [
-            TerminalKey.char("a"),
+            SurfaceInput.Key.char("a"),
             .char("l"),
             .char("p"),
             .char("h"),
@@ -170,7 +171,7 @@ enum AgenticConversationComposerSmoke {
         )
 
         for key in [
-            TerminalKey.char("a"),
+            SurfaceInput.Key.char("a"),
             .char("l"),
             .char("p"),
             .char("h"),
@@ -407,12 +408,12 @@ enum AgenticConversationComposerSmoke {
     private static func runNavigationProbe() throws {
         var control = AgenticConversationControl(snapshot: AgenticConversationSmoke.fixture())
         // The editor starts in insert mode: Space/p/v are literal draft text.
-        for key in [TerminalKey.space, .char("p"), .char("v")] {
+        for key in [SurfaceInput.Key.space, .char("p"), .char("v")] {
             guard control.handle(key) == nil else { throw Failure.insertLeaderTextChanged }
         }
         guard control.draftText == " pv" else { throw Failure.insertLeaderTextChanged }
         _ = control.handle(.control("C"))
-        for key in [TerminalKey.space, .char("p")] {
+        for key in [SurfaceInput.Key.space, .char("p")] {
             guard control.handle(key) == nil else { throw Failure.leaderNavigationChanged }
         }
         guard control.handle(.char("v")) == .showWorkRequested,
@@ -427,8 +428,8 @@ enum AgenticConversationComposerSmoke {
         else { throw Failure.exploreNavigationChanged }
     }
 
-    private static var submitStroke: TerminalKeyStroke {
-        TerminalKeyStroke(
+    private static var submitStroke: SurfaceInput.Stroke {
+        SurfaceInput.Stroke(
             key: .enter,
             modifiers: .control
         )

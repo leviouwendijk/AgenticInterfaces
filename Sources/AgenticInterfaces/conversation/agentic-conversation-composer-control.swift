@@ -4,6 +4,15 @@ import Swim
 import SwimIO
 import SwimTerminal
 import Terminal
+import Surface
+
+/// Key sequences only run in the editor's normal mode, so one mode is enough.
+private enum AgenticConversationComposerKeyMode:
+    Hashable,
+    Sendable
+{
+    case normal
+}
 
 private enum AgenticConversationComposerKeyAction:
     Sendable
@@ -57,9 +66,12 @@ struct AgenticConversationComposerControl:
     private var surface: SwimTerminalSurface
     private let inputBufferStore: SwimBufferStore
     private let inputBufferID: UUID
-    private var keyMap: TerminalKeyMap<AgenticConversationComposerKeyAction>
-    private var keySequences: SwimKeySequenceMap<AgenticConversationComposerKeyAction>
-    private var quitConfirmation: TerminalListControl<
+    private var keyMap: SurfaceBinding.Strokes<AgenticConversationComposerKeyAction>
+    private var keySequences: SurfaceBinding.Map<
+        AgenticConversationComposerKeyMode,
+        AgenticConversationComposerKeyAction
+    >
+    private var quitConfirmation: SurfaceList.Control<
         AgenticConversationComposerQuitItem,
         AgenticConversationComposerQuitChoice
     >
@@ -75,15 +87,15 @@ struct AgenticConversationComposerControl:
     private var commandLineRow: TerminalRegion?
 
     init(keyConfiguration: AgenticConversationKeyConfiguration = .init()) {
-        var keyMap = TerminalKeyMap<
+        var keyMap = SurfaceBinding.Strokes<
             AgenticConversationComposerKeyAction
         >()
         keyMap.remap(
             .control("C"),
             to: .escape
         )
-        keyMap.bindAction(
-            TerminalKeyStroke(
+        keyMap.bind(
+            SurfaceInput.Stroke(
                 key: .enter,
                 modifiers: .control
             ),
@@ -116,13 +128,20 @@ struct AgenticConversationComposerControl:
         self.inputBufferStore = SwimBufferStore()
         self.inputBufferID = UUID()
         self.keyMap = keyMap
-        var keySequences = SwimKeySequenceMap<AgenticConversationComposerKeyAction>(
-            leader: SwimTerminalInputAdapter.input(for: keyConfiguration.leader),
+        var keySequences = SurfaceBinding.Map<
+            AgenticConversationComposerKeyMode,
+            AgenticConversationComposerKeyAction
+        >(
+            leader: keyConfiguration.leader,
             timeout: keyConfiguration.timeout
         )
-        keySequences.bind([.leader, .char("p"), .char("v")], to: .showWork)
+        keySequences.bind(
+            [.leader, .char("p"), .char("v")],
+            to: .showWork,
+            modes: [.normal]
+        )
         self.keySequences = keySequences
-        self.quitConfirmation = TerminalListControl(
+        self.quitConfirmation = SurfaceList.Control(
             items: [
                 AgenticConversationComposerQuitItem(
                     id: .cancel
@@ -174,7 +193,7 @@ struct AgenticConversationComposerControl:
         _ text: String
     ) {
         _ = surface.handle(
-            TerminalInputEvent.paste(
+            SurfaceInput.paste(
                 text
             )
         )
@@ -195,9 +214,9 @@ struct AgenticConversationComposerControl:
     }
 
     mutating func handle(
-        _ keyStroke: TerminalKeyStroke
+        _ keyStroke: SurfaceInput.Stroke
     ) -> AgenticConversationComposerEvent? {
-        let key: TerminalKey
+        let key: SurfaceInput.Key
 
         switch keyMap.resolveOrFallback(
             keyStroke
@@ -223,13 +242,14 @@ struct AgenticConversationComposerControl:
 
         if !surface.commandLine.isActive, surface.mode == .normal {
             let resolved = keySequences.handle(
-                SwimTerminalInputAdapter.input(for: key),
-                mode: surface.mode
+                key,
+                mode: .normal,
+                atNanoseconds: DispatchTime.now().uptimeNanoseconds
             )
             var replayEvent: AgenticConversationComposerEvent?
             for replay in resolved.replay {
                 replayEvent = handleEditorKey(
-                    SwimTerminalInputAdapter.key(for: replay)
+                    replay
                 ) ?? replayEvent
             }
             if let action = resolved.action {
@@ -248,7 +268,7 @@ struct AgenticConversationComposerControl:
     }
 
     private mutating func handleEditorKey(
-        _ key: TerminalKey
+        _ key: SurfaceInput.Key
     ) -> AgenticConversationComposerEvent? {
         if surface.commandLine.isActive,
            let event = handleCompletionKey(key)
@@ -380,7 +400,7 @@ struct AgenticConversationComposerControl:
 
 private extension AgenticConversationComposerControl {
     mutating func handleQuitConfirmation(
-        _ key: TerminalKey
+        _ key: SurfaceInput.Key
     ) -> AgenticConversationComposerEvent? {
         guard let event = quitConfirmation.handle(
             key
@@ -545,7 +565,7 @@ private extension AgenticConversationComposerControl {
     /// ctrl-n / ctrl-p move through the candidates; Enter on one puts it
     /// in the command line. `.some(nil)` consumes the key.
     mutating func handleCompletionKey(
-        _ key: TerminalKey
+        _ key: SurfaceInput.Key
     ) -> AgenticConversationComposerEvent?? {
         guard let completion, !completion.candidates.isEmpty else { return nil }
         let count = completion.candidates.count

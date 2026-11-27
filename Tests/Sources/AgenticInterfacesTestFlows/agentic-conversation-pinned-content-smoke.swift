@@ -1,6 +1,7 @@
 @_spi(Testing) import AgenticInterfaces
 import AgenticPresentation
 import Terminal
+import Surface
 
 enum AgenticConversationPinnedContentSmoke {
     enum Failure: Error {
@@ -198,8 +199,8 @@ enum AgenticConversationPinnedContentSmoke {
         }
     }
 
-    private static var submitStroke: TerminalKeyStroke {
-        TerminalKeyStroke(
+    private static var submitStroke: SurfaceInput.Stroke {
+        SurfaceInput.Stroke(
             key: .enter,
             modifiers: .control
         )

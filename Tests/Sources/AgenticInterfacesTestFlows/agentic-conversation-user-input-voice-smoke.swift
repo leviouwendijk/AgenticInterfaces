@@ -1,4 +1,5 @@
 import Agentic
+import Surface
 @_spi(Testing) import AgenticInterfaces
 import AgenticPresentation
 import Terminal
@@ -40,13 +41,13 @@ enum AgenticConversationUserInputVoiceSmoke {
             throw Failure.panelMissing
         }
 
-        let first = control.handle(TerminalKeyStroke(key: .enter, modifiers: .control))
+        let first = control.handle(SurfaceInput.Stroke(key: .enter, modifiers: .control))
         guard first == .userInputReplyRequested(interactionID: "interaction-1", runID: "run-1", reply: .text("reviewed")) else {
             throw Failure.transcriptionNotInAnswer(String(describing: first))
         }
 
         try dictate("and merged", into: &control, pending: pending)
-        let second = control.handle(TerminalKeyStroke(key: .enter, modifiers: .control))
+        let second = control.handle(SurfaceInput.Stroke(key: .enter, modifiers: .control))
         guard second == .userInputReplyRequested(interactionID: "interaction-1", runID: "run-1", reply: .text("reviewed and merged")) else {
             throw Failure.secondTranscriptionNotAppended(String(describing: second))
         }
@@ -68,10 +69,10 @@ enum AgenticConversationUserInputVoiceSmoke {
             runID: "run-2",
             request: try UserInputRequest(
                 prompt: "Compatibility",
-                input: .single_choice(
-                    SingleChoiceUserInput(
-                        choices: [
-                            UserInputChoice(id: "hard-cut", label: "Hard cut", value: "hard-cut"),
+                input: .choice(
+                    SurfaceChoice(
+                        options: [
+                            SurfaceChoice.Option(id: "hard-cut", label: "Hard cut", value: "hard-cut"),
                         ],
                         allowsCustomValue: true
                     )
@@ -81,11 +82,11 @@ enum AgenticConversationUserInputVoiceSmoke {
         var control = AgenticConversationControl(snapshot: fixture(pending))
 
         try dictate("keep both for a week", into: &control, pending: pending)
-        let reply = control.handle(TerminalKeyStroke(key: .enter))
+        let reply = control.handle(SurfaceInput.Stroke(key: .enter))
         guard reply == .userInputReplyRequested(
             interactionID: "interaction-2",
             runID: "run-2",
-            reply: .single_choice(.custom("keep both for a week"))
+            reply: .choice(.custom("keep both for a week"))
         ) else {
             throw Failure.customValueNotDictated(String(describing: reply))
         }
@@ -97,11 +98,12 @@ enum AgenticConversationUserInputVoiceSmoke {
             runID: "run-3",
             request: try UserInputRequest(
                 prompt: "Capabilities",
-                input: .multi_choice(
-                    MultiChoiceUserInput(
-                        choices: [
-                            UserInputChoice(id: "read", label: "Read", value: "read"),
-                        ]
+                input: .choice(
+                    SurfaceChoice(
+                        options: [
+                            SurfaceChoice.Option(id: "read", label: "Read", value: "read"),
+                        ],
+                        rule: .many
                     )
                 )
             )
@@ -131,10 +133,10 @@ enum AgenticConversationUserInputVoiceSmoke {
 
         control.update(fixture(pending, voiceState: .recording))
         guard control.handle(.char("x")) == nil,
-              control.handle(TerminalKeyStroke(key: .char("y"))) == nil else {
+              control.handle(SurfaceInput.Stroke(key: .char("y"))) == nil else {
             throw Failure.keyEditedWhileRecording
         }
-        guard control.handle(TerminalKeyStroke(key: .enter)) == .voiceStopRequested else {
+        guard control.handle(SurfaceInput.Stroke(key: .enter)) == .voiceStopRequested else {
             throw Failure.stopNotRequested
         }
 

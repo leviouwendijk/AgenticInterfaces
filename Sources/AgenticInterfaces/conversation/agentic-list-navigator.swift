@@ -1,11 +1,11 @@
-import SwimTerminal
 import Terminal
+import Surface
 
 /// Counted navigation (`23j`, `gg`, `G`, `ctrl-d`) for tree lists and settings
-/// trees, so hosts get it without importing SwimTerminal. Keys it does not
-/// consume go to the list's own `handle`.
+/// trees, over Surface's navigation grammar. Keys it does not consume go to
+/// the list's own `handle`.
 public struct AgenticListNavigator: Sendable {
-    private var navigator = SwimTerminalNavigator()
+    private var navigator = SurfaceBinding.Navigation()
 
     public init() {}
 
@@ -22,7 +22,7 @@ public struct AgenticListNavigator: Sendable {
     /// `true` when the key moved the cursor or extended or cancelled a pending
     /// sequence; the caller then skips the list's own handling.
     public mutating func handle<ID: Hashable & Sendable>(
-        _ key: TerminalKey,
+        _ key: SurfaceInput.Key,
         list: inout TerminalTreeList<ID>
     ) -> Bool {
         switch route(key, capturesInput: list.capturesInput) {
@@ -37,7 +37,7 @@ public struct AgenticListNavigator: Sendable {
     }
 
     public mutating func handle<ID: Hashable & Sendable>(
-        _ key: TerminalKey,
+        _ key: SurfaceInput.Key,
         tree: inout TerminalSettingsTreeControl<ID>
     ) -> Bool {
         switch route(key, capturesInput: tree.list.capturesInput) {
@@ -54,10 +54,10 @@ public struct AgenticListNavigator: Sendable {
     /// For flat lists: `event` is what the motion changed, if anything.
     /// Sideways motions pass, so `h`/`l` still move between panes.
     public mutating func handle<Item: Sendable, ID: Hashable & Sendable>(
-        _ key: TerminalKey,
-        list: inout TerminalListControl<Item, ID>,
+        _ key: SurfaceInput.Key,
+        list: inout SurfaceList.Control<Item, ID>,
         pageRows: Int,
-        event: inout TerminalListControlEvent<ID>?
+        event: inout SurfaceList.Event<ID>?
     ) -> Bool {
         switch route(key, capturesInput: false) {
         case .move(.horizontal):
@@ -74,13 +74,13 @@ public struct AgenticListNavigator: Sendable {
     }
 
     private enum Route {
-        case move(TerminalNavigationCommand)
+        case move(SurfaceIntent.Navigation)
         case consumed
         case passed
     }
 
     private mutating func route(
-        _ key: TerminalKey,
+        _ key: SurfaceInput.Key,
         capturesInput: Bool
     ) -> Route {
         // A typed filter owns every key.
@@ -89,7 +89,7 @@ public struct AgenticListNavigator: Sendable {
             return .passed
         }
         switch navigator.handle(key) {
-        case .command(let command):
+        case .navigate(let command):
             return .move(command)
         case .pending, .cancelled:
             return .consumed

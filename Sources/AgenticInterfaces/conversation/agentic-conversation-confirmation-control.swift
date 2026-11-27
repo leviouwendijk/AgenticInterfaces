@@ -1,4 +1,5 @@
 import Terminal
+import Surface
 
 struct AgenticConversationConfirmationControl:
     Sendable
@@ -32,7 +33,7 @@ struct AgenticConversationConfirmationControl:
     }
 
     mutating func handle(
-        _ key: TerminalKey
+        _ key: SurfaceInput.Key
     ) -> Event? {
         switch key {
         case .escape,
