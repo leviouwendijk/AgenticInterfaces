@@ -1359,7 +1359,7 @@ private extension AgenticHostConsoleWorkflowControl {
             )
         } else if let structuredBody = currentDocument.structuredBody {
             document.update(
-                lines: TerminalStructuredContent.Renderer()
+                lines: TerminalStructuredContent.Renderer(capabilities: .currentTerminal)
                     .rows(
                         structuredBody,
                         columns: content.columns

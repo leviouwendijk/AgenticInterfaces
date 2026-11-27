@@ -1967,7 +1967,7 @@ private extension AgenticConversationControl {
         var lines: [String] = []
         var rows: [String: Range<Int>] = [:]
         var cache: [String: TranscriptEntry] = [:]
-        let structuredRenderer = TerminalStructuredContent.Renderer()
+        let structuredRenderer = TerminalStructuredContent.Renderer(capabilities: .currentTerminal)
 
         for message in snapshot.messages {
             let selected = focus.current == .transcript
