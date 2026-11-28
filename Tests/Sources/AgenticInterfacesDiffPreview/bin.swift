@@ -105,7 +105,7 @@ struct AgenticInterfacesDiffPreview {
         )
         let preparation = try await SystemIO.Tools.Mutate().prepare(
             input,
-            in: ToolContext(workspace: workspace)
+            in: CapabilityContext(workspace: workspace)
         )
 
         // Preparation must never apply its proposed file mutations.
