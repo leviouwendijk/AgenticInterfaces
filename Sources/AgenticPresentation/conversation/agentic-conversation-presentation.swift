@@ -34,7 +34,7 @@ public struct AgenticConversationTranscription: Sendable, Hashable {
     }
 }
 
-public struct AgenticConversationContentPresentation: Sendable, Hashable {
+public struct AgenticConversationContent: Sendable, Hashable {
     public var id: String
     public var kind: AgenticConversationContentKind
     public var title: String
@@ -56,14 +56,14 @@ public struct AgenticConversationContentPresentation: Sendable, Hashable {
     }
 }
 
-public enum AgenticConversationAttachmentPresentation: Sendable, Hashable {
-    case content(AgenticConversationContentPresentation)
-    case program(AgenticConversationProgramExecutionPresentation)
-    case structured(AgenticConversationStructuredPresentation)
+public enum AgenticConversationAttachment: Sendable, Hashable {
+    case content(AgenticConversationContent)
+    case program(AgenticConversationProgramExecution)
+    case structured(AgenticConversationStructured)
     case trace(runID: String)
     case run(runID: String)
-    case command(AgenticCommandOutcomePresentation)
-    case change(AgenticChangePresentation)
+    case command(AgenticCommandOutcome)
+    case change(AgenticChange)
 
     public var id: String {
         switch self {
@@ -84,7 +84,7 @@ public enum AgenticConversationAttachmentPresentation: Sendable, Hashable {
         }
     }
 
-    public func title(in hostConsole: AgenticHostConsoleSnapshot) -> String {
+    public func title(in hostConsole: AgenticHostConsole.Snapshot) -> String {
         switch self {
         case .content(let content):
             return content.title
@@ -103,7 +103,7 @@ public enum AgenticConversationAttachmentPresentation: Sendable, Hashable {
         }
     }
 
-    public func summary(in hostConsole: AgenticHostConsoleSnapshot) -> String {
+    public func summary(in hostConsole: AgenticHostConsole.Snapshot) -> String {
         switch self {
         case .content(let content):
             return content.summary
@@ -126,32 +126,20 @@ public enum AgenticConversationAttachmentPresentation: Sendable, Hashable {
     }
 }
 
-public enum AgenticConversationRunCardTone:
-    String,
-    Sendable,
-    Hashable
-{
-    case neutral
-    case active
-    case warning
-    case success
-    case failure
-}
-
-public struct AgenticConversationRunCardPresentation:
+public struct AgenticConversationRunCard:
     Sendable,
     Hashable
 {
     public var title: String
     public var body: String
     public var hint: String
-    public var tone: AgenticConversationRunCardTone
+    public var tone: AgenticTone
 
     public init(
         title: String,
         body: String,
         hint: String,
-        tone: AgenticConversationRunCardTone = .neutral
+        tone: AgenticTone = .neutral
     ) {
         self.title = title
         self.body = body
@@ -160,9 +148,9 @@ public struct AgenticConversationRunCardPresentation:
     }
 
     public static func project(
-        run: AgenticHostConsoleRunPresentation,
-        hostConsole: AgenticHostConsoleSnapshot,
-        pendingUserInput: AgenticConversationUserInputPresentation? = nil
+        run: AgenticHostConsole.Run,
+        hostConsole: AgenticHostConsole.Snapshot,
+        pendingUserInput: AgenticConversationUserInput? = nil
     ) -> Self {
         if let pendingUserInput,
            pendingUserInput.runID == run.id
@@ -196,7 +184,7 @@ public struct AgenticConversationRunCardPresentation:
             run.state == .interrupted
                 || run.state == .completed
                 || run.state == .failed
-        let step: AgenticHostConsoleStepPresentation?
+        let step: AgenticHostConsole.Step?
 
         if isTerminal {
             step = nil
@@ -326,7 +314,7 @@ public struct AgenticConversationRunCardPresentation:
     /// The delegation tree, one line per Agent:
     /// `├ ● implementer  running · deepseek-v4-flash · iteration 3/12`.
     static func agentLines(
-        _ agents: [AgenticHostConsoleAgentPresentation]
+        _ agents: [AgenticHostConsole.Agent]
     ) -> [String] {
         // Whether another row at `depth` follows before the tree climbs
         // above it, i.e. whether that level's branch continues.
@@ -355,8 +343,8 @@ public struct AgenticConversationRunCardPresentation:
     }
 
     private static func tone(
-        for state: AgenticHostConsoleRunState
-    ) -> AgenticConversationRunCardTone {
+        for state: AgenticHostConsole.Run.State
+    ) -> AgenticTone {
         switch state {
         case .ready,
              .pause_pending,
@@ -382,7 +370,7 @@ public struct AgenticConversationRunCardPresentation:
     }
 
     private static func title(
-        for state: AgenticHostConsoleRunState
+        for state: AgenticHostConsole.Run.State
     ) -> String {
         switch state {
         case .ready:
@@ -415,8 +403,8 @@ public struct AgenticConversationRunCardPresentation:
     }
 
     private static func hint(
-        for state: AgenticHostConsoleRunState,
-        interruption: AgenticHostConsoleInterruptionPresentation?
+        for state: AgenticHostConsole.Run.State,
+        interruption: AgenticHostConsole.Interruption?
     ) -> String {
         if let interruption {
             switch interruption.kind {
@@ -446,26 +434,26 @@ public struct AgenticConversationRunCardPresentation:
     }
 }
 
-public struct AgenticConversationMessagePresentation: Sendable, Hashable {
+public struct AgenticConversationMessage: Sendable, Hashable {
     public var id: String
     public var role: MessageRole
     public var body: String
-    public var attachments: [AgenticConversationAttachmentPresentation]
-    public var iterations: [AgenticConversationIterationPresentation]
+    public var attachments: [AgenticConversationAttachment]
+    public var iterations: [AgenticConversationIteration]
     /// Accepted but not yet part of a run, and why, e.g. "pending · after
     /// the current run". Cleared once the message is applied.
     public var pending: String?
     /// For an answer: the model that gave it.
-    public var route: AgenticModelRoutePresentation?
+    public var route: AgenticModelRoute?
 
     public init(
         id: String,
         role: MessageRole,
         body: String,
-        attachments: [AgenticConversationAttachmentPresentation] = [],
-        iterations: [AgenticConversationIterationPresentation] = [],
+        attachments: [AgenticConversationAttachment] = [],
+        iterations: [AgenticConversationIteration] = [],
         pending: String? = nil,
-        route: AgenticModelRoutePresentation? = nil
+        route: AgenticModelRoute? = nil
     ) {
         self.route = route
         self.id = id
@@ -478,7 +466,7 @@ public struct AgenticConversationMessagePresentation: Sendable, Hashable {
 }
 
 /// One workspace root as the conversation shows it.
-public struct AgenticWorkspaceRootPresentation: Sendable, Hashable, Identifiable {
+public struct AgenticWorkspaceRoot: Sendable, Hashable, Identifiable {
     public struct Restriction: Sendable, Hashable, Identifiable {
         public var id: String
         public var pattern: String
@@ -542,7 +530,7 @@ public enum AgenticQueuePolicy: String, Sendable, Codable, Hashable, CaseIterabl
     }
 }
 
-public struct AgenticConversationModelPresentation: Sendable, Hashable {
+public struct AgenticConversationModel: Sendable, Hashable {
     public var id: AgentModelProfileIdentifier
     public var title: String
     public var detail: String
@@ -582,7 +570,7 @@ public struct AgenticConversationModelPresentation: Sendable, Hashable {
 }
 
 /// Which model answered, against what was selected.
-public struct AgenticModelRoutePresentation: Sendable, Hashable {
+public struct AgenticModelRoute: Sendable, Hashable {
     public var title: String
     public var provider: String
     /// The selected model's title when the answer came from another one.
@@ -604,7 +592,7 @@ public struct AgenticModelRoutePresentation: Sendable, Hashable {
     public var isRerouted: Bool { selectedTitle != nil }
 }
 
-public struct AgenticConversationInstructionPresentation: Sendable, Hashable {
+public struct AgenticConversationInstruction: Sendable, Hashable {
     public var id: InstructionIdentifier
     public var title: String
     public var summary: String
@@ -621,7 +609,7 @@ public struct AgenticConversationSubmission: Sendable, Hashable {
     public var id: String
     public var body: String
     public var origin: AgenticConversationInputOrigin
-    public var contents: [AgenticConversationContentPresentation]
+    public var contents: [AgenticConversationContent]
     public var preferredModelProfileID: AgentModelProfileIdentifier
     public var instructionIDs: [InstructionIdentifier]
     public var availableCapabilities: AgentCapabilitySet
@@ -633,7 +621,7 @@ public struct AgenticConversationSubmission: Sendable, Hashable {
     public init(
         body: String,
         origin: AgenticConversationInputOrigin = .typed,
-        contents: [AgenticConversationContentPresentation],
+        contents: [AgenticConversationContent],
         preferredModelProfileID: AgentModelProfileIdentifier,
         instructionIDs: [InstructionIdentifier],
         availableCapabilities: AgentCapabilitySet = .none,
@@ -657,7 +645,7 @@ public struct AgenticConversationSubmission: Sendable, Hashable {
     }
 }
 
-public struct AgenticConversationUserInputPresentation: Sendable, Hashable {
+public struct AgenticConversationUserInput: Sendable, Hashable {
     public var interactionID: String
     public var runID: String
     public var request: UserInputRequest
@@ -680,25 +668,25 @@ public struct AgenticConversationSnapshot: Sendable, Hashable {
     public var voiceAvailability: AgenticConversationVoice.Availability
     public var voiceState: AgenticConversationVoice.State
     public var voiceStatus: AgenticConversationVoice.Status?
-    public var messages: [AgenticConversationMessagePresentation]
-    public var models: [AgenticConversationModelPresentation]
+    public var messages: [AgenticConversationMessage]
+    public var models: [AgenticConversationModel]
     public var programs: [ProgramDefinition]
     public var preferredModelProfileID: AgentModelProfileIdentifier
-    public var pendingUserInput: AgenticConversationUserInputPresentation?
+    public var pendingUserInput: AgenticConversationUserInput?
     public var selectedResponseDelivery: AgentModelResponseDelivery
     public var selectedInvocationOptions: AgentModelInvocationOptions
     public var selectedAutonomyMode: AutonomyMode
-    public var instructions: [AgenticConversationInstructionPresentation]
+    public var instructions: [AgenticConversationInstruction]
     public var selectedInstructionIDs: [InstructionIdentifier]
     public var capabilityEntries: [AgenticConversationCapabilityEntry]
     public var availableCapabilities: AgentCapabilitySet
     public var visibleCapabilities: AgentCapabilitySet
-    public var hostConsole: AgenticHostConsoleSnapshot
-    public var usage: AgenticConversationUsagePresentation
+    public var hostConsole: AgenticHostConsole.Snapshot
+    public var usage: AgenticConversationUsage
     /// What a message sent during a run does.
     public var queuePolicy: AgenticQueuePolicy
     /// The session's roots, restrictions included; empty until known.
-    public var workspaceRoots: [AgenticWorkspaceRootPresentation] = []
+    public var workspaceRoots: [AgenticWorkspaceRoot] = []
     /// Where relative paths resolve.
     public var workingDirectory: String?
     /// Standing remarks shown under the header, such as a `settings.frame`
@@ -712,21 +700,21 @@ public struct AgenticConversationSnapshot: Sendable, Hashable {
         voiceAvailability: AgenticConversationVoice.Availability = .unconfigured,
         voiceState: AgenticConversationVoice.State = .idle,
         voiceStatus: AgenticConversationVoice.Status? = nil,
-        messages: [AgenticConversationMessagePresentation] = [],
-        models: [AgenticConversationModelPresentation],
+        messages: [AgenticConversationMessage] = [],
+        models: [AgenticConversationModel],
         programs: [ProgramDefinition] = [],
         preferredModelProfileID: AgentModelProfileIdentifier,
-        pendingUserInput: AgenticConversationUserInputPresentation? = nil,
+        pendingUserInput: AgenticConversationUserInput? = nil,
         selectedResponseDelivery: AgentModelResponseDelivery = .stream,
         selectedInvocationOptions: AgentModelInvocationOptions = .default,
         selectedAutonomyMode: AutonomyMode = .auto_observe,
-        instructions: [AgenticConversationInstructionPresentation] = [],
+        instructions: [AgenticConversationInstruction] = [],
         selectedInstructionIDs: [InstructionIdentifier] = [],
         capabilityEntries: [AgenticConversationCapabilityEntry] = [],
         availableCapabilities: AgentCapabilitySet = .none,
         visibleCapabilities: AgentCapabilitySet = .none,
-        hostConsole: AgenticHostConsoleSnapshot = .init(),
-        usage: AgenticConversationUsagePresentation = .init(),
+        hostConsole: AgenticHostConsole.Snapshot = .init(),
+        usage: AgenticConversationUsage = .init(),
         queuePolicy: AgenticQueuePolicy = .await
     ) {
         self.title = title

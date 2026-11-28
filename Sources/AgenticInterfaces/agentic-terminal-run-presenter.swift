@@ -44,7 +44,7 @@ public struct TerminalAgenticRunPresenter: AgenticRunPresenter {
     }
 
     public func present(
-        _ result: AgenticRunPresentation
+        _ result: AgenticRun
     ) async throws {
         let rendered = render(
             result
@@ -63,7 +63,7 @@ public struct TerminalAgenticRunPresenter: AgenticRunPresenter {
 
 private extension TerminalAgenticRunPresenter {
     func render(
-        _ result: AgenticRunPresentation
+        _ result: AgenticRun
     ) -> String {
         switch result.state {
         case .awaiting_approval:
@@ -213,7 +213,7 @@ private extension TerminalAgenticRunPresenter {
             return block(
                 title: "Approval menu choice",
                 fields: [
-                    .init("choice", choice.rawValue),
+                    .init("choice", choice.id),
                 ]
             )
 
@@ -276,7 +276,7 @@ public struct TerminalApprovalPicker: Sendable {
 
     public func pick(
         _ prompt: AgenticApprovalPrompt
-    ) async throws -> AgenticApprovalChoice {
+    ) async throws -> AgenticHostConsole.Action {
         try await presenter?.present(
             .approvalRequested(
                 prompt
@@ -305,10 +305,7 @@ public struct TerminalApprovalPicker: Sendable {
                     prompt
                 )
 
-            case .approve,
-                .deny,
-                .skip,
-                .stop_run:
+            default:
                 return choice
             }
         }
@@ -318,7 +315,7 @@ public struct TerminalApprovalPicker: Sendable {
 extension TerminalApprovalPicker: AgenticApprovalChoosing {
     public func choose(
         _ prompt: AgenticApprovalPrompt
-    ) async throws -> AgenticApprovalChoice {
+    ) async throws -> AgenticHostConsole.Action {
         try await pick(
             prompt
         )

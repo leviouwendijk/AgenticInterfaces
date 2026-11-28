@@ -19,7 +19,7 @@ enum AgenticHostConsoleFoundationSmoke {
     }
 
     static func run() throws {
-        var console = AgenticHostConsoleControl(
+        var console = AgenticHostConsole.Control(
             snapshot: AgenticHostConsoleLab.fixture()
         )
 
@@ -102,48 +102,48 @@ enum AgenticHostConsoleFoundationSmoke {
     }
 
     private static func runExecutionControlPolicyProbe() throws {
-        guard AgenticHostConsoleRunControl.execute_run.rawValue == "execute_run",
-              AgenticHostConsoleRunControl.execute_step_and_wait.rawValue == "execute_step_and_wait",
-              AgenticHostConsoleRunControl.pause.rawValue == "pause",
-              AgenticHostConsoleRunControl.execute_run.title == "Execute Run",
-              AgenticHostConsoleRunControl.execute_step_and_wait.title == "Execute Step and Wait",
-              AgenticHostConsoleRunControl.startControls == [
+        guard AgenticHostConsole.Run.Control.execute_run.rawValue == "execute_run",
+              AgenticHostConsole.Run.Control.execute_step_and_wait.rawValue == "execute_step_and_wait",
+              AgenticHostConsole.Run.Control.pause.rawValue == "pause",
+              AgenticHostConsole.Run.Control.execute_run.title == "Execute Run",
+              AgenticHostConsole.Run.Control.execute_step_and_wait.title == "Execute Step and Wait",
+              AgenticHostConsole.Run.Control.startControls == [
                 .execute_run,
                 .execute_step_and_wait,
               ],
-              AgenticHostConsoleRunState.ready.executionControls == [
+              AgenticHostConsole.Run.State.ready.executionControls == [
                 .execute_run,
                 .execute_step_and_wait,
               ],
-              AgenticHostConsoleRunState.active.executionControls == [
+              AgenticHostConsole.Run.State.active.executionControls == [
                 .pause,
                 .stop_after_iteration,
                 .stop_urgent,
               ],
-              AgenticHostConsoleRunState.paused.executionControls == [
+              AgenticHostConsole.Run.State.paused.executionControls == [
                 .execute_run,
                 .execute_step_and_wait,
                 .stop_urgent,
               ],
-              AgenticHostConsoleRunState.pause_pending.executionControls == [
+              AgenticHostConsole.Run.State.pause_pending.executionControls == [
                 .stop_urgent,
               ],
-              AgenticHostConsoleRunState.awaitingApproval.executionControls == [
+              AgenticHostConsole.Run.State.awaitingApproval.executionControls == [
                 .stop_urgent,
               ],
-              AgenticHostConsoleRunState.onHold.executionControls == [
+              AgenticHostConsole.Run.State.onHold.executionControls == [
                 .stop_urgent,
               ],
-              AgenticHostConsoleRunState.interrupted.executionControls.isEmpty,
-              AgenticHostConsoleRunState.completed.executionControls.isEmpty,
-              AgenticHostConsoleRunState.failed.executionControls.isEmpty
+              AgenticHostConsole.Run.State.interrupted.executionControls.isEmpty,
+              AgenticHostConsole.Run.State.completed.executionControls.isEmpty,
+              AgenticHostConsole.Run.State.failed.executionControls.isEmpty
         else {
             throw Failure.unexpectedExecutionControls
         }
     }
 
     private static func runExecutionFollowProbe() throws {
-        var console = AgenticHostConsoleControl(
+        var console = AgenticHostConsole.Control(
             snapshot: followSnapshot(
                 states: [
                     .active,
@@ -198,17 +198,17 @@ enum AgenticHostConsoleFoundationSmoke {
     }
 
     private static func followSnapshot(
-        states: [AgenticHostConsoleStepState]
-    ) -> AgenticHostConsoleSnapshot {
+        states: [AgenticHostConsole.Step.State]
+    ) -> AgenticHostConsole.Snapshot {
         let ids = [
             "first",
             "second",
             "third",
         ]
 
-        return AgenticHostConsoleSnapshot(
+        return AgenticHostConsole.Snapshot(
             runs: [
-                AgenticHostConsoleRunPresentation(
+                AgenticHostConsole.Run(
                     id: "execution-follow",
                     title: "execution follow",
                     summary: "active ToolPlan",
@@ -220,7 +220,7 @@ enum AgenticHostConsoleFoundationSmoke {
                         id,
                         state in
 
-                        AgenticHostConsoleStepPresentation(
+                        AgenticHostConsole.Step(
                             id: id,
                             title: id,
                             state: state

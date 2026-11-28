@@ -30,16 +30,16 @@ enum AgenticHostConsoleWorkflowSmoke {
     }
 
     static func run() throws {
-        guard AgenticHostConsoleAction.continue_run.id == "continue_run",
-              AgenticHostConsoleAction.continue_run.title == "Continue ToolPlan",
-              AgenticHostConsoleAction.continue_run.summary
+        guard AgenticHostConsole.Action.continue_run.id == "continue_run",
+              AgenticHostConsole.Action.continue_run.title == "Continue ToolPlan",
+              AgenticHostConsole.Action.continue_run.summary
                 == "Continue the remaining ToolPlan after the resolved step.",
-              AgenticHostConsoleAction.run_limit_continue(
+              AgenticHostConsole.Action.run_limit_continue(
                 iterations: 16
               ).id == "run_limit_continue:16",
-              AgenticHostConsoleAction.run_limit_unlimited.title
+              AgenticHostConsole.Action.run_limit_unlimited.title
                 == "Remove iteration limit",
-              AgenticHostConsoleAction.run_limit_stop.title
+              AgenticHostConsole.Action.run_limit_stop.title
                 == "Stop run"
         else {
             throw Failure.unexpectedContinueAction
@@ -59,7 +59,7 @@ enum AgenticHostConsoleWorkflowSmoke {
             structuredDocument
         )
         let decodedDocument = try JSONDecoder().decode(
-            AgenticHostConsoleDocumentPresentation.self,
+            AgenticHostConsole.Document.self,
             from: encodedDocument
         )
 
@@ -71,7 +71,7 @@ enum AgenticHostConsoleWorkflowSmoke {
             #"{"id":"legacy","runID":"run","stepID":"step","kind":"details","title":"Details","body":"raw"}"#.utf8
         )
         let legacyDocument = try JSONDecoder().decode(
-            AgenticHostConsoleDocumentPresentation.self,
+            AgenticHostConsole.Document.self,
             from: legacyData
         )
 
@@ -80,7 +80,7 @@ enum AgenticHostConsoleWorkflowSmoke {
             throw Failure.unexpectedLegacyDocumentDecode
         }
 
-        var console = AgenticHostConsoleWorkflowControl(
+        var console = AgenticHostConsole.Workflow.Control(
             snapshot: snapshot
         )
 
@@ -257,10 +257,10 @@ enum AgenticHostConsoleWorkflowSmoke {
     }
 
     private static func runExecutionControlProbe() throws {
-        var paused = AgenticHostConsoleWorkflowControl(
-            snapshot: AgenticHostConsoleSnapshot(
+        var paused = AgenticHostConsole.Workflow.Control(
+            snapshot: AgenticHostConsole.Snapshot(
                 runs: [
-                    AgenticHostConsoleRunPresentation(
+                    AgenticHostConsole.Run(
                         id: "paused-run",
                         title: "Paused ToolPlan",
                         summary: "Stopped at a safe ToolPlan boundary.",
@@ -327,10 +327,10 @@ enum AgenticHostConsoleWorkflowSmoke {
             throw Failure.unexpectedRunControlRequest
         }
 
-        var active = AgenticHostConsoleWorkflowControl(
-            snapshot: AgenticHostConsoleSnapshot(
+        var active = AgenticHostConsole.Workflow.Control(
+            snapshot: AgenticHostConsole.Snapshot(
                 runs: [
-                    AgenticHostConsoleRunPresentation(
+                    AgenticHostConsole.Run(
                         id: "active-run",
                         title: "Active ToolPlan",
                         state: .active
@@ -360,10 +360,10 @@ enum AgenticHostConsoleWorkflowSmoke {
             throw Failure.unexpectedRunControlRequest
         }
 
-        var pending = AgenticHostConsoleWorkflowControl(
-            snapshot: AgenticHostConsoleSnapshot(
+        var pending = AgenticHostConsole.Workflow.Control(
+            snapshot: AgenticHostConsole.Snapshot(
                 runs: [
-                    AgenticHostConsoleRunPresentation(
+                    AgenticHostConsole.Run(
                         id: "pending-run",
                         title: "Pause pending ToolPlan",
                         state: .pause_pending
@@ -394,7 +394,7 @@ enum AgenticHostConsoleWorkflowSmoke {
     }
 
     private static func renderedText(
-        _ console: inout AgenticHostConsoleWorkflowControl,
+        _ console: inout AgenticHostConsole.Workflow.Control,
         rows: Int = 24,
         columns: Int
     ) -> String {

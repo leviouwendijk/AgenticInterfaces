@@ -231,7 +231,7 @@ enum AgenticConversationPinnedContentSmoke {
         AgenticConversationSnapshot(
             workspace: "/tmp/PinnedConversation",
             models: [
-                AgenticConversationModelPresentation(
+                AgenticConversationModel(
                     id: "pin-model",
                     title: "Pin model",
                     detail: "recoverable pin fixture"

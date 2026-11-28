@@ -26,14 +26,14 @@ enum AgenticHostConsoleStatusSmoke {
 
         The complete diagnostic remains inspectable and copyable.
         """
-        let snapshot = AgenticHostConsoleSnapshot(
+        let snapshot = AgenticHostConsole.Snapshot(
             runs: [
-                AgenticHostConsoleRunPresentation(
+                AgenticHostConsole.Run(
                     id: "status-run",
                     title: "Status fixture",
                     state: .pause_pending,
                     steps: [
-                        AgenticHostConsoleStepPresentation(
+                        AgenticHostConsole.Step(
                             id: "status-step",
                             title: "mutate",
                             state: .pending
@@ -42,18 +42,18 @@ enum AgenticHostConsoleStatusSmoke {
                 ),
             ],
             statuses: [
-                AgenticHostConsoleStatusPresentation(
+                AgenticHostConsole.Status(
                     id: "status-1",
                     runID: "status-run",
                     stepID: "status-step",
-                    kind: .error,
+                    tone: .failure,
                     title: "Execution attempt failed",
                     summary: "Enter to inspect full diagnostic.",
                     body: diagnosticBody
                 ),
             ]
         )
-        var workflow = AgenticHostConsoleWorkflowControl(
+        var workflow = AgenticHostConsole.Workflow.Control(
             snapshot: snapshot
         )
 

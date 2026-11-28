@@ -24,7 +24,7 @@ enum AgenticHostConsoleInspectionSurfaceSmoke {
             columns: 120
         )
         let overlay =
-            AgenticHostConsoleInspectionSurface.overlay(
+            AgenticHostConsole.Inspection.overlay(
                 in: region
             )
         let actual = overlay.region(
@@ -44,9 +44,9 @@ enum AgenticHostConsoleInspectionSurfaceSmoke {
 
     private static func runFieldWrappingProbe() throws {
         let lines =
-            AgenticHostConsoleInspectionSurface.fieldLines(
+            AgenticHostConsole.Inspection.fieldLines(
                 [
-                    AgenticHostConsoleField(
+                    AgenticHostConsole.Field(
                         "summary",
                         "alpha beta gamma delta"
                     ),
@@ -70,17 +70,17 @@ enum AgenticHostConsoleInspectionSurfaceSmoke {
         }
 
         let pathological =
-            AgenticHostConsoleInspectionSurface.fieldLines(
+            AgenticHostConsole.Inspection.fieldLines(
                 [
-                    AgenticHostConsoleField(
+                    AgenticHostConsole.Field(
                         "run",
                         "conversation-interface-foundation"
                     ),
-                    AgenticHostConsoleField(
+                    AgenticHostConsole.Field(
                         "state",
                         "completed"
                     ),
-                    AgenticHostConsoleField(
+                    AgenticHostConsole.Field(
                         "this-is-an-intentionally-pathological-field-label-that-must-not-starve-values",
                         "bounded label width"
                     ),
@@ -110,20 +110,20 @@ enum AgenticHostConsoleInspectionSurfaceSmoke {
     }
 
     private static func runInspectorIntegrationProbe() throws {
-        var console = AgenticHostConsoleControl(
-            snapshot: AgenticHostConsoleSnapshot(
+        var console = AgenticHostConsole.Control(
+            snapshot: AgenticHostConsole.Snapshot(
                 runs: [
-                    AgenticHostConsoleRunPresentation(
+                    AgenticHostConsole.Run(
                         id: "inspection-surface-run",
                         title: "Inspection surface fixture",
                         state: .completed,
                         steps: [
-                            AgenticHostConsoleStepPresentation(
+                            AgenticHostConsole.Step(
                                 id: "inspection-surface-step",
                                 title: "search",
                                 state: .completed,
                                 fields: [
-                                    AgenticHostConsoleField(
+                                    AgenticHostConsole.Field(
                                         "summary",
                                         "This deliberately long result summary must wrap inside the Enter inspector and preserve final-token."
                                     ),

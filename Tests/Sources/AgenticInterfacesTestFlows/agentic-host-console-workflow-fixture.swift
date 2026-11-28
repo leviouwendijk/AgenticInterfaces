@@ -3,11 +3,11 @@ import AgenticPresentation
 import DSL
 
 enum AgenticHostConsoleWorkflowFixture {
-    static func make() -> AgenticHostConsoleSnapshot {
+    static func make() -> AgenticHostConsole.Snapshot {
         var snapshot = AgenticHostConsoleLab.fixture()
 
         snapshot.interruptions = [
-            AgenticHostConsoleInterruptionPresentation(
+            AgenticHostConsole.Interruption(
                 id: "recovery-failure",
                 runID: "recovery",
                 stepID: "failed-mutate",
@@ -21,7 +21,7 @@ enum AgenticHostConsoleWorkflowFixture {
                     .stop_run,
                 ]
             ),
-            AgenticHostConsoleInterruptionPresentation(
+            AgenticHostConsole.Interruption(
                 id: "repository-approval",
                 runID: "approval",
                 stepID: "prepare",
@@ -38,21 +38,21 @@ enum AgenticHostConsoleWorkflowFixture {
         ]
 
         snapshot.documents = [
-            AgenticHostConsoleDocumentPresentation(
+            AgenticHostConsole.Document(
                 id: "aitest-stdout",
                 runID: "persistent-host-console",
                 stepID: "aitest",
                 kind: .stdout,
                 body: "Building for debugging...\nBuild complete.\nagentic host console foundation smoke passed"
             ),
-            AgenticHostConsoleDocumentPresentation(
+            AgenticHostConsole.Document(
                 id: "aitest-stderr",
                 runID: "persistent-host-console",
                 stepID: "aitest",
                 kind: .stderr,
                 body: "<empty>"
             ),
-            AgenticHostConsoleDocumentPresentation(
+            AgenticHostConsole.Document(
                 id: "recovery-details",
                 runID: "recovery",
                 stepID: "failed-mutate",
@@ -74,14 +74,14 @@ enum AgenticHostConsoleWorkflowFixture {
                     ])
                 )
             ),
-            AgenticHostConsoleDocumentPresentation(
+            AgenticHostConsole.Document(
                 id: "recovery-stderr",
                 runID: "recovery",
                 stepID: "failed-mutate",
                 kind: .stderr,
                 body: "Edit match not found: expected unique mutation anchor."
             ),
-            AgenticHostConsoleDocumentPresentation(
+            AgenticHostConsole.Document(
                 id: "approval-details",
                 runID: "approval",
                 stepID: "prepare",
@@ -89,7 +89,7 @@ enum AgenticHostConsoleWorkflowFixture {
                 title: "Staged intent details",
                 body: "tool          git_tool_prepare_commit\nrequirement   needs_human_review\nrisk          boundedmutate\nworkspace     AgenticInterfaces"
             ),
-            AgenticHostConsoleDocumentPresentation(
+            AgenticHostConsole.Document(
                 id: "approval-diff",
                 runID: "approval",
                 stepID: "prepare",

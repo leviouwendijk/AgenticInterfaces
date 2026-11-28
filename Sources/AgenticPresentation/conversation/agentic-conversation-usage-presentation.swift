@@ -3,7 +3,7 @@ import Foundation
 
 /// UI-only projection of canonical Core cost records. The Host supplies run-ID
 /// keyed records; this type never estimates tokens or prices an invocation.
-public struct AgenticConversationUsagePresentation: Sendable, Hashable {
+public struct AgenticConversationUsage: Sendable, Hashable {
     public var records: [String: AgentCostRecord]
 
     public init(records: [String: AgentCostRecord] = [:]) {

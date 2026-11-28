@@ -25,15 +25,15 @@ enum AgenticConversationRunReviewSmoke {
 
     static func run() throws {
         var snapshot = AgenticConversationSmoke.fixture()
-        snapshot.hostConsole = AgenticHostConsoleSnapshot(
+        snapshot.hostConsole = AgenticHostConsole.Snapshot(
             runs: [
-                AgenticHostConsoleRunPresentation(
+                AgenticHostConsole.Run(
                     id: "conversation-run",
                     title: "Review mutation",
                     summary: "Mutation awaits review",
                     state: .awaitingApproval,
                     steps: [
-                        AgenticHostConsoleStepPresentation(
+                        AgenticHostConsole.Step(
                             id: "review-step",
                             title: "mutate",
                             state: .pending
@@ -42,7 +42,7 @@ enum AgenticConversationRunReviewSmoke {
                 ),
             ],
             interruptions: [
-                AgenticHostConsoleInterruptionPresentation(
+                AgenticHostConsole.Interruption(
                     id: "conversation-approval",
                     runID: "conversation-run",
                     stepID: "review-step",
@@ -57,7 +57,7 @@ enum AgenticConversationRunReviewSmoke {
                 ),
             ],
             documents: [
-                AgenticHostConsoleDocumentPresentation(
+                AgenticHostConsole.Document(
                     id: "conversation-diff",
                     runID: "conversation-run",
                     stepID: "review-step",
@@ -65,7 +65,7 @@ enum AgenticConversationRunReviewSmoke {
                     title: "Diff",
                     body: "diff --git a/a.swift b/a.swift\n+reviewed-change"
                 ),
-                AgenticHostConsoleDocumentPresentation(
+                AgenticHostConsole.Document(
                     id: "conversation-details",
                     runID: "conversation-run",
                     stepID: "review-step",
@@ -257,7 +257,7 @@ enum AgenticConversationRunReviewSmoke {
         ])
         let sections: [ToolPreflight.Preview.Section] = [.report(card, title: "Event")]
         var snapshot = AgenticConversationSmoke.fixture()
-        snapshot.hostConsole = AgenticHostConsoleSnapshot(
+        snapshot.hostConsole = AgenticHostConsole.Snapshot(
             runs: [.init(
                 id: "conversation-run", title: "Book", state: .awaitingApproval,
                 steps: [.init(id: "book-step", title: "schedule_tool_book", state: .pending)]
@@ -301,7 +301,7 @@ enum AgenticConversationRunReviewSmoke {
     /// options never do.
     static func runWrappedSummary() throws {
         var snapshot = AgenticConversationSmoke.fixture()
-        snapshot.hostConsole = AgenticHostConsoleSnapshot(
+        snapshot.hostConsole = AgenticHostConsole.Snapshot(
             runs: [.init(
                 id: "conversation-run", title: "Book", state: .awaitingApproval,
                 steps: [.init(id: "long-step", title: "schedule_tool_book", state: .pending)]
@@ -329,7 +329,7 @@ enum AgenticConversationRunReviewSmoke {
     }
 
     static func runStagedReviews() throws {
-        func review(_ worker: String) -> AgenticHostConsoleInterruptionPresentation {
+        func review(_ worker: String) -> AgenticHostConsole.Interruption {
             .init(
                 id: "staged-\(worker)",
                 runID: "conversation-run",
@@ -340,7 +340,7 @@ enum AgenticConversationRunReviewSmoke {
                 actions: [.publish, .discard, .skip]
             )
         }
-        func diff(_ worker: String) -> AgenticHostConsoleDocumentPresentation {
+        func diff(_ worker: String) -> AgenticHostConsole.Document {
             .init(
                 id: "staged-\(worker)-diff",
                 runID: "conversation-run",
@@ -351,7 +351,7 @@ enum AgenticConversationRunReviewSmoke {
             )
         }
         var snapshot = AgenticConversationSmoke.fixture()
-        snapshot.hostConsole = AgenticHostConsoleSnapshot(
+        snapshot.hostConsole = AgenticHostConsole.Snapshot(
             runs: [.init(id: "conversation-run", title: "Delegating", state: .completed)],
             interruptions: [review("implementer"), review("tester")],
             documents: [diff("implementer"), diff("tester")]

@@ -8,7 +8,7 @@ import Difference
 extension TerminalApprovalPicker {
     func runMenu(
         _ prompt: AgenticApprovalPrompt
-    ) throws -> AgenticApprovalChoice {
+    ) throws -> AgenticHostConsole.Action {
         let width = Terminal.size(
             for: stream
         ).columns
@@ -25,8 +25,8 @@ extension TerminalApprovalPicker {
             instructions += "\n\nguidelines\n\(guidelines)"
         }
 
-        let menu = TerminalInteractiveMenu<AgenticApprovalChoice, String>(
-            items: AgenticApprovalChoice.allCases,
+        let menu = TerminalInteractiveMenu<AgenticHostConsole.Action, String>(
+            items: AgenticHostConsole.Action.approval,
             configuration: .inline(
                 title: "\(prompt.title): \(prompt.toolName)",
                 instructions: instructions,
@@ -35,7 +35,7 @@ extension TerminalApprovalPicker {
                 currentRowStyle: .none
             ),
             id: { choice in
-                choice.rawValue
+                choice.id
             },
             row: { row in
                 TerminalMenuRowContent(

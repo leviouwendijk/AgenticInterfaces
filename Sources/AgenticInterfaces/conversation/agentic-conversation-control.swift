@@ -29,7 +29,7 @@ public enum AgenticConversationEvent: Sendable, Hashable {
     case voiceStartRequested
     case voiceStopRequested
     case voiceCancelRequested
-    case contentPinned(AgenticConversationContentPresentation)
+    case contentPinned(AgenticConversationContent)
     case submissionRequested(AgenticConversationSubmission)
     case supersedingSubmissionRequested(AgenticConversationSubmission)
     /// Sent during a run under `:queue await`: held until the run settles.
@@ -58,7 +58,7 @@ public enum AgenticConversationEvent: Sendable, Hashable {
     case attachmentClosed(messageID: String)
     case runOpened(messageID: String, runID: String)
     case runClosed(runID: String)
-    case run(AgenticHostConsoleWorkflowEvent)
+    case run(AgenticHostConsole.Workflow.Event)
     case feedbackRequested(String)
     case copyRequested(text: String, title: String)
 }
@@ -73,7 +73,7 @@ private enum AgenticConversationConfirmationPurpose:
 {
     case stop(
         runID: String,
-        control: AgenticHostConsoleRunControl
+        control: AgenticHostConsole.Run.Control
     )
 }
 
@@ -90,7 +90,7 @@ public struct AgenticConversationControl: Sendable {
     private var selectedIterationIndices: [String: Int]
     private var transcriptSelectionFollowsEnd: Bool
     private var pendingTranscriptReveal: AgenticConversationTranscriptReveal?
-    private var pendingContents: [AgenticConversationContentPresentation]
+    private var pendingContents: [AgenticConversationContent]
     private var excludedPendingContentIDs: Set<String>
     private var pinnedContent: AgenticConversationPinnedContentControl
     private var nextContentOrdinal: Int
@@ -108,7 +108,7 @@ public struct AgenticConversationControl: Sendable {
     private var runReview: AgenticConversationRunReviewControl?
     private var userInput: AgenticConversationUserInputControl?
     private var resolvingUserInputID: String?
-    private var hostConsole: AgenticHostConsoleWorkflowControl?
+    private var hostConsole: AgenticHostConsole.Workflow.Control?
     private var confirmation: AgenticConversationConfirmationControl?
     private var confirmationPurpose: AgenticConversationConfirmationPurpose?
     private var transcriptCache: [String: TranscriptEntry]
@@ -117,13 +117,13 @@ public struct AgenticConversationControl: Sendable {
 
     struct TranscriptEntry: Sendable {
         struct Key: Sendable, Equatable {
-            let message: AgenticConversationMessagePresentation
+            let message: AgenticConversationMessage
             let columns: Int
             let selected: Bool
             let iteration: Int?
             // Run cards project from console state; nil for messages without one.
-            let hostConsole: AgenticHostConsoleSnapshot?
-            let pendingUserInput: AgenticConversationUserInputPresentation?
+            let hostConsole: AgenticHostConsole.Snapshot?
+            let pendingUserInput: AgenticConversationUserInput?
         }
 
         let key: Key
@@ -198,7 +198,7 @@ public struct AgenticConversationControl: Sendable {
         composer.text
     }
 
-    public var pinnedContents: [AgenticConversationContentPresentation] {
+    public var pinnedContents: [AgenticConversationContent] {
         pendingContents
     }
 
@@ -297,14 +297,14 @@ public struct AgenticConversationControl: Sendable {
         focus.push(.userInput)
     }
 
-    public var currentMessage: AgenticConversationMessagePresentation? {
+    public var currentMessage: AgenticConversationMessage? {
         guard let selectedMessageID else {
             return nil
         }
         return snapshot.messages.first { $0.id == selectedMessageID }
     }
 
-    public var currentAttachment: AgenticConversationAttachmentPresentation? {
+    public var currentAttachment: AgenticConversationAttachment? {
         guard let currentMessage, !currentMessage.attachments.isEmpty else {
             return nil
         }
@@ -842,7 +842,7 @@ private extension AgenticConversationControl {
             }
         }
 
-        let content = AgenticConversationContentPresentation(
+        let content = AgenticConversationContent(
             id: "pending-content-\(nextContentOrdinal)",
             kind: kind,
             title: "\(titlePrefix) content \(nextContentOrdinal)",
@@ -1709,7 +1709,7 @@ private extension AgenticConversationControl {
             return .feedbackRequested("Run '\(runID)' is unavailable.")
         }
         openedRunID = runID
-        hostConsole = AgenticHostConsoleWorkflowControl(
+        hostConsole = AgenticHostConsole.Workflow.Control(
             snapshot: snapshot.hostConsole,
             currentRunID: runID
         )
@@ -2020,7 +2020,7 @@ private extension AgenticConversationControl {
     }
 
     func messageLines(
-        _ message: AgenticConversationMessagePresentation,
+        _ message: AgenticConversationMessage,
         width: Int,
         selected: Bool,
         renderer structuredRenderer: TerminalStructuredContent.Renderer
@@ -2172,7 +2172,7 @@ private extension AgenticConversationControl {
                 )
 
             case .program(let program):
-                let tone: AgenticConversationRunCardTone
+                let tone: AgenticTone
                 switch program.outcome {
                 case .succeeded:
                     tone = .success
@@ -2226,7 +2226,7 @@ private extension AgenticConversationControl {
                 }
 
                 let presentation =
-                    AgenticConversationRunCardPresentation.project(
+                    AgenticConversationRunCard.project(
                         run: run,
                         hostConsole: snapshot.hostConsole,
                         pendingUserInput: snapshot.pendingUserInput
@@ -2283,7 +2283,7 @@ private extension AgenticConversationControl {
     }
 
     func runCardStyle(
-        for tone: AgenticConversationRunCardTone
+        for tone: AgenticTone
     ) -> TerminalInteractiveBlockStyle {
         let theme = TerminalTheme.agentic
         let accent: TerminalStyle
@@ -2400,7 +2400,7 @@ private extension AgenticConversationControl {
 
     mutating func consumeUserInputEvent(
         _ event: AgenticConversationUserInputEvent?,
-        pending: AgenticConversationUserInputPresentation
+        pending: AgenticConversationUserInput
     ) -> AgenticConversationEvent? {
         guard let event else {
             return nil
@@ -2439,7 +2439,7 @@ private extension AgenticConversationControl {
             return
         }
 
-        let overlay = AgenticHostConsoleInspectionSurface.overlay(
+        let overlay = AgenticHostConsole.Inspection.overlay(
             in: region
         )
         let content = overlay.render(
@@ -2462,7 +2462,7 @@ private extension AgenticConversationControl {
         guard let message = currentMessage, let attachment = currentAttachment else {
             return
         }
-        let overlay = AgenticHostConsoleInspectionSurface.overlay(in: region)
+        let overlay = AgenticHostConsole.Inspection.overlay(in: region)
         let content = overlay.render(
             into: &frame,
             in: region,
@@ -2935,7 +2935,7 @@ extension AgenticConversationControl {
     /// model than selected: `~~Sonnet 5.5~~ → Qwen 3.5 · ollama · fallback`.
     /// The route label without styling, e.g. on a highlighted row.
     public static func routeText(
-        _ route: AgenticModelRoutePresentation
+        _ route: AgenticModelRoute
     ) -> String {
         let served = "\(route.title) · \(route.provider)"
         guard let selected = route.selectedTitle else { return served }
@@ -2943,7 +2943,7 @@ extension AgenticConversationControl {
     }
 
     public static func routeLabel(
-        _ route: AgenticModelRoutePresentation
+        _ route: AgenticModelRoute
     ) -> String {
         let served = TerminalStyle.dim.apply("\(route.title) · \(route.provider)")
         guard let selected = route.selectedTitle else { return served }

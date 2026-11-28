@@ -77,7 +77,7 @@ enum AgenticHostConsoleLab {
         var renderer = TerminalFrameRenderer(
             stream: stream
         )
-        var console = AgenticHostConsoleWorkflowControl(
+        var console = AgenticHostConsole.Workflow.Control(
             snapshot: AgenticHostConsoleWorkflowFixture.make()
         )
         var size = Terminal.size(
@@ -149,17 +149,17 @@ enum AgenticHostConsoleLab {
         }
     }
 
-    static func fixture() -> AgenticHostConsoleSnapshot {
-        AgenticHostConsoleSnapshot(
+    static func fixture() -> AgenticHostConsole.Snapshot {
+        AgenticHostConsole.Snapshot(
             context: "~/main/programming/libraries/swiftlibs",
             runs: [
-                AgenticHostConsoleRunPresentation(
+                AgenticHostConsole.Run(
                     id: "persistent-host-console",
                     title: "persistent host console",
                     summary: "executing ToolPlan",
                     state: .active,
                     steps: [
-                        AgenticHostConsoleStepPresentation(
+                        AgenticHostConsole.Step(
                             id: "mutate",
                             title: "mutate",
                             detail: "AgenticInterfaces/Sources/AgenticInterfaces/host-console",
@@ -171,7 +171,7 @@ enum AgenticHostConsoleLab {
                                 ),
                             ]
                         ),
-                        AgenticHostConsoleStepPresentation(
+                        AgenticHostConsole.Step(
                             id: "build",
                             title: "swift_tool_build",
                             detail: "AgenticInterfaces",
@@ -183,7 +183,7 @@ enum AgenticHostConsoleLab {
                                 ),
                             ]
                         ),
-                        AgenticHostConsoleStepPresentation(
+                        AgenticHostConsole.Step(
                             id: "aitest",
                             title: "aginttest",
                             detail: "host-console",
@@ -199,26 +199,26 @@ enum AgenticHostConsoleLab {
                                 ),
                             ]
                         ),
-                        AgenticHostConsoleStepPresentation(
+                        AgenticHostConsole.Step(
                             id: "verify",
                             title: "swift_tool_build",
                             detail: "AgenticInterfaces",
                             state: .pending
                         ),
-                        AgenticHostConsoleStepPresentation(
+                        AgenticHostConsole.Step(
                             id: "diff",
                             title: "git_tool_diff",
                             state: .pending
                         ),
                     ]
                 ),
-                AgenticHostConsoleRunPresentation(
+                AgenticHostConsole.Run(
                     id: "recovery",
                     title: "recovery branch",
                     summary: "failed child awaiting recovery",
                     state: .failed,
                     steps: [
-                        AgenticHostConsoleStepPresentation(
+                        AgenticHostConsole.Step(
                             id: "failed-mutate",
                             title: "mutate",
                             detail: "Sources/AgenticInterfaces",
@@ -230,20 +230,20 @@ enum AgenticHostConsoleLab {
                                 ),
                             ]
                         ),
-                        AgenticHostConsoleStepPresentation(
+                        AgenticHostConsole.Step(
                             id: "skipped-build",
                             title: "swift_tool_build",
                             state: .skipped
                         ),
                     ]
                 ),
-                AgenticHostConsoleRunPresentation(
+                AgenticHostConsole.Run(
                     id: "approval",
                     title: "repository mutation",
                     summary: "needs human review",
                     state: .awaitingApproval,
                     steps: [
-                        AgenticHostConsoleStepPresentation(
+                        AgenticHostConsole.Step(
                             id: "prepare",
                             title: "git_tool_prepare_commit",
                             detail: "AgenticInterfaces",
@@ -257,13 +257,13 @@ enum AgenticHostConsoleLab {
                         ),
                     ]
                 ),
-                AgenticHostConsoleRunPresentation(
+                AgenticHostConsole.Run(
                     id: "terminal-foundation",
                     title: "Terminal foundation",
                     summary: "published",
                     state: .completed,
                     steps: [
-                        AgenticHostConsoleStepPresentation(
+                        AgenticHostConsole.Step(
                             id: "terminal-performance",
                             title: "rendering performance improvements",
                             detail: "d227e0f",

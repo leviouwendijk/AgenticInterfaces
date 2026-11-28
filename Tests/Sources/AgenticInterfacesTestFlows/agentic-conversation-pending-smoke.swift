@@ -76,14 +76,14 @@ enum AgenticConversationPendingSmoke {
 
         var liveSnapshot = fixture()
         liveSnapshot.messages.append(
-            AgenticConversationMessagePresentation(
+            AgenticConversationMessage(
                 id: "live-user",
                 role: .user,
                 body: submission.body
             )
         )
         liveSnapshot.messages.append(
-            AgenticConversationMessagePresentation(
+            AgenticConversationMessage(
                 id: "live-assistant",
                 role: .assistant,
                 body: "partial response"
@@ -225,14 +225,14 @@ enum AgenticConversationPendingSmoke {
         AgenticConversationSnapshot(
             workspace: "/tmp/PendingConversation",
             messages: [
-                AgenticConversationMessagePresentation(
+                AgenticConversationMessage(
                     id: "existing-message",
                     role: .assistant,
                     body: "ready"
                 ),
             ],
             models: [
-                AgenticConversationModelPresentation(
+                AgenticConversationModel(
                     id: "pending-model",
                     title: "Pending model",
                     detail: "responsive conversation fixture"

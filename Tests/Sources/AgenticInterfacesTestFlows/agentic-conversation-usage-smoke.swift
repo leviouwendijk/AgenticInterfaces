@@ -25,7 +25,7 @@ enum AgenticConversationUsageSmoke {
                 .init(turnIndex: 1, projected: estimated),
             ]
         )
-        var usage = AgenticConversationUsagePresentation(records: ["run-a": record])
+        var usage = AgenticConversationUsage(records: ["run-a": record])
         guard usage.inputTokens == 170,
               usage.outputTokens == 36,
               usage.actualTurns == 1,

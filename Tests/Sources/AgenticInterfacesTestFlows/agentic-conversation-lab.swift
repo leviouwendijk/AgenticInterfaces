@@ -78,7 +78,7 @@ enum AgenticConversationLab {
                     let assistantID = "lab-assistant-\(nextMessageOrdinal)"
                     nextMessageOrdinal += 1
                     snapshot.messages.append(
-                        AgenticConversationMessagePresentation(
+                        AgenticConversationMessage(
                             id: userID,
                             role: .user,
                             body: submission.body,
@@ -86,7 +86,7 @@ enum AgenticConversationLab {
                         )
                     )
                     snapshot.messages.append(
-                        AgenticConversationMessagePresentation(
+                        AgenticConversationMessage(
                             id: assistantID,
                             role: .assistant,
                             body: "Model invocation and tool-loop wiring arrive in the next pass."
@@ -99,7 +99,7 @@ enum AgenticConversationLab {
                     let assistantID = "lab-assistant-\(nextMessageOrdinal)"
                     nextMessageOrdinal += 1
                     snapshot.messages.append(
-                        AgenticConversationMessagePresentation(
+                        AgenticConversationMessage(
                             id: userID,
                             role: .user,
                             body: submission.body,
@@ -107,7 +107,7 @@ enum AgenticConversationLab {
                         )
                     )
                     snapshot.messages.append(
-                        AgenticConversationMessagePresentation(
+                        AgenticConversationMessage(
                             id: assistantID,
                             role: .assistant,
                             body: "Program execution is wired by the Host-backed conversation path."

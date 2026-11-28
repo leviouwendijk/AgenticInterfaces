@@ -444,7 +444,7 @@ private extension AgenticConversationSettingsControl {
     }
 
     static func usageRows(
-        _ usage: AgenticConversationUsagePresentation
+        _ usage: AgenticConversationUsage
     ) -> [TerminalSettingsRow<RowID>] {
         [
             .init(

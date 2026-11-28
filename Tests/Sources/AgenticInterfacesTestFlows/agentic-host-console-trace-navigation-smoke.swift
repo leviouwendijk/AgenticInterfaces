@@ -5,12 +5,12 @@ private enum TraceNavigationSmokeError: Error { case failed }
 
 enum AgenticHostConsoleTraceNavigationSmoke {
     static func run() throws {
-        let root = AgenticHostConsoleTraceNode(id: "root", title: "agent", children: [
+        let root = AgenticHostConsole.Trace.Node(id: "root", title: "agent", children: [
             .init(id: "model", title: "model", children: [
                 .init(id: "tool", title: "tool", reference_id: "tool-record")
             ])
         ])
-        var control = try AgenticHostConsoleTraceNavigation(roots: [root])
+        var control = try AgenticHostConsole.Trace.Navigation(roots: [root])
         guard control.rows.count == 3 else { throw TraceNavigationSmokeError.failed }
         control.move(1)
         guard control.selected_id == "model" else { throw TraceNavigationSmokeError.failed }
@@ -26,8 +26,8 @@ enum AgenticHostConsoleTraceNavigationSmoke {
             throw TraceNavigationSmokeError.failed
         }
         do {
-            _ = try AgenticHostConsoleTraceNavigation(roots: [root, root])
+            _ = try AgenticHostConsole.Trace.Navigation(roots: [root, root])
             throw TraceNavigationSmokeError.failed
-        } catch AgenticHostConsoleTraceNavigation.Error.duplicate_id { }
+        } catch AgenticHostConsole.Trace.Navigation.Error.duplicate_id { }
     }
 }

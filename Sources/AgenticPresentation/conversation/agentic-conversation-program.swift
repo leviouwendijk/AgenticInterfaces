@@ -29,7 +29,7 @@ public enum AgenticConversationProgramExecutionOutcome:
     case interrupted
 }
 
-public struct AgenticConversationProgramStepPresentation:
+public struct AgenticConversationProgramStep:
     Sendable,
     Hashable
 {
@@ -67,7 +67,7 @@ public struct AgenticConversationProgramStepPresentation:
     }
 }
 
-public struct AgenticConversationProgramExecutionPresentation:
+public struct AgenticConversationProgramExecution:
     Sendable,
     Hashable
 {
@@ -78,7 +78,7 @@ public struct AgenticConversationProgramExecutionPresentation:
     public var outcome: AgenticConversationProgramExecutionOutcome
     public var input: String
     public var output: String?
-    public var steps: [AgenticConversationProgramStepPresentation]
+    public var steps: [AgenticConversationProgramStep]
     public var failure: String?
     public var durationMilliseconds: Int
 
@@ -90,7 +90,7 @@ public struct AgenticConversationProgramExecutionPresentation:
         outcome: AgenticConversationProgramExecutionOutcome,
         input: String,
         output: String? = nil,
-        steps: [AgenticConversationProgramStepPresentation] = [],
+        steps: [AgenticConversationProgramStep] = [],
         failure: String? = nil,
         durationMilliseconds: Int = 0
     ) {

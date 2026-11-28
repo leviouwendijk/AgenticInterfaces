@@ -29,14 +29,14 @@ enum AgenticConversationWorkspaceAccessReviewSmoke {
             ]
         )
 
-        guard AgenticWorkspaceAccessChoice.allCases == [
+        guard AgenticHostConsole.Action.workspaceAccess == [
             .grant_for_turn,
             .grant_for_session,
             .deny,
         ],
-              AgenticWorkspaceAccessChoice.grant_for_turn.title == "This turn",
-              AgenticWorkspaceAccessChoice.grant_for_session.title == "This session",
-              AgenticWorkspaceAccessChoice.deny.title == "Deny"
+              AgenticHostConsole.Action.grant_for_turn.title == "This turn",
+              AgenticHostConsole.Action.grant_for_session.title == "This session",
+              AgenticHostConsole.Action.deny.title == "Deny"
         else {
             throw Failure.compactChoicePresentationChanged
         }
@@ -58,15 +58,15 @@ enum AgenticConversationWorkspaceAccessReviewSmoke {
         }
 
         var snapshot = AgenticConversationSmoke.fixture()
-        snapshot.hostConsole = AgenticHostConsoleSnapshot(
+        snapshot.hostConsole = AgenticHostConsole.Snapshot(
             runs: [
-                AgenticHostConsoleRunPresentation(
+                AgenticHostConsole.Run(
                     id: "conversation-run",
                     title: "Workspace access",
                     summary: "Workspace access awaits resolution",
                     state: .onHold,
                     steps: [
-                        AgenticHostConsoleStepPresentation(
+                        AgenticHostConsole.Step(
                             id: "workspace-access-step",
                             title: "io_tool_request_access",
                             state: .pending
@@ -75,7 +75,7 @@ enum AgenticConversationWorkspaceAccessReviewSmoke {
                 ),
             ],
             interruptions: [
-                AgenticHostConsoleInterruptionPresentation(
+                AgenticHostConsole.Interruption(
                     id: "conversation-workspace-access",
                     runID: "conversation-run",
                     stepID: "workspace-access-step",
@@ -90,7 +90,7 @@ enum AgenticConversationWorkspaceAccessReviewSmoke {
                 ),
             ],
             documents: [
-                AgenticHostConsoleDocumentPresentation(
+                AgenticHostConsole.Document(
                     id: "conversation-workspace-access-details",
                     runID: "conversation-run",
                     stepID: "workspace-access-step",

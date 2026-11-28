@@ -3,346 +3,352 @@ import Swim
 import Terminal
 import Surface
 
-public enum AgenticHostConsoleFocus:
-    Sendable,
-    Hashable
-{
-    case runs
-    case timeline
-    case status
-    case inspector
+extension AgenticHostConsole {
+    public enum Focus:
+        Sendable,
+        Hashable
+    {
+        case runs
+        case timeline
+        case status
+        case inspector
+    }
 }
 
-public enum AgenticHostConsoleEvent:
-    Sendable,
-    Hashable
-{
-    case exitRequested
-    case runSelectionChanged(String)
-    case stepSelectionChanged(
-        runID: String,
-        stepID: String
-    )
-    case stepInspectionOpened(
-        runID: String,
-        stepID: String
-    )
-    case stepInspectionClosed
-    case runInspectionOpened(
-        runID: String
-    )
-    case statusInspectionOpened(
-        statusID: String
-    )
+extension AgenticHostConsole {
+    public enum Event:
+        Sendable,
+        Hashable
+    {
+        case exitRequested
+        case runSelectionChanged(String)
+        case stepSelectionChanged(
+            runID: String,
+            stepID: String
+        )
+        case stepInspectionOpened(
+            runID: String,
+            stepID: String
+        )
+        case stepInspectionClosed
+        case runInspectionOpened(
+            runID: String
+        )
+        case statusInspectionOpened(
+            statusID: String
+        )
+    }
 }
 
-public struct AgenticHostConsoleControl:
-    Sendable
-{
-    public private(set) var snapshot: AgenticHostConsoleSnapshot
-    public private(set) var focus: SurfaceFocus.Stack<AgenticHostConsoleFocus>
+extension AgenticHostConsole {
+    public struct Control:
+        Sendable
+    {
+        public private(set) var snapshot: AgenticHostConsole.Snapshot
+        public private(set) var focus: SurfaceFocus.Stack<AgenticHostConsole.Focus>
 
-    private var runs: SurfaceList.Control<
-        AgenticHostConsoleRunPresentation,
-        String
-    >
-    private var steps: SurfaceList.Control<
-        AgenticHostConsoleStepPresentation,
-        String
-    >
-    private var statuses: SurfaceList.Control<
-        AgenticHostConsoleStatusPresentation,
-        String
-    >
-    private var runsDocument: TerminalScrollableDocument
-    private var timelineDocument: TerminalScrollableDocument
-    private var statusDocument: TerminalScrollableDocument
-    private var inspectorDocument: TerminalScrollableDocument
-    private var inspectedStepID: String?
-    private var traceNavigation: AgenticHostConsoleTraceNavigation?
-    private var inspectedTraceDocumentIndex: Int
-    private var isRunHeaderSelected: Bool
-    private var navigator = AgenticListNavigator()
+        private var runs: SurfaceList.Control<
+            AgenticHostConsole.Run,
+            String
+        >
+        private var steps: SurfaceList.Control<
+            AgenticHostConsole.Step,
+            String
+        >
+        private var statuses: SurfaceList.Control<
+            AgenticHostConsole.Status,
+            String
+        >
+        private var runsDocument: TerminalScrollableDocument
+        private var timelineDocument: TerminalScrollableDocument
+        private var statusDocument: TerminalScrollableDocument
+        private var inspectorDocument: TerminalScrollableDocument
+        private var inspectedStepID: String?
+        private var traceNavigation: AgenticHostConsole.Trace.Navigation?
+        private var inspectedTraceDocumentIndex: Int
+        private var isRunHeaderSelected: Bool
+        private var navigator = AgenticListNavigator()
 
-    public init(
-        snapshot: AgenticHostConsoleSnapshot,
-        currentRunID: String? = nil,
-        currentStepID: String? = nil
-    ) {
-        let runID = Self.preferredRunID(
-            in: snapshot,
-            requested: currentRunID
-        )
-        let run = snapshot.runs.first {
-            $0.id == runID
-        }
-        let stepID = Self.preferredStepID(
-            in: run,
-            requested: currentStepID
-        )
-
-        self.snapshot = snapshot
-        self.focus = SurfaceFocus.Stack(
-            .runs
-        )
-        self.runs = SurfaceList.Control(
-            items: snapshot.runs,
-            currentID: runID,
-            wrapMode: .clamp,
-            id: {
-                $0.id
-            }
-        )
-        self.steps = SurfaceList.Control(
-            items: run?.steps ?? [],
-            currentID: stepID,
-            wrapMode: .clamp,
-            id: {
-                $0.id
-            }
-        )
-        self.statuses = SurfaceList.Control(
-            items: snapshot.statuses,
-            wrapMode: .clamp,
-            id: {
-                $0.id
-            }
-        )
-        self.runsDocument = TerminalScrollableDocument()
-        self.timelineDocument = TerminalScrollableDocument()
-        self.statusDocument = TerminalScrollableDocument()
-        self.inspectorDocument = TerminalScrollableDocument()
-        self.inspectedStepID = nil
-        self.traceNavigation = nil
-        self.inspectedTraceDocumentIndex = 0
-        self.isRunHeaderSelected = false
-    }
-
-    public var currentRunID: String? {
-        runs.currentID
-    }
-
-    public var runHeaderSelected: Bool {
-        isRunHeaderSelected
-    }
-
-    public var currentStepID: String? {
-        isRunHeaderSelected
-            ? nil
-            : steps.currentID
-    }
-
-    public var currentRun: AgenticHostConsoleRunPresentation? {
-        guard let currentRunID else {
-            return nil
-        }
-
-        return snapshot.runs.first {
-            $0.id == currentRunID
-        }
-    }
-
-    public var currentStep: AgenticHostConsoleStepPresentation? {
-        guard let currentStepID else {
-            return nil
-        }
-
-        return currentRun?.steps.first {
-            $0.id == currentStepID
-        }
-    }
-
-    public var currentStatusID: String? {
-        statuses.currentID
-    }
-
-    public var currentStatus: AgenticHostConsoleStatusPresentation? {
-        statuses.currentItem
-    }
-
-    /// A count or `g` typed towards a motion, for the footer.
-    public var pendingMotion: String? {
-        navigator.pendingText
-    }
-
-    public mutating func update(
-        _ snapshot: AgenticHostConsoleSnapshot
-    ) {
-        let previousRunID = currentRunID
-        let previousStepID = currentStepID
-        let wasFollowingActiveStep = currentStep?.state == .active
-        let preferredRunID = Self.preferredRunID(
-            in: snapshot,
-            requested: previousRunID
-        )
-
-        self.snapshot = snapshot
-        runs.updateItems(
-            snapshot.runs,
-            preservingCurrent: false
-        )
-
-        if let preferredRunID {
-            _ = runs.select(
-                id: preferredRunID
+        public init(
+            snapshot: AgenticHostConsole.Snapshot,
+            currentRunID: String? = nil,
+            currentStepID: String? = nil
+        ) {
+            let runID = Self.preferredRunID(
+                in: snapshot,
+                requested: currentRunID
             )
-        }
-
-        let preservesStep = previousRunID == currentRunID
-        let activeStepID = currentRun?.steps.first(
-            where: {
-                $0.state == .active
+            let run = snapshot.runs.first {
+                $0.id == runID
             }
-        )?.id
-        let requestedStepID: String?
-
-        if preservesStep,
-           wasFollowingActiveStep,
-           let activeStepID {
-            requestedStepID = activeStepID
-        } else {
-            requestedStepID = preservesStep
-                ? previousStepID
-                : nil
-        }
-
-        rebuildSteps(
-            requestedStepID: requestedStepID
-        )
-
-        if previousRunID != currentRunID {
-            isRunHeaderSelected = false
-        }
-
-        statuses.updateItems(
-            snapshot.statuses,
-            preservingCurrent: true
-        )
-
-        if snapshot.statuses.isEmpty,
-           focus.current == .status {
-            focus.replace(
-                .timeline
+            let stepID = Self.preferredStepID(
+                in: run,
+                requested: currentStepID
             )
-        }
 
-        if let inspectedStepID,
-           let roots = snapshot.documents.filter({
-               $0.runID == currentRunID && $0.stepID == inspectedStepID
-                   && $0.traceRoots != nil
-           }).dropFirst(inspectedTraceDocumentIndex).first?.traceRoots {
-            if var navigation = traceNavigation {
-                try? navigation.update(roots: roots)
-                traceNavigation = navigation
-            }
-        }
-        if let inspectedStepID,
-           currentRun?.steps.contains(
-            where: {
-                $0.id == inspectedStepID
-            }
-           ) != true {
+            self.snapshot = snapshot
+            self.focus = SurfaceFocus.Stack(
+                .runs
+            )
+            self.runs = SurfaceList.Control(
+                items: snapshot.runs,
+                currentID: runID,
+                wrapMode: .clamp,
+                id: {
+                    $0.id
+                }
+            )
+            self.steps = SurfaceList.Control(
+                items: run?.steps ?? [],
+                currentID: stepID,
+                wrapMode: .clamp,
+                id: {
+                    $0.id
+                }
+            )
+            self.statuses = SurfaceList.Control(
+                items: snapshot.statuses,
+                wrapMode: .clamp,
+                id: {
+                    $0.id
+                }
+            )
+            self.runsDocument = TerminalScrollableDocument()
+            self.timelineDocument = TerminalScrollableDocument()
+            self.statusDocument = TerminalScrollableDocument()
+            self.inspectorDocument = TerminalScrollableDocument()
             self.inspectedStepID = nil
             self.traceNavigation = nil
             self.inspectedTraceDocumentIndex = 0
+            self.isRunHeaderSelected = false
+        }
 
-            if focus.current == .inspector {
-                _ = focus.pop()
+        public var currentRunID: String? {
+            runs.currentID
+        }
+
+        public var runHeaderSelected: Bool {
+            isRunHeaderSelected
+        }
+
+        public var currentStepID: String? {
+            isRunHeaderSelected
+                ? nil
+                : steps.currentID
+        }
+
+        public var currentRun: AgenticHostConsole.Run? {
+            guard let currentRunID else {
+                return nil
+            }
+
+            return snapshot.runs.first {
+                $0.id == currentRunID
             }
         }
-    }
 
-    public mutating func handle(
-        _ key: SurfaceInput.Key
-    ) -> AgenticHostConsoleEvent? {
-        if key == .control("C") {
-            return .exitRequested
+        public var currentStep: AgenticHostConsole.Step? {
+            guard let currentStepID else {
+                return nil
+            }
+
+            return currentRun?.steps.first {
+                $0.id == currentStepID
+            }
         }
 
-        if key == .tab,
-           focus.current != .inspector {
-            cycleBaseFocus()
-            navigator.reset()
-            return nil
+        public var currentStatusID: String? {
+            statuses.currentID
         }
 
-        let focused = focus.current
-        let event: AgenticHostConsoleEvent?
+        public var currentStatus: AgenticHostConsole.Status? {
+            statuses.currentItem
+        }
 
-        switch focused {
-        case .runs:
-            event = handleRuns(
-                key
+        /// A count or `g` typed towards a motion, for the footer.
+        public var pendingMotion: String? {
+            navigator.pendingText
+        }
+
+        public mutating func update(
+            _ snapshot: AgenticHostConsole.Snapshot
+        ) {
+            let previousRunID = currentRunID
+            let previousStepID = currentStepID
+            let wasFollowingActiveStep = currentStep?.state == .active
+            let preferredRunID = Self.preferredRunID(
+                in: snapshot,
+                requested: previousRunID
             )
 
-        case .timeline:
-            event = handleTimeline(
-                key
+            self.snapshot = snapshot
+            runs.updateItems(
+                snapshot.runs,
+                preservingCurrent: false
             )
 
-        case .status:
-            event = handleStatus(
-                key
+            if let preferredRunID {
+                _ = runs.select(
+                    id: preferredRunID
+                )
+            }
+
+            let preservesStep = previousRunID == currentRunID
+            let activeStepID = currentRun?.steps.first(
+                where: {
+                    $0.state == .active
+                }
+            )?.id
+            let requestedStepID: String?
+
+            if preservesStep,
+               wasFollowingActiveStep,
+               let activeStepID {
+                requestedStepID = activeStepID
+            } else {
+                requestedStepID = preservesStep
+                    ? previousStepID
+                    : nil
+            }
+
+            rebuildSteps(
+                requestedStepID: requestedStepID
             )
 
-        case .inspector:
-            event = handleInspector(
-                key
+            if previousRunID != currentRunID {
+                isRunHeaderSelected = false
+            }
+
+            statuses.updateItems(
+                snapshot.statuses,
+                preservingCurrent: true
             )
+
+            if snapshot.statuses.isEmpty,
+               focus.current == .status {
+                focus.replace(
+                    .timeline
+                )
+            }
+
+            if let inspectedStepID,
+               let roots = snapshot.documents.filter({
+                   $0.runID == currentRunID && $0.stepID == inspectedStepID
+                       && $0.traceRoots != nil
+               }).dropFirst(inspectedTraceDocumentIndex).first?.traceRoots {
+                if var navigation = traceNavigation {
+                    try? navigation.update(roots: roots)
+                    traceNavigation = navigation
+                }
+            }
+            if let inspectedStepID,
+               currentRun?.steps.contains(
+                where: {
+                    $0.id == inspectedStepID
+                }
+               ) != true {
+                self.inspectedStepID = nil
+                self.traceNavigation = nil
+                self.inspectedTraceDocumentIndex = 0
+
+                if focus.current == .inspector {
+                    _ = focus.pop()
+                }
+            }
         }
 
-        // A pending count belongs to the pane it was typed in.
-        if focus.current != focused {
-            navigator.reset()
+        public mutating func handle(
+            _ key: SurfaceInput.Key
+        ) -> AgenticHostConsole.Event? {
+            if key == .control("C") {
+                return .exitRequested
+            }
+
+            if key == .tab,
+               focus.current != .inspector {
+                cycleBaseFocus()
+                navigator.reset()
+                return nil
+            }
+
+            let focused = focus.current
+            let event: AgenticHostConsole.Event?
+
+            switch focused {
+            case .runs:
+                event = handleRuns(
+                    key
+                )
+
+            case .timeline:
+                event = handleTimeline(
+                    key
+                )
+
+            case .status:
+                event = handleStatus(
+                    key
+                )
+
+            case .inspector:
+                event = handleInspector(
+                    key
+                )
+            }
+
+            // A pending count belongs to the pane it was typed in.
+            if focus.current != focused {
+                navigator.reset()
+            }
+
+            return event
         }
 
-        return event
-    }
+        public mutating func render(
+            into frame: inout TerminalFrame,
+            in region: TerminalRegion
+        ) {
+            guard !region.isEmpty else {
+                return
+            }
 
-    public mutating func render(
-        into frame: inout TerminalFrame,
-        in region: TerminalRegion
-    ) {
-        guard !region.isEmpty else {
-            return
-        }
+            let vertical = TerminalLayout.vertical(
+                in: region,
+                [
+                    .fixed(3),
+                    .flex(1),
+                    .fixed(1),
+                ]
+            )
 
-        let vertical = TerminalLayout.vertical(
-            in: region,
-            [
-                .fixed(3),
-                .flex(1),
-                .fixed(1),
-            ]
-        )
+            guard vertical.count == 3 else {
+                return
+            }
 
-        guard vertical.count == 3 else {
-            return
-        }
-
-        renderHeader(
-            into: &frame,
-            in: vertical[0]
-        )
-        renderBody(
-            into: &frame,
-            in: vertical[1]
-        )
-        renderFooter(
-            into: &frame,
-            in: vertical[2]
-        )
-
-        if focus.current == .inspector {
-            renderInspector(
+            renderHeader(
+                into: &frame,
+                in: vertical[0]
+            )
+            renderBody(
                 into: &frame,
                 in: vertical[1]
             )
+            renderFooter(
+                into: &frame,
+                in: vertical[2]
+            )
+
+            if focus.current == .inspector {
+                renderInspector(
+                    into: &frame,
+                    in: vertical[1]
+                )
+            }
         }
     }
 }
 
-private extension AgenticHostConsoleControl {
+private extension AgenticHostConsole.Control {
     mutating func cycleTraceDocument(_ delta: Int) {
         guard let runID = currentRunID, let stepID = inspectedStepID else { return }
         let documents = snapshot.documents.filter {
@@ -352,7 +358,7 @@ private extension AgenticHostConsoleControl {
         inspectedTraceDocumentIndex = (
             inspectedTraceDocumentIndex + delta + documents.count
         ) % documents.count
-        traceNavigation = try? AgenticHostConsoleTraceNavigation(
+        traceNavigation = try? AgenticHostConsole.Trace.Navigation(
             roots: documents[inspectedTraceDocumentIndex].traceRoots ?? []
         )
         inspectorDocument.moveToStart()
@@ -360,7 +366,7 @@ private extension AgenticHostConsoleControl {
 
     mutating func handleRuns(
         _ key: SurfaceInput.Key
-    ) -> AgenticHostConsoleEvent? {
+    ) -> AgenticHostConsole.Event? {
         if key.isHorizontalNext {
             focus.replace(
                 .timeline
@@ -405,7 +411,7 @@ private extension AgenticHostConsoleControl {
 
     mutating func handleTimeline(
         _ key: SurfaceInput.Key
-    ) -> AgenticHostConsoleEvent? {
+    ) -> AgenticHostConsole.Event? {
         if key.isHorizontalPrevious {
             focus.replace(
                 .runs
@@ -499,7 +505,7 @@ private extension AgenticHostConsoleControl {
             if let roots = snapshot.documents.first(where: {
                 $0.runID == runID && $0.stepID == stepID && $0.traceRoots != nil
             })?.traceRoots {
-                traceNavigation = try? AgenticHostConsoleTraceNavigation(roots: roots)
+                traceNavigation = try? AgenticHostConsole.Trace.Navigation(roots: roots)
             } else {
                 traceNavigation = nil
             }
@@ -523,7 +529,7 @@ private extension AgenticHostConsoleControl {
 
     mutating func handleStatus(
         _ key: SurfaceInput.Key
-    ) -> AgenticHostConsoleEvent? {
+    ) -> AgenticHostConsole.Event? {
         if key.isHorizontalPrevious {
             focus.replace(
                 .timeline
@@ -563,7 +569,7 @@ private extension AgenticHostConsoleControl {
 
     mutating func handleInspector(
         _ key: SurfaceInput.Key
-    ) -> AgenticHostConsoleEvent? {
+    ) -> AgenticHostConsole.Event? {
         if key == .escape || key == .char("q") {
             inspectedStepID = nil
             traceNavigation = nil
@@ -1010,7 +1016,7 @@ private extension AgenticHostConsoleControl {
         }
 
         let overlay =
-            AgenticHostConsoleInspectionSurface.overlay(
+            AgenticHostConsole.Inspection.overlay(
                 in: region
             )
         let content = overlay.render(
@@ -1048,7 +1054,7 @@ private extension AgenticHostConsoleControl {
 
     func runLine(
         _ row: SurfaceList.Row<
-            AgenticHostConsoleRunPresentation,
+            AgenticHostConsole.Run,
             String
         >
     ) -> String {
@@ -1077,20 +1083,23 @@ private extension AgenticHostConsoleControl {
 
     func statusLine(
         _ row: SurfaceList.Row<
-            AgenticHostConsoleStatusPresentation,
+            AgenticHostConsole.Status,
             String
         >
     ) -> String {
         let marker: String
 
-        switch row.item.kind {
-        case .info:
+        switch row.item.tone {
+        case .neutral, .active:
             marker = "·"
+
+        case .success:
+            marker = "✓"
 
         case .warning:
             marker = "!"
 
-        case .error:
+        case .failure:
             marker = "×"
         }
 
@@ -1113,8 +1122,8 @@ private extension AgenticHostConsoleControl {
                 )
         }
 
-        switch row.item.kind {
-        case .info:
+        switch row.item.tone {
+        case .neutral, .active, .success:
             return TerminalStyle.dim.apply(
                 text
             )
@@ -1126,7 +1135,7 @@ private extension AgenticHostConsoleControl {
                 text
             )
 
-        case .error:
+        case .failure:
             return TerminalStyle(
                 .bold,
                 .red
@@ -1161,20 +1170,20 @@ private extension AgenticHostConsoleControl {
     }
 
     func inspectorLines(
-        run: AgenticHostConsoleRunPresentation,
-        step: AgenticHostConsoleStepPresentation,
+        run: AgenticHostConsole.Run,
+        step: AgenticHostConsole.Step,
         columns: Int
     ) -> [String] {
         var fields = [
-            AgenticHostConsoleField(
+            AgenticHostConsole.Field(
                 "run",
                 run.title
             ),
-            AgenticHostConsoleField(
+            AgenticHostConsole.Field(
                 "state",
                 step.state.displayTitle
             ),
-            AgenticHostConsoleField(
+            AgenticHostConsole.Field(
                 "step id",
                 step.id
             ),
@@ -1183,7 +1192,7 @@ private extension AgenticHostConsoleControl {
         if let detail = step.detail,
            !detail.isEmpty {
             fields.append(
-                AgenticHostConsoleField(
+                AgenticHostConsole.Field(
                     "target",
                     detail
                 )
@@ -1194,14 +1203,14 @@ private extension AgenticHostConsoleControl {
             contentsOf: step.fields
         )
 
-        return AgenticHostConsoleInspectionSurface.fieldLines(
+        return AgenticHostConsole.Inspection.fieldLines(
             fields,
             columns: columns
         )
     }
 
     func runStateStyle(
-        _ state: AgenticHostConsoleRunState
+        _ state: AgenticHostConsole.Run.State
     ) -> TerminalStyle {
         switch state {
         case .ready:
@@ -1242,7 +1251,7 @@ private extension AgenticHostConsoleControl {
     }
 
     static func preferredRunID(
-        in snapshot: AgenticHostConsoleSnapshot,
+        in snapshot: AgenticHostConsole.Snapshot,
         requested: String?
     ) -> String? {
         if let requested,
@@ -1276,7 +1285,7 @@ private extension AgenticHostConsoleControl {
     }
 
     static func preferredStepID(
-        in run: AgenticHostConsoleRunPresentation?,
+        in run: AgenticHostConsole.Run?,
         requested: String?
     ) -> String? {
         guard let run else {
@@ -1306,7 +1315,7 @@ private extension AgenticHostConsoleControl {
     }
 }
 
-private extension AgenticHostConsoleRunState {
+private extension AgenticHostConsole.Run.State {
     var marker: String {
         switch self {
         case .ready:
@@ -1370,7 +1379,7 @@ private extension AgenticHostConsoleRunState {
     }
 }
 
-private extension AgenticHostConsoleStepState {
+private extension AgenticHostConsole.Step.State {
     var terminalState: TerminalTimelineItemState {
         switch self {
         case .pending:

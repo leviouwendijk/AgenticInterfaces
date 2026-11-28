@@ -6,416 +6,426 @@ import TerminalStructuredContent
 import TerminalReporting
 import Surface
 
-public enum AgenticHostConsoleWorkflowFocus:
-    Sendable,
-    Hashable
-{
-    case base
-    case runControls
-    case actions
-    case document
-    case runInspector
-    case diagnostic
+extension AgenticHostConsole {
+    public enum Workflow {}
 }
 
-public enum AgenticHostConsoleWorkflowEvent:
-    Sendable,
-    Hashable
-{
-    case base(AgenticHostConsoleEvent)
-    case interruptionOpened(
-        id: String,
-        kind: AgenticHostConsoleInterruptionKind
-    )
-    case interruptionClosed(
-        id: String
-    )
-    case actionRequested(
-        interruptionID: String,
-        runID: String,
-        stepID: String,
-        action: AgenticHostConsoleAction
-    )
-    case runControlsOpened(
-        runID: String
-    )
-    case runControlsClosed(
-        runID: String
-    )
-    case runControlRequested(
-        runID: String,
-        control: AgenticHostConsoleRunControl
-    )
-    case documentRequested(
-        runID: String,
-        stepID: String,
-        kind: AgenticHostConsoleDocumentKind
-    )
-    case documentOpened(
-        documentID: String,
-        kind: AgenticHostConsoleDocumentKind
-    )
-    case documentClosed(
-        documentID: String,
-        kind: AgenticHostConsoleDocumentKind
-    )
-    case statusOpened(
-        statusID: String
-    )
-    case statusClosed(
-        statusID: String
-    )
-    case feedbackRequested(
-        message: String
-    )
-    case copyRequested(
-        text: String,
-        title: String
-    )
-    case runInspectionOpened(
-        runID: String
-    )
-    case runInspectionClosed(
-        runID: String
-    )
-    case runInputCopyRequested(
-        runID: String
-    )
-    case runOutputCopyRequested(
-        runID: String
-    )
-
-    public var requestsExit: Bool {
-        if case .base(.exitRequested) = self {
-            return true
-        }
-
-        return false
+extension AgenticHostConsole.Workflow {
+    public enum Focus:
+        Sendable,
+        Hashable
+    {
+        case base
+        case runControls
+        case actions
+        case document
+        case runInspector
+        case diagnostic
     }
 }
 
-public struct AgenticHostConsoleWorkflowControl:
-    Sendable
-{
-    public private(set) var console: AgenticHostConsoleControl
-    public private(set) var focus: SurfaceFocus.Stack<AgenticHostConsoleWorkflowFocus>
-
-    private var actions: SurfaceList.Control<
-        AgenticHostConsoleAction,
-        String
-    >
-    private var runControls: SurfaceList.Control<
-        AgenticHostConsoleRunControl,
-        String
-    >
-    private var document: TerminalScrollableDocument
-    private var runInspector: TerminalScrollableDocument
-    private var diagnostic: TerminalScrollableDocument
-    private var openedRunControlRunID: String?
-    private var openedInterruptionID: String?
-    private var openedDocumentID: String?
-    private var openedRunInspectorRunID: String?
-    private var openedStatusID: String?
-
-    public init(
-        snapshot: AgenticHostConsoleSnapshot,
-        currentRunID: String? = nil,
-        currentStepID: String? = nil
-    ) {
-        self.console = AgenticHostConsoleControl(
-            snapshot: snapshot,
-            currentRunID: currentRunID,
-            currentStepID: currentStepID
+extension AgenticHostConsole.Workflow {
+    public enum Event:
+        Sendable,
+        Hashable
+    {
+        case base(AgenticHostConsole.Event)
+        case interruptionOpened(
+            id: String,
+            kind: AgenticHostConsole.Interruption.Kind
         )
-        self.focus = SurfaceFocus.Stack(
-            .base
+        case interruptionClosed(
+            id: String
         )
-        self.actions = SurfaceList.Control(
-            items: [],
-            id: {
-                $0.id
+        case actionRequested(
+            interruptionID: String,
+            runID: String,
+            stepID: String,
+            action: AgenticHostConsole.Action
+        )
+        case runControlsOpened(
+            runID: String
+        )
+        case runControlsClosed(
+            runID: String
+        )
+        case runControlRequested(
+            runID: String,
+            control: AgenticHostConsole.Run.Control
+        )
+        case documentRequested(
+            runID: String,
+            stepID: String,
+            kind: AgenticHostConsole.Document.Kind
+        )
+        case documentOpened(
+            documentID: String,
+            kind: AgenticHostConsole.Document.Kind
+        )
+        case documentClosed(
+            documentID: String,
+            kind: AgenticHostConsole.Document.Kind
+        )
+        case statusOpened(
+            statusID: String
+        )
+        case statusClosed(
+            statusID: String
+        )
+        case feedbackRequested(
+            message: String
+        )
+        case copyRequested(
+            text: String,
+            title: String
+        )
+        case runInspectionOpened(
+            runID: String
+        )
+        case runInspectionClosed(
+            runID: String
+        )
+        case runInputCopyRequested(
+            runID: String
+        )
+        case runOutputCopyRequested(
+            runID: String
+        )
+
+        public var requestsExit: Bool {
+            if case .base(.exitRequested) = self {
+                return true
             }
-        )
-        self.runControls = SurfaceList.Control(
-            items: [],
-            id: {
-                $0.rawValue
-            }
-        )
-        self.document = TerminalScrollableDocument()
-        self.runInspector = TerminalScrollableDocument()
-        self.diagnostic = TerminalScrollableDocument()
-        self.openedRunControlRunID = nil
-        self.openedInterruptionID = nil
-        self.openedDocumentID = nil
-        self.openedRunInspectorRunID = nil
-        self.openedStatusID = nil
-    }
 
-    public var currentRunID: String? {
-        console.currentRunID
-    }
-
-    public var currentStepID: String? {
-        console.currentStepID
-    }
-
-    public var currentAction: AgenticHostConsoleAction? {
-        actions.currentItem
-    }
-
-    public var currentRunControl: AgenticHostConsoleRunControl? {
-        runControls.currentItem
-    }
-
-    public var currentInterruption: AgenticHostConsoleInterruptionPresentation? {
-        if let openedInterruptionID {
-            return console.snapshot.interruptions.first {
-                $0.id == openedInterruptionID
-            }
-        }
-
-        guard let currentRunID,
-              let currentStepID else {
-            return nil
-        }
-
-        return console.snapshot.interruptions.first {
-            $0.runID == currentRunID
-                && $0.stepID == currentStepID
+            return false
         }
     }
+}
 
-    public var currentDocument: AgenticHostConsoleDocumentPresentation? {
-        guard let openedDocumentID else {
-            return nil
-        }
+extension AgenticHostConsole.Workflow {
+    public struct Control:
+        Sendable
+    {
+        public private(set) var console: AgenticHostConsole.Control
+        public private(set) var focus: SurfaceFocus.Stack<AgenticHostConsole.Workflow.Focus>
 
-        return console.snapshot.documents.first {
-            $0.id == openedDocumentID
-        }
-    }
+        private var actions: SurfaceList.Control<
+            AgenticHostConsole.Action,
+            String
+        >
+        private var runControls: SurfaceList.Control<
+            AgenticHostConsole.Run.Control,
+            String
+        >
+        private var document: TerminalScrollableDocument
+        private var runInspector: TerminalScrollableDocument
+        private var diagnostic: TerminalScrollableDocument
+        private var openedRunControlRunID: String?
+        private var openedInterruptionID: String?
+        private var openedDocumentID: String?
+        private var openedRunInspectorRunID: String?
+        private var openedStatusID: String?
 
-    public var currentStatus: AgenticHostConsoleStatusPresentation? {
-        guard let openedStatusID else {
-            return console.currentStatus
-        }
-
-        return console.snapshot.statuses.first {
-            $0.id == openedStatusID
-        }
-    }
-
-    public mutating func update(
-        _ snapshot: AgenticHostConsoleSnapshot
-    ) {
-        console.update(
-            snapshot
-        )
-
-        if let openedRunControlRunID {
-            guard let run = snapshot.runs.first(
-                where: {
-                    $0.id == openedRunControlRunID
+        public init(
+            snapshot: AgenticHostConsole.Snapshot,
+            currentRunID: String? = nil,
+            currentStepID: String? = nil
+        ) {
+            self.console = AgenticHostConsole.Control(
+                snapshot: snapshot,
+                currentRunID: currentRunID,
+                currentStepID: currentStepID
+            )
+            self.focus = SurfaceFocus.Stack(
+                .base
+            )
+            self.actions = SurfaceList.Control(
+                items: [],
+                id: {
+                    $0.id
                 }
-            ), !run.state.executionControls.isEmpty else {
-                self.openedRunControlRunID = nil
+            )
+            self.runControls = SurfaceList.Control(
+                items: [],
+                id: {
+                    $0.rawValue
+                }
+            )
+            self.document = TerminalScrollableDocument()
+            self.runInspector = TerminalScrollableDocument()
+            self.diagnostic = TerminalScrollableDocument()
+            self.openedRunControlRunID = nil
+            self.openedInterruptionID = nil
+            self.openedDocumentID = nil
+            self.openedRunInspectorRunID = nil
+            self.openedStatusID = nil
+        }
+
+        public var currentRunID: String? {
+            console.currentRunID
+        }
+
+        public var currentStepID: String? {
+            console.currentStepID
+        }
+
+        public var currentAction: AgenticHostConsole.Action? {
+            actions.currentItem
+        }
+
+        public var currentRunControl: AgenticHostConsole.Run.Control? {
+            runControls.currentItem
+        }
+
+        public var currentInterruption: AgenticHostConsole.Interruption? {
+            if let openedInterruptionID {
+                return console.snapshot.interruptions.first {
+                    $0.id == openedInterruptionID
+                }
+            }
+
+            guard let currentRunID,
+                  let currentStepID else {
+                return nil
+            }
+
+            return console.snapshot.interruptions.first {
+                $0.runID == currentRunID
+                    && $0.stepID == currentStepID
+            }
+        }
+
+        public var currentDocument: AgenticHostConsole.Document? {
+            guard let openedDocumentID else {
+                return nil
+            }
+
+            return console.snapshot.documents.first {
+                $0.id == openedDocumentID
+            }
+        }
+
+        public var currentStatus: AgenticHostConsole.Status? {
+            guard let openedStatusID else {
+                return console.currentStatus
+            }
+
+            return console.snapshot.statuses.first {
+                $0.id == openedStatusID
+            }
+        }
+
+        public mutating func update(
+            _ snapshot: AgenticHostConsole.Snapshot
+        ) {
+            console.update(
+                snapshot
+            )
+
+            if let openedRunControlRunID {
+                guard let run = snapshot.runs.first(
+                    where: {
+                        $0.id == openedRunControlRunID
+                    }
+                ), !run.state.executionControls.isEmpty else {
+                    self.openedRunControlRunID = nil
+                    runControls.updateItems(
+                        [],
+                        preservingCurrent: false
+                    )
+                    focus.reset(
+                        to: .base
+                    )
+                    return
+                }
+
                 runControls.updateItems(
-                    [],
-                    preservingCurrent: false
+                    run.state.executionControls,
+                    preservingCurrent: true
                 )
-                focus.reset(
-                    to: .base
-                )
+            }
+
+            if let openedInterruptionID,
+               !snapshot.interruptions.contains(
+                where: {
+                    $0.id == openedInterruptionID
+                }
+               ) {
+                closeAllWorkflowSurfaces()
                 return
             }
 
-            runControls.updateItems(
-                run.state.executionControls,
-                preservingCurrent: true
-            )
-        }
-
-        if let openedInterruptionID,
-           !snapshot.interruptions.contains(
-            where: {
-                $0.id == openedInterruptionID
-            }
-           ) {
-            closeAllWorkflowSurfaces()
-            return
-        }
-
-        if let openedDocumentID,
-           !snapshot.documents.contains(
-            where: {
-                $0.id == openedDocumentID
-            }
-           ) {
-            self.openedDocumentID = nil
-            focus.reset(
-                to: .base
-            )
-        }
-
-        if let openedStatusID,
-           !snapshot.statuses.contains(
-            where: {
-                $0.id == openedStatusID
-            }
-           ) {
-            self.openedStatusID = nil
-            focus.reset(
-                to: .base
-            )
-        }
-
-        if let openedRunInspectorRunID,
-           !snapshot.runs.contains(
-            where: {
-                $0.id == openedRunInspectorRunID
-            }
-           ) {
-            self.openedRunInspectorRunID = nil
-            focus.reset(
-                to: .base
-            )
-        }
-    }
-
-    private var viewedDocument: TerminalScrollableDocument? {
-        switch focus.current {
-        case .document: return document
-        case .runInspector: return runInspector
-        case .diagnostic: return diagnostic
-        default: return nil
-        }
-    }
-
-    public var selectedText: String? { viewedDocument?.selectedText }
-
-    public mutating func handle(
-        _ key: SurfaceInput.Key
-    ) -> AgenticHostConsoleWorkflowEvent? {
-        if let viewedDocument {
-            if key == .control("C"), let text = viewedDocument.selectedText {
-                return .copyRequested(text: text, title: "selection")
-            }
-            if key == .char("y") {
-                return .copyRequested(
-                    text: viewedDocument.selectedText
-                        ?? (focus.current == .document ? currentDocument?.body : nil)
-                        ?? viewedDocument.lines.map { stripANSI($0) }.joined(separator: "\n"),
-                    title: "viewed content"
+            if let openedDocumentID,
+               !snapshot.documents.contains(
+                where: {
+                    $0.id == openedDocumentID
+                }
+               ) {
+                self.openedDocumentID = nil
+                focus.reset(
+                    to: .base
                 )
             }
-            if key == .char("Y") {
-                return .copyRequested(text: viewedDocument.visibleText, title: "visible content")
+
+            if let openedStatusID,
+               !snapshot.statuses.contains(
+                where: {
+                    $0.id == openedStatusID
+                }
+               ) {
+                self.openedStatusID = nil
+                focus.reset(
+                    to: .base
+                )
+            }
+
+            if let openedRunInspectorRunID,
+               !snapshot.runs.contains(
+                where: {
+                    $0.id == openedRunInspectorRunID
+                }
+               ) {
+                self.openedRunInspectorRunID = nil
+                focus.reset(
+                    to: .base
+                )
             }
         }
-        if key == .control("C") {
-            return .base(
-                .exitRequested
-            )
+
+        private var viewedDocument: TerminalScrollableDocument? {
+            switch focus.current {
+            case .document: return document
+            case .runInspector: return runInspector
+            case .diagnostic: return diagnostic
+            default: return nil
+            }
         }
 
-        switch focus.current {
-        case .base:
-            return handleBase(
-                key
-            )
+        public var selectedText: String? { viewedDocument?.selectedText }
 
-        case .runControls:
-            return handleRunControls(
-                key
-            )
+        public mutating func handle(
+            _ key: SurfaceInput.Key
+        ) -> AgenticHostConsole.Workflow.Event? {
+            if let viewedDocument {
+                if key == .control("C"), let text = viewedDocument.selectedText {
+                    return .copyRequested(text: text, title: "selection")
+                }
+                if key == .char("y") {
+                    return .copyRequested(
+                        text: viewedDocument.selectedText
+                            ?? (focus.current == .document ? currentDocument?.body : nil)
+                            ?? viewedDocument.lines.map { stripANSI($0) }.joined(separator: "\n"),
+                        title: "viewed content"
+                    )
+                }
+                if key == .char("Y") {
+                    return .copyRequested(text: viewedDocument.visibleText, title: "visible content")
+                }
+            }
+            if key == .control("C") {
+                return .base(
+                    .exitRequested
+                )
+            }
 
-        case .actions:
-            return handleActions(
-                key
-            )
+            switch focus.current {
+            case .base:
+                return handleBase(
+                    key
+                )
 
-        case .document:
-            return handleDocument(
-                key
-            )
+            case .runControls:
+                return handleRunControls(
+                    key
+                )
 
-        case .runInspector:
-            return handleRunInspector(
-                key
-            )
+            case .actions:
+                return handleActions(
+                    key
+                )
 
-        case .diagnostic:
-            return handleDiagnostic(
-                key
-            )
+            case .document:
+                return handleDocument(
+                    key
+                )
+
+            case .runInspector:
+                return handleRunInspector(
+                    key
+                )
+
+            case .diagnostic:
+                return handleDiagnostic(
+                    key
+                )
+            }
         }
-    }
 
-    public mutating func handle(_ mouse: SurfaceInput.Pointer) {
-        switch focus.current {
-        case .document: document.handle(mouse)
-        case .runInspector: runInspector.handle(mouse)
-        case .diagnostic: diagnostic.handle(mouse)
-        default: break
+        public mutating func handle(_ mouse: SurfaceInput.Pointer) {
+            switch focus.current {
+            case .document: document.handle(mouse)
+            case .runInspector: runInspector.handle(mouse)
+            case .diagnostic: diagnostic.handle(mouse)
+            default: break
+            }
         }
-    }
 
-    public mutating func render(
-        into frame: inout TerminalFrame,
-        in region: TerminalRegion
-    ) {
-        console.render(
-            into: &frame,
-            in: region
-        )
+        public mutating func render(
+            into frame: inout TerminalFrame,
+            in region: TerminalRegion
+        ) {
+            console.render(
+                into: &frame,
+                in: region
+            )
 
-        if openedRunControlRunID != nil {
-            renderRunControls(
+            if openedRunControlRunID != nil {
+                renderRunControls(
+                    into: &frame,
+                    in: region
+                )
+            }
+
+            if openedInterruptionID != nil {
+                renderInterruption(
+                    into: &frame,
+                    in: region
+                )
+            }
+
+            if openedDocumentID != nil {
+                renderDocument(
+                    into: &frame,
+                    in: region
+                )
+            }
+
+            if openedRunInspectorRunID != nil {
+                renderRunInspector(
+                    into: &frame,
+                    in: region
+                )
+            }
+
+            if openedStatusID != nil {
+                renderDiagnostic(
+                    into: &frame,
+                    in: region
+                )
+            }
+
+            renderFooter(
                 into: &frame,
                 in: region
             )
         }
-
-        if openedInterruptionID != nil {
-            renderInterruption(
-                into: &frame,
-                in: region
-            )
-        }
-
-        if openedDocumentID != nil {
-            renderDocument(
-                into: &frame,
-                in: region
-            )
-        }
-
-        if openedRunInspectorRunID != nil {
-            renderRunInspector(
-                into: &frame,
-                in: region
-            )
-        }
-
-        if openedStatusID != nil {
-            renderDiagnostic(
-                into: &frame,
-                in: region
-            )
-        }
-
-        renderFooter(
-            into: &frame,
-            in: region
-        )
     }
 }
 
-private extension AgenticHostConsoleWorkflowControl {
+private extension AgenticHostConsole.Workflow.Control {
     mutating func handleBase(
         _ key: SurfaceInput.Key
-    ) -> AgenticHostConsoleWorkflowEvent? {
+    ) -> AgenticHostConsole.Workflow.Event? {
         if key == .char("x") {
             guard let run = console.currentRun,
                   !run.state.executionControls.isEmpty else {
@@ -533,7 +543,7 @@ private extension AgenticHostConsoleWorkflowControl {
 
     mutating func handleRunControls(
         _ key: SurfaceInput.Key
-    ) -> AgenticHostConsoleWorkflowEvent? {
+    ) -> AgenticHostConsole.Workflow.Event? {
         if key == .escape || key == .char("q") {
             return closeRunControls()
         }
@@ -549,7 +559,7 @@ private extension AgenticHostConsoleWorkflowControl {
             return nil
 
         case .accepted(let rawValue):
-            guard let control = AgenticHostConsoleRunControl(
+            guard let control = AgenticHostConsole.Run.Control(
                 rawValue: rawValue
             ), let runID = openedRunControlRunID else {
                 return nil
@@ -574,7 +584,7 @@ private extension AgenticHostConsoleWorkflowControl {
 
     mutating func handleActions(
         _ key: SurfaceInput.Key
-    ) -> AgenticHostConsoleWorkflowEvent? {
+    ) -> AgenticHostConsole.Workflow.Event? {
         if key == .escape || key == .char("q") {
             return closeInterruption()
         }
@@ -630,7 +640,7 @@ private extension AgenticHostConsoleWorkflowControl {
 
     mutating func handleDocument(
         _ key: SurfaceInput.Key
-    ) -> AgenticHostConsoleWorkflowEvent? {
+    ) -> AgenticHostConsole.Workflow.Event? {
         if key == .escape || key == .char("q") {
             return closeDocument()
         }
@@ -700,7 +710,7 @@ private extension AgenticHostConsoleWorkflowControl {
 
     mutating func handleRunInspector(
         _ key: SurfaceInput.Key
-    ) -> AgenticHostConsoleWorkflowEvent? {
+    ) -> AgenticHostConsole.Workflow.Event? {
         if key == .escape || key == .char("q") {
             return closeRunInspector()
         }
@@ -751,7 +761,7 @@ private extension AgenticHostConsoleWorkflowControl {
 
     mutating func handleDiagnostic(
         _ key: SurfaceInput.Key
-    ) -> AgenticHostConsoleWorkflowEvent? {
+    ) -> AgenticHostConsole.Workflow.Event? {
         if key == .escape || key == .char("q") {
             return closeDiagnostic()
         }
@@ -792,7 +802,7 @@ private extension AgenticHostConsoleWorkflowControl {
         return nil
     }
 
-    func matchingInterruption() -> AgenticHostConsoleInterruptionPresentation? {
+    func matchingInterruption() -> AgenticHostConsole.Interruption? {
         guard let currentRunID else {
             return nil
         }
@@ -811,8 +821,8 @@ private extension AgenticHostConsoleWorkflowControl {
     }
 
     func matchingDocument(
-        kind: AgenticHostConsoleDocumentKind
-    ) -> AgenticHostConsoleDocumentPresentation? {
+        kind: AgenticHostConsole.Document.Kind
+    ) -> AgenticHostConsole.Document? {
         guard let currentRunID else {
             return nil
         }
@@ -844,8 +854,8 @@ private extension AgenticHostConsoleWorkflowControl {
     func matchingDocument(
         runID: String,
         stepID: String,
-        kind: AgenticHostConsoleDocumentKind
-    ) -> AgenticHostConsoleDocumentPresentation? {
+        kind: AgenticHostConsole.Document.Kind
+    ) -> AgenticHostConsole.Document? {
         console.snapshot.documents.first {
             $0.runID == runID
                 && $0.stepID == stepID
@@ -854,9 +864,9 @@ private extension AgenticHostConsoleWorkflowControl {
     }
 
     func siblingDocumentKind(
-        from kind: AgenticHostConsoleDocumentKind,
+        from kind: AgenticHostConsole.Document.Kind,
         key: SurfaceInput.Key
-    ) -> AgenticHostConsoleDocumentKind? {
+    ) -> AgenticHostConsole.Document.Kind? {
         switch key {
         case .char("h"):
             switch kind {
@@ -895,7 +905,7 @@ private extension AgenticHostConsoleWorkflowControl {
 
     func documentKind(
         for key: SurfaceInput.Key
-    ) -> AgenticHostConsoleDocumentKind? {
+    ) -> AgenticHostConsole.Document.Kind? {
         switch key {
         case .char("d"):
             return .details
@@ -915,7 +925,7 @@ private extension AgenticHostConsoleWorkflowControl {
     }
 
     mutating func openRunControls(
-        _ run: AgenticHostConsoleRunPresentation
+        _ run: AgenticHostConsole.Run
     ) {
         openedRunControlRunID = run.id
         runControls.updateItems(
@@ -927,7 +937,7 @@ private extension AgenticHostConsoleWorkflowControl {
         )
     }
 
-    mutating func closeRunControls() -> AgenticHostConsoleWorkflowEvent? {
+    mutating func closeRunControls() -> AgenticHostConsole.Workflow.Event? {
         guard let openedRunControlRunID else {
             return nil
         }
@@ -945,7 +955,7 @@ private extension AgenticHostConsoleWorkflowControl {
     }
 
     mutating func openInterruption(
-        _ interruption: AgenticHostConsoleInterruptionPresentation
+        _ interruption: AgenticHostConsole.Interruption
     ) {
         openedInterruptionID = interruption.id
         actions.updateItems(
@@ -957,7 +967,7 @@ private extension AgenticHostConsoleWorkflowControl {
         )
     }
 
-    mutating func closeInterruption() -> AgenticHostConsoleWorkflowEvent? {
+    mutating func closeInterruption() -> AgenticHostConsole.Workflow.Event? {
         guard let openedInterruptionID else {
             return nil
         }
@@ -975,14 +985,14 @@ private extension AgenticHostConsoleWorkflowControl {
     }
 
     mutating func switchDocument(
-        _ document: AgenticHostConsoleDocumentPresentation
+        _ document: AgenticHostConsole.Document
     ) {
         openedDocumentID = document.id
         self.document.moveToStart()
     }
 
     mutating func openDocument(
-        _ document: AgenticHostConsoleDocumentPresentation
+        _ document: AgenticHostConsole.Document
     ) {
         switchDocument(
             document
@@ -992,7 +1002,7 @@ private extension AgenticHostConsoleWorkflowControl {
         )
     }
 
-    mutating func closeDocument() -> AgenticHostConsoleWorkflowEvent? {
+    mutating func closeDocument() -> AgenticHostConsole.Workflow.Event? {
         guard let document = currentDocument else {
             return nil
         }
@@ -1007,7 +1017,7 @@ private extension AgenticHostConsoleWorkflowControl {
     }
 
     mutating func openRunInspector(
-        _ run: AgenticHostConsoleRunPresentation
+        _ run: AgenticHostConsole.Run
     ) {
         openedRunInspectorRunID = run.id
         runInspector.moveToStart()
@@ -1016,7 +1026,7 @@ private extension AgenticHostConsoleWorkflowControl {
         )
     }
 
-    mutating func closeRunInspector() -> AgenticHostConsoleWorkflowEvent? {
+    mutating func closeRunInspector() -> AgenticHostConsole.Workflow.Event? {
         guard let openedRunInspectorRunID else {
             return nil
         }
@@ -1030,7 +1040,7 @@ private extension AgenticHostConsoleWorkflowControl {
     }
 
     mutating func openDiagnostic(
-        _ status: AgenticHostConsoleStatusPresentation
+        _ status: AgenticHostConsole.Status
     ) {
         openedStatusID = status.id
         diagnostic.moveToStart()
@@ -1039,7 +1049,7 @@ private extension AgenticHostConsoleWorkflowControl {
         )
     }
 
-    mutating func closeDiagnostic() -> AgenticHostConsoleWorkflowEvent? {
+    mutating func closeDiagnostic() -> AgenticHostConsole.Workflow.Event? {
         guard let openedStatusID else {
             return nil
         }
@@ -1337,7 +1347,7 @@ private extension AgenticHostConsoleWorkflowControl {
         }
 
         let overlay =
-            AgenticHostConsoleInspectionSurface.overlay(
+            AgenticHostConsole.Inspection.overlay(
                 in: region
             )
         let documentLayer = TerminalZIndex(
@@ -1418,7 +1428,7 @@ private extension AgenticHostConsoleWorkflowControl {
         }
 
         let overlay =
-            AgenticHostConsoleInspectionSurface.overlay(
+            AgenticHostConsole.Inspection.overlay(
                 in: region
             )
         let runInspectorLayer = TerminalZIndex(
@@ -1496,7 +1506,7 @@ private extension AgenticHostConsoleWorkflowControl {
         }
 
         let overlay =
-            AgenticHostConsoleInspectionSurface.overlay(
+            AgenticHostConsole.Inspection.overlay(
                 in: region
             )
         let diagnosticLayer = TerminalZIndex(
@@ -1596,7 +1606,7 @@ private extension AgenticHostConsoleWorkflowControl {
 
     func runControlLine(
         _ row: SurfaceList.Row<
-            AgenticHostConsoleRunControl,
+            AgenticHostConsole.Run.Control,
             String
         >
     ) -> String {
@@ -1616,7 +1626,7 @@ private extension AgenticHostConsoleWorkflowControl {
 
     func actionLine(
         _ row: SurfaceList.Row<
-            AgenticHostConsoleAction,
+            AgenticHostConsole.Action,
             String
         >
     ) -> String {
@@ -1658,7 +1668,9 @@ private extension AgenticHostConsoleWorkflowControl {
                 text
             )
 
-        case .skip:
+        case .skip,
+             .inspect_details,
+             .show_diff:
             return TerminalStyle.dim.apply(
                 text
             )
@@ -1666,7 +1678,7 @@ private extension AgenticHostConsoleWorkflowControl {
     }
 }
 
-private extension AgenticHostConsoleInterruptionKind {
+private extension AgenticHostConsole.Interruption.Kind {
     var displayTitle: String {
         switch self {
         case .approval:

@@ -15,20 +15,20 @@ enum AgenticHostConsoleRunHeaderSmoke {
     }
 
     static func run() throws {
-        var console = AgenticHostConsoleControl(
-            snapshot: AgenticHostConsoleSnapshot(
+        var console = AgenticHostConsole.Control(
+            snapshot: AgenticHostConsole.Snapshot(
                 runs: [
-                    AgenticHostConsoleRunPresentation(
+                    AgenticHostConsole.Run(
                         id: "run-header",
                         title: "Run header fixture",
                         state: .ready,
                         steps: [
-                            AgenticHostConsoleStepPresentation(
+                            AgenticHostConsole.Step(
                                 id: "step-1",
                                 title: "first",
                                 state: .pending
                             ),
-                            AgenticHostConsoleStepPresentation(
+                            AgenticHostConsole.Step(
                                 id: "step-2",
                                 title: "second",
                                 state: .pending

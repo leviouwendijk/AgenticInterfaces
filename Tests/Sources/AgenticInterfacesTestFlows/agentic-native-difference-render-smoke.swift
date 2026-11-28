@@ -239,7 +239,7 @@ enum AgenticNativeDifferenceRenderSmoke {
             }
         }
 
-        let embedded = AgenticHostConsoleDocumentPresentation(
+        let embedded = AgenticHostConsole.Document(
             id: "embedded-diff",
             runID: "run",
             stepID: "step",
@@ -270,7 +270,7 @@ enum AgenticNativeDifferenceRenderSmoke {
 
         // Render through the real workflow, border, and document viewport.
         // Check source spans before frame composition can clip any overflow.
-        let snapshot = AgenticHostConsoleSnapshot(
+        let snapshot = AgenticHostConsole.Snapshot(
             runs: [
                 .init(
                     id: "run", title: "Mutation preview", state: .awaitingApproval,
@@ -279,7 +279,7 @@ enum AgenticNativeDifferenceRenderSmoke {
             ],
             documents: [embedded]
         )
-        var workflow = AgenticHostConsoleWorkflowControl(
+        var workflow = AgenticHostConsole.Workflow.Control(
             snapshot: snapshot,
             currentRunID: "run",
             currentStepID: "step"
@@ -291,7 +291,7 @@ enum AgenticNativeDifferenceRenderSmoke {
         }
         for outerColumns in [40, 60, 80, 84, 85, 120, 160] {
             let region = TerminalRegion(rows: 36, columns: outerColumns)
-            let content = AgenticHostConsoleInspectionSurface.overlay(
+            let content = AgenticHostConsole.Inspection.overlay(
                 in: region
             ).contentRegion(in: region)
             let allRows = AgenticMutationDifferenceRenderer.rows(

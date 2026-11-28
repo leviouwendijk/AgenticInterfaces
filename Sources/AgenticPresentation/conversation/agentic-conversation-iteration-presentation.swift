@@ -1,5 +1,5 @@
 /// UI projection of recorded execution evidence. No hidden reasoning is inferred.
-public struct AgenticConversationIterationPresentation: Sendable, Hashable {
+public struct AgenticConversationIteration: Sendable, Hashable {
     public let id: String
     public let number: Int
     public let assistantBody: String?

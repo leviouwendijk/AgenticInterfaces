@@ -2,7 +2,7 @@
 /// conversation: history the next request no longer carries in full, a
 /// route that differs from the selection, a tool kept because something
 /// still needs it. Nothing about a run changes out of sight.
-public struct AgenticChangePresentation:
+public struct AgenticChange:
     Sendable,
     Hashable,
     Identifiable

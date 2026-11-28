@@ -48,7 +48,7 @@ public struct AgenticCommandDefinition:
         case history
     }
 
-    public enum Surface:
+    public enum Scope:
         String,
         Sendable,
         Hashable
@@ -65,7 +65,7 @@ public struct AgenticCommandDefinition:
     public var syntax: [String]
     public var summary: String
     public var chapter: Chapter
-    public var surfaces: Set<Surface>
+    public var scopes: Set<Scope>
     /// The Host records the command and its effects in the session log.
     public var isTraced: Bool
     public var contextEffect: ContextEffect
@@ -78,7 +78,7 @@ public struct AgenticCommandDefinition:
         syntax: [String],
         summary: String,
         chapter: Chapter,
-        surfaces: Set<Surface> = [.conversation, .dashboard],
+        scopes: Set<Scope> = [.conversation, .dashboard],
         isTraced: Bool = false,
         contextEffect: ContextEffect = .none
     ) {
@@ -87,7 +87,7 @@ public struct AgenticCommandDefinition:
         self.syntax = syntax
         self.summary = summary
         self.chapter = chapter
-        self.surfaces = surfaces
+        self.scopes = scopes
         self.isTraced = isTraced
         self.contextEffect = contextEffect
     }
@@ -132,7 +132,7 @@ public struct AgenticCommandCatalog:
 }
 
 /// What one `:` command did, as its entry in the conversation shows it.
-public struct AgenticCommandOutcomePresentation:
+public struct AgenticCommandOutcome:
     Sendable,
     Hashable,
     Identifiable

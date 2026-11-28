@@ -4,7 +4,7 @@ public extension Array where Element == ToolPreflight.Preview.Section {
     /// The menu entry for a set of sections: `Event`, or `Diff · Command`.
     var previewTitle: String {
         isEmpty
-            ? AgenticHostConsoleDocumentKind.preview.title
+            ? AgenticHostConsole.Document.Kind.preview.title
             : map(\.title).joined(separator: " · ")
     }
 }

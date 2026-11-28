@@ -16,22 +16,22 @@ enum AgenticHostConsoleRunInspectionSmoke {
     }
 
     static func run() throws {
-        var workflow = AgenticHostConsoleWorkflowControl(
-            snapshot: AgenticHostConsoleSnapshot(
+        var workflow = AgenticHostConsole.Workflow.Control(
+            snapshot: AgenticHostConsole.Snapshot(
                 runs: [
-                    AgenticHostConsoleRunPresentation(
+                    AgenticHostConsole.Run(
                         id: "run-inspection",
                         title: "Run inspection fixture",
                         summary: "ready for inspection",
                         state: .ready,
                         steps: [
-                            AgenticHostConsoleStepPresentation(
+                            AgenticHostConsole.Step(
                                 id: "step-1",
                                 title: "first",
                                 detail: "first detail",
                                 state: .pending
                             ),
-                            AgenticHostConsoleStepPresentation(
+                            AgenticHostConsole.Step(
                                 id: "step-2",
                                 title: "second",
                                 state: .pending

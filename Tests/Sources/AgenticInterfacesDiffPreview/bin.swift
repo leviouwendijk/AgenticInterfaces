@@ -138,7 +138,7 @@ struct AgenticInterfacesDiffPreview {
             options: .init(width: .fixed(columns))
         )
         if embedded {
-            let snapshot = AgenticHostConsoleSnapshot(
+            let snapshot = AgenticHostConsole.Snapshot(
                 runs: [
                     .init(
                         id: "preview-run",
@@ -162,7 +162,7 @@ struct AgenticInterfacesDiffPreview {
                     )
                 ]
             )
-            var control = AgenticHostConsoleWorkflowControl(
+            var control = AgenticHostConsole.Workflow.Control(
                 snapshot: snapshot,
                 currentRunID: "preview-run",
                 currentStepID: "mutation"

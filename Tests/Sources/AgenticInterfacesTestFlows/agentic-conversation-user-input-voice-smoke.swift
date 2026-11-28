@@ -28,7 +28,7 @@ enum AgenticConversationUserInputVoiceSmoke {
     }
 
     private static func textAnswer() throws {
-        let pending = AgenticConversationUserInputPresentation(
+        let pending = AgenticConversationUserInput(
             interactionID: "interaction-1",
             runID: "run-1",
             request: try UserInputRequest(prompt: "Name the continuation.")
@@ -64,7 +64,7 @@ enum AgenticConversationUserInputVoiceSmoke {
     }
 
     private static func singleChoiceCustomValue() throws {
-        let pending = AgenticConversationUserInputPresentation(
+        let pending = AgenticConversationUserInput(
             interactionID: "interaction-2",
             runID: "run-2",
             request: try UserInputRequest(
@@ -93,7 +93,7 @@ enum AgenticConversationUserInputVoiceSmoke {
     }
 
     private static func choiceOnlyRefuses() throws {
-        let pending = AgenticConversationUserInputPresentation(
+        let pending = AgenticConversationUserInput(
             interactionID: "interaction-3",
             runID: "run-3",
             request: try UserInputRequest(
@@ -119,7 +119,7 @@ enum AgenticConversationUserInputVoiceSmoke {
     private static func dictate(
         _ text: String,
         into control: inout AgenticConversationControl,
-        pending: AgenticConversationUserInputPresentation
+        pending: AgenticConversationUserInput
     ) throws {
         guard control.handle(.controlSpace) == .voiceStartRequested else {
             throw Failure.startNotRequested
@@ -149,7 +149,7 @@ enum AgenticConversationUserInputVoiceSmoke {
     }
 
     private static func fixture(
-        _ pending: AgenticConversationUserInputPresentation,
+        _ pending: AgenticConversationUserInput,
         voiceState: AgenticConversationVoice.State = .idle
     ) -> AgenticConversationSnapshot {
         AgenticConversationSnapshot(
@@ -166,7 +166,7 @@ enum AgenticConversationUserInputVoiceSmoke {
 
     private static func rendered(
         _ value: AgenticConversationControl,
-        recording pending: AgenticConversationUserInputPresentation
+        recording pending: AgenticConversationUserInput
     ) -> String {
         var control = value
         _ = control.handle(.controlSpace)

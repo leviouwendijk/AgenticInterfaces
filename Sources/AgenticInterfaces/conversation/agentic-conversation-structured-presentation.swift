@@ -1,7 +1,7 @@
 import AgenticPresentation
 import Terminal
 
-public extension AgenticConversationStructuredPresentation {
+public extension AgenticConversationStructured {
     /// The same rows serve an inline preview and a full scrollable inspector.
     func rows(columns: Int, includeTitle: Bool = true) -> [String] {
         TerminalConversationTextRendering().rows(content, columns: columns, includeTitle: includeTitle)

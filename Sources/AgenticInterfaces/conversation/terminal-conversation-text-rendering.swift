@@ -9,7 +9,7 @@ public struct TerminalConversationTextRendering: AgenticConversationTextRenderin
     public init() {}
 
     public func rows(
-        _ content: AgenticConversationStructuredPresentation.Content,
+        _ content: AgenticConversationStructured.Content,
         columns: Int,
         includeTitle: Bool
     ) -> [String] {

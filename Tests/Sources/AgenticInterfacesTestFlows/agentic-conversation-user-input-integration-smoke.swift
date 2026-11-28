@@ -29,7 +29,7 @@ enum AgenticConversationUserInputIntegrationSmoke {
         let request = try UserInputRequest(
             prompt: "Name the continuation."
         )
-        let pending = AgenticConversationUserInputPresentation(
+        let pending = AgenticConversationUserInput(
             interactionID: "interaction-1",
             runID: "run-1",
             request: request
@@ -206,14 +206,14 @@ enum AgenticConversationUserInputIntegrationSmoke {
     }
 
     private static func fixture(
-        pendingUserInput: AgenticConversationUserInputPresentation?
+        pendingUserInput: AgenticConversationUserInput?
     ) -> AgenticConversationSnapshot {
-        let messages: [AgenticConversationMessagePresentation]
-        let hostConsole: AgenticHostConsoleSnapshot
+        let messages: [AgenticConversationMessage]
+        let hostConsole: AgenticHostConsole.Snapshot
 
         if let pendingUserInput {
             messages = [
-                AgenticConversationMessagePresentation(
+                AgenticConversationMessage(
                     id: "pending-message",
                     role: .assistant,
                     body: "The run is awaiting user input.",
@@ -224,9 +224,9 @@ enum AgenticConversationUserInputIntegrationSmoke {
                     ]
                 ),
             ]
-            hostConsole = AgenticHostConsoleSnapshot(
+            hostConsole = AgenticHostConsole.Snapshot(
                 runs: [
-                    AgenticHostConsoleRunPresentation(
+                    AgenticHostConsole.Run(
                         id: pendingUserInput.runID,
                         title: "Pending user-input run",
                         summary: pendingUserInput.request.prompt,

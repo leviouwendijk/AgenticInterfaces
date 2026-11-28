@@ -43,7 +43,7 @@ struct AgenticInterfacesReportingSmoke {
                 )),
             ]
         )
-        let presentation = AgenticHostConsoleDocumentPresentation(
+        let presentation = AgenticHostConsole.Document(
             id: "report-document",
             runID: "report-run",
             stepID: "report-step",
@@ -53,14 +53,14 @@ struct AgenticInterfacesReportingSmoke {
             reportBody: report
         )
         let restored = try JSONDecoder().decode(
-            AgenticHostConsoleDocumentPresentation.self,
+            AgenticHostConsole.Document.self,
             from: JSONEncoder().encode(presentation)
         )
         try expect(restored == presentation, "Typed report survives Codable roundtrip")
         try expect(restored.body == "canonical-report-fallback", "Raw body preserved")
         try expect(restored.reportBody?.datasets[0].rows[0].sources[0].identifier == "42", "Provenance preserved")
 
-        let legacy = AgenticHostConsoleDocumentPresentation(
+        let legacy = AgenticHostConsole.Document(
             id: "legacy", runID: "report-run",
             stepID: "report-step", kind: .details,
             body: "legacy raw content"
@@ -71,18 +71,18 @@ struct AgenticInterfacesReportingSmoke {
         ) as! [String: Any]
         legacyJSON.removeValue(forKey: "reportBody")
         let decodedLegacy = try JSONDecoder().decode(
-            AgenticHostConsoleDocumentPresentation.self,
+            AgenticHostConsole.Document.self,
             from: JSONSerialization.data(withJSONObject: legacyJSON)
         )
         try expect(decodedLegacy.reportBody == nil, "Legacy serialized documents decode")
 
-        let snapshot = AgenticHostConsoleSnapshot(
+        let snapshot = AgenticHostConsole.Snapshot(
             runs: [
-                AgenticHostConsoleRunPresentation(
+                AgenticHostConsole.Run(
                     id: "report-run", title: "Report run",
                     state: .ready,
                     steps: [
-                        AgenticHostConsoleStepPresentation(
+                        AgenticHostConsole.Step(
                             id: "report-step", title: "Report",
                             state: .pending
                         )
@@ -91,7 +91,7 @@ struct AgenticInterfacesReportingSmoke {
             ],
             documents: [presentation]
         )
-        var workflow = AgenticHostConsoleWorkflowControl(
+        var workflow = AgenticHostConsole.Workflow.Control(
             snapshot: snapshot,
             currentRunID: "report-run",
             currentStepID: "report-step"

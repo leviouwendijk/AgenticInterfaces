@@ -30,19 +30,19 @@ enum AgenticHostConsoleDocumentNavigationSmoke {
     }
 
     private static func runDocumentNavigationProbe() throws {
-        var snapshot = AgenticHostConsoleSnapshot(
+        var snapshot = AgenticHostConsole.Snapshot(
             runs: [
-                AgenticHostConsoleRunPresentation(
+                AgenticHostConsole.Run(
                     id: "nav-run",
                     title: "Navigation fixture",
                     state: .ready,
                     steps: [
-                        AgenticHostConsoleStepPresentation(
+                        AgenticHostConsole.Step(
                             id: "nav-step",
                             title: "mutate",
                             state: .pending
                         ),
-                        AgenticHostConsoleStepPresentation(
+                        AgenticHostConsole.Step(
                             id: "other-step",
                             title: "swift_tool_parse",
                             state: .pending
@@ -68,7 +68,7 @@ enum AgenticHostConsoleDocumentNavigationSmoke {
                 ),
             ]
         )
-        var workflow = AgenticHostConsoleWorkflowControl(
+        var workflow = AgenticHostConsole.Workflow.Control(
             snapshot: snapshot,
             currentRunID: "nav-run",
             currentStepID: "nav-step"
@@ -212,7 +212,7 @@ enum AgenticHostConsoleDocumentNavigationSmoke {
     }
 
     private static func runSelectionPreservationProbe() throws {
-        var selection = AgenticHostConsoleControl(
+        var selection = AgenticHostConsole.Control(
             snapshot: selectionSnapshot(
                 runState: .ready,
                 first: .pending,
@@ -243,7 +243,7 @@ enum AgenticHostConsoleDocumentNavigationSmoke {
             throw Failure.unexpectedSelectionPreservation
         }
 
-        var active = AgenticHostConsoleControl(
+        var active = AgenticHostConsole.Control(
             snapshot: selectionSnapshot(
                 runState: .active,
                 first: .active,
@@ -275,9 +275,9 @@ enum AgenticHostConsoleDocumentNavigationSmoke {
     private static func document(
         id: String,
         stepID: String,
-        kind: AgenticHostConsoleDocumentKind
-    ) -> AgenticHostConsoleDocumentPresentation {
-        AgenticHostConsoleDocumentPresentation(
+        kind: AgenticHostConsole.Document.Kind
+    ) -> AgenticHostConsole.Document {
+        AgenticHostConsole.Document(
             id: id,
             runID: "nav-run",
             stepID: stepID,
@@ -287,23 +287,23 @@ enum AgenticHostConsoleDocumentNavigationSmoke {
     }
 
     private static func selectionSnapshot(
-        runState: AgenticHostConsoleRunState,
-        first: AgenticHostConsoleStepState,
-        second: AgenticHostConsoleStepState
-    ) -> AgenticHostConsoleSnapshot {
-        AgenticHostConsoleSnapshot(
+        runState: AgenticHostConsole.Run.State,
+        first: AgenticHostConsole.Step.State,
+        second: AgenticHostConsole.Step.State
+    ) -> AgenticHostConsole.Snapshot {
+        AgenticHostConsole.Snapshot(
             runs: [
-                AgenticHostConsoleRunPresentation(
+                AgenticHostConsole.Run(
                     id: "selection-run",
                     title: "Selection fixture",
                     state: runState,
                     steps: [
-                        AgenticHostConsoleStepPresentation(
+                        AgenticHostConsole.Step(
                             id: "selection-first",
                             title: "first",
                             state: first
                         ),
-                        AgenticHostConsoleStepPresentation(
+                        AgenticHostConsole.Step(
                             id: "selection-second",
                             title: "second",
                             state: second

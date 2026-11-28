@@ -19,7 +19,7 @@ enum AgenticHostConsoleApprovalReviewSmoke {
     }
 
     private static func runActionProbe() throws {
-        var console = AgenticHostConsoleWorkflowControl(
+        var console = AgenticHostConsole.Workflow.Control(
             snapshot: fixture()
         )
 
@@ -45,7 +45,7 @@ enum AgenticHostConsoleApprovalReviewSmoke {
         var snapshot = fixture()
         snapshot.documents = []
 
-        var console = AgenticHostConsoleWorkflowControl(
+        var console = AgenticHostConsole.Workflow.Control(
             snapshot: snapshot
         )
 
@@ -68,7 +68,7 @@ enum AgenticHostConsoleApprovalReviewSmoke {
     }
 
     private static func runDiffProbe() throws {
-        var console = AgenticHostConsoleWorkflowControl(
+        var console = AgenticHostConsole.Workflow.Control(
             snapshot: fixture()
         )
 
@@ -91,7 +91,7 @@ enum AgenticHostConsoleApprovalReviewSmoke {
     }
 
     private static func moveToRunsWithDrift(
-        _ console: inout AgenticHostConsoleWorkflowControl
+        _ console: inout AgenticHostConsole.Workflow.Control
     ) throws {
         _ = console.handle(
             .char("l")
@@ -112,21 +112,21 @@ enum AgenticHostConsoleApprovalReviewSmoke {
         }
     }
 
-    private static func fixture() -> AgenticHostConsoleSnapshot {
-        AgenticHostConsoleSnapshot(
+    private static func fixture() -> AgenticHostConsole.Snapshot {
+        AgenticHostConsole.Snapshot(
             runs: [
-                AgenticHostConsoleRunPresentation(
+                AgenticHostConsole.Run(
                     id: "approval-run",
                     title: "Mutation approval",
                     summary: "Review the pending mutation before execution.",
                     state: .awaitingApproval,
                     steps: [
-                        AgenticHostConsoleStepPresentation(
+                        AgenticHostConsole.Step(
                             id: "reviewed-step",
                             title: "Earlier observation",
                             state: .completed
                         ),
-                        AgenticHostConsoleStepPresentation(
+                        AgenticHostConsole.Step(
                             id: "mutate-step",
                             title: "mutate",
                             state: .active
@@ -135,7 +135,7 @@ enum AgenticHostConsoleApprovalReviewSmoke {
                 ),
             ],
             interruptions: [
-                AgenticHostConsoleInterruptionPresentation(
+                AgenticHostConsole.Interruption(
                     id: "approval-interruption",
                     runID: "approval-run",
                     stepID: "mutate-step",
@@ -150,7 +150,7 @@ enum AgenticHostConsoleApprovalReviewSmoke {
                 ),
             ],
             documents: [
-                AgenticHostConsoleDocumentPresentation(
+                AgenticHostConsole.Document(
                     id: "approval-diff",
                     runID: "approval-run",
                     stepID: "mutate-step",

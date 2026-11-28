@@ -100,37 +100,37 @@ enum AgenticConversationSmoke {
             throw Failure.programCommandChanged
         }
 
-        let cardRun = AgenticHostConsoleRunPresentation(
+        let cardRun = AgenticHostConsole.Run(
             id: "card-run",
             title: "Card fixture",
             summary: "fallback run summary",
             state: .awaitingApproval,
             steps: [
-                AgenticHostConsoleStepPresentation(
+                AgenticHostConsole.Step(
                     id: "card-inspect",
                     title: "io_tool_inspect_workspace",
                     state: .completed
                 ),
-                AgenticHostConsoleStepPresentation(
+                AgenticHostConsole.Step(
                     id: "card-mutate",
                     title: "mutate",
                     state: .pending
                 ),
-                AgenticHostConsoleStepPresentation(
+                AgenticHostConsole.Step(
                     id: "card-parse",
                     title: "swift_tool_parse",
                     state: .pending
                 ),
             ]
         )
-        let card = AgenticConversationRunCardPresentation.project(
+        let card = AgenticConversationRunCard.project(
             run: cardRun,
-            hostConsole: AgenticHostConsoleSnapshot(
+            hostConsole: AgenticHostConsole.Snapshot(
                 runs: [
                     cardRun,
                 ],
                 interruptions: [
-                    AgenticHostConsoleInterruptionPresentation(
+                    AgenticHostConsole.Interruption(
                         id: "card-approval",
                         runID: "card-run",
                         stepID: "card-mutate",
@@ -158,24 +158,24 @@ enum AgenticConversationSmoke {
             throw Failure.runCardProjectionChanged
         }
 
-        let completedWarningRun = AgenticHostConsoleRunPresentation(
+        let completedWarningRun = AgenticHostConsole.Run(
             id: "completed-warning-run",
             title: "Recovered fixture",
             summary: "Recovered after discovery.",
             state: .completed,
             steps: [
-                AgenticHostConsoleStepPresentation(
+                AgenticHostConsole.Step(
                     id: "warning-find",
                     title: "find_tools",
                     state: .completed
                 ),
-                AgenticHostConsoleStepPresentation(
+                AgenticHostConsole.Step(
                     id: "warning-hidden-call",
                     title: "mutate",
                     detail: "Tool was registered but not exposed.",
                     state: .warning
                 ),
-                AgenticHostConsoleStepPresentation(
+                AgenticHostConsole.Step(
                     id: "warning-retry",
                     title: "mutate",
                     state: .completed
@@ -183,9 +183,9 @@ enum AgenticConversationSmoke {
             ]
         )
         let completedWarningCard =
-            AgenticConversationRunCardPresentation.project(
+            AgenticConversationRunCard.project(
                 run: completedWarningRun,
-                hostConsole: AgenticHostConsoleSnapshot(
+                hostConsole: AgenticHostConsole.Snapshot(
                     runs: [
                         completedWarningRun,
                     ]
@@ -203,7 +203,7 @@ enum AgenticConversationSmoke {
             throw Failure.runCardProjectionChanged
         }
 
-        let delegatingRun = AgenticHostConsoleRunPresentation(
+        let delegatingRun = AgenticHostConsole.Run(
             id: "delegating-run",
             title: "Delegating fixture",
             state: .awaitingApproval,
@@ -217,9 +217,9 @@ enum AgenticConversationSmoke {
                 .init(id: "w2", parentID: "delegating-run", depth: 1, title: "tester", state: .completed),
             ]
         )
-        let delegatingCard = AgenticConversationRunCardPresentation.project(
+        let delegatingCard = AgenticConversationRunCard.project(
             run: delegatingRun,
-            hostConsole: AgenticHostConsoleSnapshot(runs: [delegatingRun])
+            hostConsole: AgenticHostConsole.Snapshot(runs: [delegatingRun])
         )
         guard delegatingCard.title == "Run · running · 1 of 3 workers",
               delegatingCard.tone == .active,
@@ -235,9 +235,9 @@ enum AgenticConversationSmoke {
 
         var notedRun = delegatingRun
         notedRun.notes = ["1 message queued · after the current run", "interrupt requested · after this iteration"]
-        let notedCard = AgenticConversationRunCardPresentation.project(
+        let notedCard = AgenticConversationRunCard.project(
             run: notedRun,
-            hostConsole: AgenticHostConsoleSnapshot(runs: [notedRun])
+            hostConsole: AgenticHostConsole.Snapshot(runs: [notedRun])
         )
         guard notedCard.body.hasSuffix(
             "1 message queued · after the current run\ninterrupt requested · after this iteration"
@@ -247,9 +247,9 @@ enum AgenticConversationSmoke {
 
         var reviewingRun = delegatingRun
         reviewingRun.agents[1].state = .awaitingReview
-        let reviewingCard = AgenticConversationRunCardPresentation.project(
+        let reviewingCard = AgenticConversationRunCard.project(
             run: reviewingRun,
-            hostConsole: AgenticHostConsoleSnapshot(runs: [reviewingRun])
+            hostConsole: AgenticHostConsole.Snapshot(runs: [reviewingRun])
         )
         guard reviewingCard.title == "Run · awaiting review · implementer",
               reviewingCard.tone == .warning
@@ -259,8 +259,8 @@ enum AgenticConversationSmoke {
 
         let toneExpectations: [
             (
-                AgenticHostConsoleRunState,
-                AgenticConversationRunCardTone
+                AgenticHostConsole.Run.State,
+                AgenticTone
             )
         ] = [
             (.ready, .neutral),
@@ -278,9 +278,9 @@ enum AgenticConversationSmoke {
             var run = cardRun
             run.state = state
             let projected =
-                AgenticConversationRunCardPresentation.project(
+                AgenticConversationRunCard.project(
                     run: run,
-                    hostConsole: AgenticHostConsoleSnapshot(
+                    hostConsole: AgenticHostConsole.Snapshot(
                         runs: [
                             run,
                         ]
@@ -294,7 +294,7 @@ enum AgenticConversationSmoke {
 
         let colorExpectations: [
             (
-                AgenticHostConsoleRunState,
+                AgenticHostConsole.Run.State,
                 String
             )
         ] = [
@@ -310,7 +310,7 @@ enum AgenticConversationSmoke {
 
             var colorSnapshot = fixture()
             colorSnapshot.messages = [
-                AgenticConversationMessagePresentation(
+                AgenticConversationMessage(
                     id: "semantic-run-card",
                     role: .assistant,
                     body: "Semantic run card fixture.",
@@ -322,7 +322,7 @@ enum AgenticConversationSmoke {
                 ),
             ]
             colorSnapshot.hostConsole =
-                AgenticHostConsoleSnapshot(
+                AgenticHostConsole.Snapshot(
                     runs: [
                         run,
                     ]
@@ -910,12 +910,12 @@ enum AgenticConversationSmoke {
 
         var messageSelectionSnapshot = fixture()
         messageSelectionSnapshot.messages = [
-            AgenticConversationMessagePresentation(
+            AgenticConversationMessage(
                 id: "selection-first",
                 role: .user,
                 body: "first selection"
             ),
-            AgenticConversationMessagePresentation(
+            AgenticConversationMessage(
                 id: "selection-second",
                 role: .assistant,
                 body: "second selection"
@@ -926,7 +926,7 @@ enum AgenticConversationSmoke {
         )
 
         messageSelectionSnapshot.messages.append(
-            AgenticConversationMessagePresentation(
+            AgenticConversationMessage(
                 id: "selection-third",
                 role: .assistant,
                 body: "third selection"
@@ -952,7 +952,7 @@ enum AgenticConversationSmoke {
 
         _ = messageSelectionControl.handle(.tab)
         messageSelectionSnapshot.messages.append(
-            AgenticConversationMessagePresentation(
+            AgenticConversationMessage(
                 id: "selection-fourth",
                 role: .assistant,
                 body: "fourth selection"
@@ -985,7 +985,7 @@ enum AgenticConversationSmoke {
 
         _ = messageSelectionControl.handle(.tab)
         messageSelectionSnapshot.messages.append(
-            AgenticConversationMessagePresentation(
+            AgenticConversationMessage(
                 id: "selection-fifth",
                 role: .assistant,
                 body: "fifth selection"
@@ -1048,7 +1048,7 @@ enum AgenticConversationSmoke {
                     runID: "run-1",
                     iteration: 3,
                     summary: "2 results shortened",
-                    reason: AgenticChangePresentation.contextReason("repeated_result"),
+                    reason: AgenticChange.contextReason("repeated_result"),
                     items: [
                         .init(id: "a", subject: "read · call_9", detail: "→ see call_4", isRecoverable: true),
                         .init(id: "b", subject: "read · call_10", detail: "→ see call_5", isRecoverable: true),
@@ -1104,7 +1104,7 @@ enum AgenticConversationSmoke {
 
         var iterationSnapshot = fixture()
         iterationSnapshot.messages = [
-            AgenticConversationMessagePresentation(
+            AgenticConversationMessage(
                 id: "iteration-assistant",
                 role: .assistant,
                 body: "final iteration text",
@@ -1161,12 +1161,12 @@ enum AgenticConversationSmoke {
 
         var viewportSnapshot = fixture()
         viewportSnapshot.messages = [
-            AgenticConversationMessagePresentation(
+            AgenticConversationMessage(
                 id: "viewport-first",
                 role: .user,
                 body: "first message"
             ),
-            AgenticConversationMessagePresentation(
+            AgenticConversationMessage(
                 id: "viewport-long",
                 role: .assistant,
                 body: [
@@ -1253,7 +1253,7 @@ enum AgenticConversationSmoke {
         }
 
         viewportSnapshot.messages.append(
-            AgenticConversationMessagePresentation(
+            AgenticConversationMessage(
                 id: "viewport-newest",
                 role: .assistant,
                 body: "newest live message"
@@ -1378,12 +1378,12 @@ enum AgenticConversationSmoke {
         AgenticConversationSnapshot(
             workspace: "/tmp/FakeLibrary",
             messages: [
-                AgenticConversationMessagePresentation(
+                AgenticConversationMessage(
                     id: "user-request",
                     role: .user,
                     body: "Inspect the mock library."
                 ),
-                AgenticConversationMessagePresentation(
+                AgenticConversationMessage(
                     id: "assistant-run",
                     role: .assistant,
                     body: assistantMarkdown,
@@ -1391,17 +1391,17 @@ enum AgenticConversationSmoke {
                 ),
             ],
             models: [
-                AgenticConversationModelPresentation(
+                AgenticConversationModel(
                     id: "apple-default",
                     title: "Apple Foundation Models",
                     detail: "on-device system model"
                 ),
-                AgenticConversationModelPresentation(
+                AgenticConversationModel(
                     id: "mock-model",
                     title: "Mock model",
                     detail: "deterministic interface fixture"
                 ),
-                AgenticConversationModelPresentation(
+                AgenticConversationModel(
                     id: "buffered-model",
                     title: "Buffered-only model",
                     detail: "does not support streaming",
@@ -1410,7 +1410,7 @@ enum AgenticConversationSmoke {
             ],
             preferredModelProfileID: "apple-default",
             instructions: [
-                AgenticConversationInstructionPresentation(
+                AgenticConversationInstruction(
                     id: "swift-editing",
                     title: "Swift editing",
                     summary: "Inspect, mutate, parse, and test Swift sources.",
@@ -1430,20 +1430,20 @@ enum AgenticConversationSmoke {
             ],
             availableCapabilities: .init(tools: ["io_tool_inspect_workspace"]),
             visibleCapabilities: .init(tools: ["io_tool_inspect_workspace"]),
-            hostConsole: AgenticHostConsoleSnapshot(
+            hostConsole: AgenticHostConsole.Snapshot(
                 runs: [
-                    AgenticHostConsoleRunPresentation(
+                    AgenticHostConsole.Run(
                         id: "conversation-run",
                         title: "Inspect mock library",
                         summary: "1 operation passed",
                         state: .completed,
                         steps: [
-                            AgenticHostConsoleStepPresentation(
+                            AgenticHostConsole.Step(
                                 id: "inspect-step",
                                 title: "io_tool_inspect_workspace",
                                 state: .completed,
                                 fields: [
-                                    AgenticHostConsoleField(
+                                    AgenticHostConsole.Field(
                                         "outcome",
                                         "succeeded"
                                     ),

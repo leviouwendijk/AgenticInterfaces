@@ -15,7 +15,7 @@ enum AgenticConversationRunReviewEvent:
         interruptionID: String,
         runID: String,
         stepID: String,
-        action: AgenticHostConsoleAction
+        action: AgenticHostConsole.Action
     )
     case openRunConsole(
         runID: String
@@ -30,11 +30,11 @@ struct AgenticConversationRunReviewControl:
         Hashable
     {
         case document(
-            AgenticHostConsoleDocumentKind,
+            AgenticHostConsole.Document.Kind,
             title: String
         )
         case action(
-            AgenticHostConsoleAction
+            AgenticHostConsole.Action
         )
         case openRunConsole
 
@@ -91,16 +91,16 @@ struct AgenticConversationRunReviewControl:
 
     private var interruptionID: String
     private var stepID: String
-    private var snapshot: AgenticHostConsoleSnapshot
-    private var interruption: AgenticHostConsoleInterruptionPresentation
+    private var snapshot: AgenticHostConsole.Snapshot
+    private var interruption: AgenticHostConsole.Interruption
     private var items: [Item]
     private var selectedIndex: Int
-    private var openedDocumentKind: AgenticHostConsoleDocumentKind?
+    private var openedDocumentKind: AgenticHostConsole.Document.Kind?
     private var document: TerminalScrollableDocument
 
     /// The run's first reviewable interruption, or exactly `interruptionID`.
     init?(
-        snapshot: AgenticHostConsoleSnapshot,
+        snapshot: AgenticHostConsole.Snapshot,
         runID: String,
         interruptionID: String? = nil
     ) {
@@ -162,7 +162,7 @@ struct AgenticConversationRunReviewControl:
 
     @discardableResult
     mutating func update(
-        _ snapshot: AgenticHostConsoleSnapshot
+        _ snapshot: AgenticHostConsole.Snapshot
     ) -> Bool {
         let current = snapshot.interruptions.first(where: {
             $0.id == interruptionID
@@ -316,7 +316,7 @@ struct AgenticConversationRunReviewControl:
 }
 
 private extension AgenticConversationRunReviewControl {
-    var siblings: [AgenticHostConsoleInterruptionPresentation] {
+    var siblings: [AgenticHostConsole.Interruption] {
         snapshot.interruptions.filter {
             $0.runID == runID && Self.isReviewableInterruptionKind($0.kind)
         }
@@ -360,7 +360,7 @@ private extension AgenticConversationRunReviewControl {
     }
 
     private static func isReviewableInterruptionKind(
-        _ kind: AgenticHostConsoleInterruptionKind
+        _ kind: AgenticHostConsole.Interruption.Kind
     ) -> Bool {
         switch kind {
         case .approval,
@@ -375,13 +375,13 @@ private extension AgenticConversationRunReviewControl {
     }
 
     private static func makeItems(
-        snapshot: AgenticHostConsoleSnapshot,
-        interruption: AgenticHostConsoleInterruptionPresentation
+        snapshot: AgenticHostConsole.Snapshot,
+        interruption: AgenticHostConsole.Interruption
     ) -> [Item] {
         var result: [Item] = []
 
         for kind in [
-            AgenticHostConsoleDocumentKind.preview,
+            AgenticHostConsole.Document.Kind.preview,
             .details,
         ] {
             if let document = snapshot.documents.first(where: {
@@ -422,7 +422,9 @@ private extension AgenticConversationRunReviewControl {
                 case .continue_run,
                      .stop_run,
                      .retry,
-                     .create_fix_branch:
+                     .create_fix_branch,
+                     .inspect_details,
+                     .show_diff:
                     return nil
                 }
             }
@@ -436,8 +438,8 @@ private extension AgenticConversationRunReviewControl {
     }
 
     func matchingDocument(
-        kind: AgenticHostConsoleDocumentKind
-    ) -> AgenticHostConsoleDocumentPresentation? {
+        kind: AgenticHostConsole.Document.Kind
+    ) -> AgenticHostConsole.Document? {
         snapshot.documents.first {
             $0.runID == runID
                 && $0.stepID == stepID
@@ -640,7 +642,7 @@ private extension AgenticConversationRunReviewControl {
         }
 
         let overlay =
-            AgenticHostConsoleInspectionSurface.overlay(
+            AgenticHostConsole.Inspection.overlay(
                 in: region
             )
         let documentLayer = TerminalZIndex(

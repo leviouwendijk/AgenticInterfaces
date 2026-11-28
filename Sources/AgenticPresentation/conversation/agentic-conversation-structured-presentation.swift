@@ -5,7 +5,7 @@ import Reporting
 
 /// A validated value with one independently selectable conversation identity.
 /// This does not imply a file artifact or an authorized action.
-public struct AgenticConversationStructuredPresentation: Sendable, Hashable, Codable {
+public struct AgenticConversationStructured: Sendable, Hashable, Codable {
     public enum Content: Sendable, Hashable, Codable {
         /// A tool's presentation (`ToolPresenting`): reports, graphs, schedules.
         case document(ReportDocument)

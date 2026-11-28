@@ -31,7 +31,7 @@ struct ConversationStructuredSmoke {
             return presentation.document
         }
         let graph = try presented(.init(nodes: nodes, edges: edges, references: refs))
-        let graphView = AgenticConversationStructuredPresentation(
+        let graphView = AgenticConversationStructured(
             id: "run:tool:graph",
             sourceCallID: "graph",
             iteration: 1,
@@ -39,7 +39,7 @@ struct ConversationStructuredSmoke {
         )
         try check(graphView.rows(columns: 80).joined(separator: "\n").contains("Root"), "graph lanes")
         let decoded = try JSONDecoder().decode(
-            AgenticConversationStructuredPresentation.self,
+            AgenticConversationStructured.self,
             from: JSONEncoder().encode(graphView)
         )
         try check(decoded == graphView, "graph view Codable")
@@ -49,7 +49,7 @@ struct ConversationStructuredSmoke {
             .init(id: "first", symbol_id: "Search", parent_id: "root"),
             .init(id: "second", symbol_id: "Search", parent_id: "root", label: "Search again"),
         ]))
-        let callTreeView = AgenticConversationStructuredPresentation(
+        let callTreeView = AgenticConversationStructured(
             id: "run:tool:call-tree", sourceCallID: "call-tree", iteration: 4,
             content: .call_tree(callTreeOutput)
         )
@@ -61,7 +61,7 @@ struct ConversationStructuredSmoke {
         try check(callTreeText.contains("[first]") && callTreeText.contains("[second]"), "occurrence IDs")
         try check(callTreeView.previewRows(columns: 80).count <= 12, "call tree preview is bounded")
         let roundtripTree = try JSONDecoder().decode(
-            AgenticConversationStructuredPresentation.self,
+            AgenticConversationStructured.self,
             from: JSONEncoder().encode(callTreeView)
         )
         try check(roundtripTree == callTreeView, "call tree view Codable")
@@ -70,7 +70,7 @@ struct ConversationStructuredSmoke {
             edges: edges + [.init(id: "cycle", source: "a", destination: "root", value: .null)],
             references: refs
         ))
-        let cyclicView = AgenticConversationStructuredPresentation(
+        let cyclicView = AgenticConversationStructured(
             id: "run:tool:cycle", sourceCallID: "cycle", iteration: 2,
             content: .document(cyclic)
         )
@@ -83,7 +83,7 @@ struct ConversationStructuredSmoke {
             ],
             references: refs
         ))
-        let mergedView = AgenticConversationStructuredPresentation(
+        let mergedView = AgenticConversationStructured(
             id: "run:tool:merged", sourceCallID: "merged", iteration: 2,
             content: .document(merged)
         )
@@ -95,7 +95,7 @@ struct ConversationStructuredSmoke {
             datasets: [],
             blocks: [.narrative(.paragraph([.text("Sample narrative")]))]
         )
-        let reportView = AgenticConversationStructuredPresentation(
+        let reportView = AgenticConversationStructured(
             id: "run:tool:report", sourceCallID: "report", iteration: 3,
             content: .document(document)
         )
@@ -108,18 +108,18 @@ struct ConversationStructuredSmoke {
                 .paragraph([.text("Entry \(index)")])
             }))]
         )
-        let longView = AgenticConversationStructuredPresentation(
+        let longView = AgenticConversationStructured(
             id: "run:tool:long", sourceCallID: "long", iteration: 3,
             content: .document(longDocument)
         )
         let longPreview = longView.previewRows(columns: 60)
         try check(longPreview.count == 12, "Long preview has row budget")
         try check(longPreview.last?.contains("more rows") == true, "Truncation is explicit")
-        let history = AgenticConversationIterationPresentation(
+        let history = AgenticConversationIteration(
             id: "run:iteration:1", number: 1, assistantBody: "Draft",
             events: ["assistant_response · draft"], callIDs: ["graph"]
         )
-        let message = AgenticConversationMessagePresentation(
+        let message = AgenticConversationMessage(
             id: "run-assistant", role: .assistant, body: "Final",
             attachments: [.structured(graphView), .structured(reportView), .structured(callTreeView), .trace(runID: "run")],
             iterations: [history]

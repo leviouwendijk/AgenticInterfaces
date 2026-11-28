@@ -3,5 +3,5 @@ public protocol AgenticWorkspaceAccessChoosing:
 {
     func choose(
         _ prompt: AgenticWorkspaceAccessPrompt
-    ) async throws -> AgenticWorkspaceAccessChoice
+    ) async throws -> AgenticHostConsole.Action
 }

@@ -7,7 +7,7 @@ import Difference
 public protocol AgenticConversationTextRendering: Sendable {
     /// A structured result laid out at `columns`.
     func rows(
-        _ content: AgenticConversationStructuredPresentation.Content,
+        _ content: AgenticConversationStructured.Content,
         columns: Int,
         includeTitle: Bool
     ) -> [String]

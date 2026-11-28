@@ -14,7 +14,7 @@ struct AgenticConversationPinnedContentControl: Sendable {
     private var document: TerminalScrollableDocument
 
     init(
-        contents: [AgenticConversationContentPresentation]
+        contents: [AgenticConversationContent]
     ) {
         self.currentID = contents.first?.id
         self.inspectedID = nil
@@ -29,7 +29,7 @@ struct AgenticConversationPinnedContentControl: Sendable {
 
     var selectedText: String? { inspectedID == nil ? nil : document.selectedText }
 
-    func copyText(visible: Bool, contents: [AgenticConversationContentPresentation]) -> String? {
+    func copyText(visible: Bool, contents: [AgenticConversationContent]) -> String? {
         guard let inspectedID else { return nil }
         return visible ? document.visibleText
             : document.selectedText ?? contents.first(where: { $0.id == inspectedID })?.body
@@ -40,7 +40,7 @@ struct AgenticConversationPinnedContentControl: Sendable {
     }
 
     mutating func update(
-        contents: [AgenticConversationContentPresentation]
+        contents: [AgenticConversationContent]
     ) {
         let ids = Set(
             contents.map(\.id)
@@ -64,7 +64,7 @@ struct AgenticConversationPinnedContentControl: Sendable {
 
     mutating func handle(
         _ key: SurfaceInput.Key,
-        contents: [AgenticConversationContentPresentation]
+        contents: [AgenticConversationContent]
     ) -> AgenticConversationPinnedContentEvent? {
         update(
             contents: contents
@@ -152,7 +152,7 @@ struct AgenticConversationPinnedContentControl: Sendable {
     mutating func render(
         into frame: inout TerminalFrame,
         in region: TerminalRegion,
-        contents: [AgenticConversationContentPresentation],
+        contents: [AgenticConversationContent],
         excludedIDs: Set<String>
     ) {
         update(
@@ -219,7 +219,7 @@ struct AgenticConversationPinnedContentControl: Sendable {
 
     private mutating func move(
         by delta: Int,
-        contents: [AgenticConversationContentPresentation]
+        contents: [AgenticConversationContent]
     ) {
         guard !contents.isEmpty else {
             currentID = nil

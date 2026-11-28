@@ -17,7 +17,7 @@ public struct TerminalWorkspaceAccessPicker:
 
     public func pick(
         _ prompt: AgenticWorkspaceAccessPrompt
-    ) throws -> AgenticWorkspaceAccessChoice {
+    ) throws -> AgenticHostConsole.Action {
         let width = Terminal.size(
             for: stream
         ).columns
@@ -33,10 +33,10 @@ public struct TerminalWorkspaceAccessPicker:
         }
 
         let menu = TerminalInteractiveMenu<
-            AgenticWorkspaceAccessChoice,
+            AgenticHostConsole.Action,
             String
         >(
-            items: AgenticWorkspaceAccessChoice.allCases,
+            items: AgenticHostConsole.Action.workspaceAccess,
             configuration: .inline(
                 title: prompt.title,
                 instructions: instructions,
@@ -45,7 +45,7 @@ public struct TerminalWorkspaceAccessPicker:
                 currentRowStyle: .none
             ),
             id: { choice in
-                choice.rawValue
+                choice.id
             },
             row: { row in
                 TerminalMenuRowContent(
@@ -64,7 +64,7 @@ public struct TerminalWorkspaceAccessPicker:
                     return "\(theme.label.apply("selected")) \(theme.value.apply(item.title))\n"
 
                 case .cancelled:
-                    return "\(theme.label.apply("selected")) \(theme.warning.apply(AgenticWorkspaceAccessChoice.deny.title))\n"
+                    return "\(theme.label.apply("selected")) \(theme.warning.apply(AgenticHostConsole.Action.deny.title))\n"
                 }
             }
         )
@@ -84,7 +84,7 @@ extension TerminalWorkspaceAccessPicker:
 {
     public func choose(
         _ prompt: AgenticWorkspaceAccessPrompt
-    ) async throws -> AgenticWorkspaceAccessChoice {
+    ) async throws -> AgenticHostConsole.Action {
         try pick(
             prompt
         )
