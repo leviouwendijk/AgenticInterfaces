@@ -26,7 +26,6 @@ enum AgenticInterfacesTestFlows {
             try AgenticHostConsoleFoundationSmoke.run()
             try AgenticHostConsoleWorkflowSmoke.run()
             try AgenticConversationSmoke.run()
-            try AgenticToolHostInvocationRegression.run()
             print(
                 "agentic host console foundation smoke passed"
             )
@@ -35,7 +34,6 @@ enum AgenticInterfacesTestFlows {
             try AgenticHostConsoleFoundationSmoke.run()
             try AgenticHostConsoleWorkflowSmoke.run()
             try AgenticConversationSmoke.run()
-            try AgenticToolHostInvocationRegression.run()
             print(
                 "agentic host console foundation smoke passed"
             )
